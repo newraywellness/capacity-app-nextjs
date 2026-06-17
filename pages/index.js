@@ -1,62 +1,288 @@
-import React from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import Head from 'next/head'
+import { createClient } from '@supabase/supabase-js'
 
-function MyApp({ Component, pageProps }) {
-  return (
-    <>
-      <style jsx global>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-          -webkit-tap-highlight-color: transparent;
-        }
-        html, body {
-          background: #181410;
-          color: #F2EADD;
-          font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        ::-webkit-scrollbar {
-          width: 0;
-        }
-        a {
-          text-decoration: none;
-        }
-        input[type=range] {
-          -webkit-appearance: none;
-          appearance: none;
-          height: 6px;
-          border-radius: 999px;
-          outline: none;
-        }
-        input[type=range]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 26px;
-          height: 26px;
-          border-radius: 50%;
-          background: #F2EADD;
-          cursor: pointer;
-          border: 3px solid #D08560;
-        }
-        input[type=range]::-moz-range-thumb {
-          width: 26px;
-          height: 26px;
-          border-radius: 50%;
-          background: #F2EADD;
-          cursor: pointer;
-          border: 3px solid #D08560;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: none; }
-        }
-        .fade-in { animation: fadeIn 0.5s ease both; }
-      `}</style>
+const SUPABASE_URL = "https://gidezdugmwtemohkkeyr.supabase.co"
+const SUPABASE_KEY = "sb_publishable_bmt_uXzHvBlMTBpvkkRJPA_VpsEfPnp"
+const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+const BASE = {
+  bg: "#181410", bg2: "#211B15", surface: "#2A2219", surface2: "#352B20",
+  border: "rgba(217,199,172,0.12)", cream: "#F2EADD", creamDim: "#D9C7AC",
+  taupe: "#A8987F", terracotta: "#D08560", terracottaDeep: "#B56A47",
+}
+const THEMES = {
+  none: { accent: BASE.terracotta }, red: { accent: "#DC6F5E" },
+  yellow: { accent: "#E3AC5E" }, green: { accent: "#94AC6E" },
+}
+const colorFromPct = (p) => (p <= 35 ? "red" : p <= 70 ? "yellow" : "green")
+
+const LibraryItems = [
+  { icon: "❶", title: "Part 1 · The Capacity Assessment", sub: "Find your daily capacity", url: "https://capacity-app-ten.vercel.app/1-Capacity-Assessment.pdf" },
+  { icon: "❷", title: "Part 2 · Red Day Protocol", sub: "What to do on low-capacity days", url: "https://capacity-app-ten.vercel.app/2-Red-Day-Protocol.pdf" },
+  { icon: "❸", title: "Part 3 · Capacity Rebuild Plan", sub: "Restoring energy without pressure", url: "https://capacity-app-ten.vercel.app/3-Capacity-Rebuild-Plan.pdf" },
+  { icon: "❹", title: "Part 4 · Yellow Day Protocol", sub: "Steady, sustainable days", url: "https://capacity-app-ten.vercel.app/4-Yellow-Day-Protocol.pdf" },
+  { icon: "⏱", title: "The 28-Day Capacity Reset", sub: "A daily system to rebuild energy", url: "https://capacity-app-ten.vercel.app/5-28-Day-Capacity-Reset.pdf" },
+  { icon: "✚", title: "The Capacity Rebuild Guide", sub: "Nurse-informed habits to support your energy", url: "https://capacity-app-ten.vercel.app/6-Capacity-Rebuild-Guide.pdf" },
+]
+const ShopItems = [
+  { name: "Respectfully, No", price: "$54", blurb: "For the art of the boundary.", url: "https://new-ray-wellness.myshopify.com/products/hoodie-respectfully-no-floral-graphic-pullover" },
+  { name: "Out of Office: Nervous System Maintenance", price: "$58", blurb: "A Red Day, worn proudly.", url: "https://new-ray-wellness.myshopify.com/products/minimalist-hoodie-subtle-embossed-text-crew-pullover" },
+  { name: "Capacity is not Character", price: "$54", blurb: "The reminder, on your sleeve.", url: "https://new-ray-wellness.myshopify.com/products/capacity-is-not-character-hoodie-new-ray-wellness-motivational-sweatshirt" },
+]
+
+export default function App() {
+  const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [tab, setTab] = useState("today")
+  const [capacity, setCapacity] = useState(50)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [checkins, setCheckins] = useState([])
+
+  useEffect(() => { checkAuth() }, [])
+
+  const checkAuth = async () => {
+    try {
+      const s = await db.auth.getSession()
+      if (s.data.session) {
+        setUser(s.data.session.user)
+        const p = await db.from("profiles").select("*").eq("id", s.data.session.user.id).single()
+        if (p.data) setProfile(p.data)
+        const c = await db.from("checkins").select("*").eq("user_id", s.data.session.user.id).order("date", { ascending: false })
+        if (c.data) setCheckins(c.data)
+      }
+    } catch (err) { console.log(err) }
+    setLoading(false)
+  }
+
+  const handleLogin = async () => {
+    try {
+      const res = await db.auth.signInWithPassword({ email, password })
+      if (res.data.user) {
+        setUser(res.data.user)
+        const p = await db.from("profiles").select("*").eq("id", res.data.user.id).single()
+        if (p.data) setProfile(p.data)
+        const c = await db.from("checkins").select("*").eq("user_id", res.data.user.id).order("date", { ascending: false })
+        if (c.data) setCheckins(c.data)
+        setEmail(""); setPassword("")
+      }
+    } catch (err) { alert("Login failed") }
+  }
+
+  const handleSignUp = async () => {
+    try {
+      const res = await db.auth.signUp({ email, password })
+      if (res.data.user) {
+        await db.from("profiles").insert([{ id: res.data.user.id, email, has_membership: false }])
+        setUser(res.data.user); setEmail(""); setPassword("")
+      }
+    } catch (err) { alert("Signup failed") }
+  }
+
+  const handleLogout = async () => {
+    await db.auth.signOut(); setUser(null); setProfile(null)
+  }
+
+  const handleSaveCheckin = async () => {
+    try {
+      await db.from("checkins").insert([{ user_id: user.id, capacity, date: new Date().toISOString() }])
+      const c = await db.from("checkins").select("*").eq("user_id", user.id).order("date", { ascending: false })
+      if (c.data) setCheckins(c.data)
+    } catch (err) { console.log(err) }
+  }
+
+  const T = THEMES[colorFromPct(capacity)]
+  const hasLib = profile?.has_membership
+  const yellowDays = useMemo(() => checkins.filter((c) => colorFromPct(c.capacity) === "yellow").length, [checkins])
+
+  const Fonts = () => (
+    <Head>
+      <title>The Capacity Method · New Ray Wellness</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Sacramento&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-      <Component {...pageProps} />
+    </Head>
+  )
+
+  const GlobalStyle = () => (
+    <style jsx global>{`
+      * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body { background: #181410; color: #F2EADD; font-family: 'Nunito Sans', -apple-system, sans-serif; }
+      ::-webkit-scrollbar { width: 0; }
+      a { text-decoration: none; }
+      input[type=range] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; outline: none; background: #352B20; }
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #F2EADD; cursor: pointer; border: 3px solid #D08560; }
+      input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #F2EADD; cursor: pointer; border: 3px solid #D08560; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      .fade-in { animation: fadeIn 0.5s ease both; }
+    `}</style>
+  )
+
+  if (loading) {
+    return (
+      <>
+        <Fonts /><GlobalStyle />
+        <div style={{ background: BASE.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", maxWidth: 440, margin: "0 auto" }}>
+          <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 46, color: BASE.cream }}>New Ray</div>
+        </div>
+      </>
+    )
+  }
+
+  if (!user) {
+    return (
+      <>
+        <Fonts /><GlobalStyle />
+        <div style={{ background: BASE.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+          <div style={{ textAlign: "center", marginBottom: 14 }}>
+            <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 52, color: BASE.cream, marginBottom: 8 }}>New Ray</div>
+            <div style={{ fontSize: 11, letterSpacing: 4, textTransform: "uppercase", color: BASE.taupe }}>The Capacity Method</div>
+          </div>
+          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: "100%", padding: 14, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, borderRadius: 8, fontSize: 14, marginBottom: 12 }} />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: "100%", padding: 14, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, borderRadius: 8, fontSize: 14, marginBottom: 24 }} />
+          <div style={{ display: "flex", gap: 12 }}>
+            <button onClick={handleLogin} style={{ flex: 1, padding: 16, background: BASE.terracotta, color: "#1a140f", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Log In</button>
+            <button onClick={handleSignUp} style={{ flex: 1, padding: 16, background: BASE.terracotta, color: "#1a140f", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Sign Up</button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const renderContent = () => {
+    switch (tab) {
+      case "today":
+        return (
+          <div className="fade-in" style={{ padding: "18px 0" }}>
+            <div style={{ textAlign: "center", margin: "20px 0 8px", fontSize: 34, color: T.accent }}>▦</div>
+            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, textAlign: "center", margin: "0 0 24px" }}>How's your capacity today?</h2>
+            <div style={{ padding: "0 20px", marginBottom: 24 }}>
+              <input type="range" min="0" max="100" value={capacity} onChange={(e) => setCapacity(parseInt(e.target.value))} style={{ width: "100%", marginBottom: 20 }} />
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 48, fontWeight: 600, color: T.accent, marginBottom: 4 }}>{capacity}%</div>
+                <div style={{ fontSize: 14, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1 }}>
+                  {colorFromPct(capacity) === "red" ? "Red Day — Restoration Mode" : colorFromPct(capacity) === "yellow" ? "Yellow Day — Steady Pace" : "Green Day — Full Capacity"}
+                </div>
+              </div>
+            </div>
+            <button onClick={handleSaveCheckin} style={{ width: "calc(100% - 40px)", margin: "0 20px", padding: 16, background: T.accent, color: "#1a140f", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Save This Check-In</button>
+          </div>
+        )
+      case "trends":
+        return (
+          <div className="fade-in" style={{ padding: "18px 0" }}>
+            <div style={{ textAlign: "center", margin: "20px 0 8px", fontSize: 34, color: T.accent }}>📊</div>
+            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, textAlign: "center", margin: "0 0 24px" }}>Your Trends</h2>
+            <div style={{ padding: "0 20px" }}>
+              <div style={{ padding: 20, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Yellow Days This Month</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 42, fontWeight: 600, color: "#E3AC5E" }}>{yellowDays}</div>
+              </div>
+              <div style={{ padding: 16, borderRadius: 12, background: BASE.surface2, border: `1px solid ${BASE.border}` }}>
+                <p style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6 }}>Your yellow days show you're finding your rhythm. That's not failing at green — that's sustainable living.</p>
+              </div>
+            </div>
+          </div>
+        )
+      case "library":
+        return (
+          <div className="fade-in" style={{ padding: "18px 0" }}>
+            <div style={{ textAlign: "center", margin: "20px 0 8px", fontSize: 34, color: T.accent }}>▦</div>
+            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, textAlign: "center", margin: "0 0 8px" }}>The Capacity Method</h2>
+            <p style={{ fontSize: 12, color: BASE.taupe, textAlign: "center", margin: "0 0 20px" }}>Library</p>
+            {hasLib ? (
+              <div style={{ padding: "0 20px" }}>
+                {LibraryItems.map((item, i) => (
+                  <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 14px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, cursor: "pointer" }}>
+                      <span style={{ width: 42, height: 42, borderRadius: 12, background: `linear-gradient(135deg, ${BASE.surface2}, ${BASE.bg2})`, display: "flex", alignItems: "center", justifyContent: "center", color: T.accent, fontSize: 18, flexShrink: 0, fontWeight: 600 }}>{item.icon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{item.title}</div>
+                        <div style={{ fontSize: 12, color: BASE.taupe }}>{item.sub}</div>
+                      </div>
+                      <span style={{ color: BASE.taupe, fontSize: 18 }}>›</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: "0 20px", textAlign: "center" }}>
+                <p style={{ fontSize: 14, color: BASE.creamDim, marginBottom: 20, lineHeight: 1.6 }}>A complete self-regulation system for overwhelmed women. One purchase, yours for good.</p>
+                <a href="https://new-ray-wellness.myshopify.com/products/the-capacity-method-library" target="_blank" rel="noopener noreferrer">
+                  <button style={{ width: "100%", padding: 16, background: T.accent, color: "#1a140f", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Unlock the Library ($47)</button>
+                </a>
+              </div>
+            )}
+          </div>
+        )
+      case "shop":
+        return (
+          <div className="fade-in" style={{ padding: "8px 20px 0" }}>
+            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 6px" }}>The Capacity Method Shop</h2>
+            <p style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.5, marginBottom: 22 }}>Wear the reminder. Soft, oversized, made for low-capacity days.</p>
+            {ShopItems.map((p, i) => (
+              <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" style={{ display: "block" }}>
+                <div style={{ borderRadius: 16, overflow: "hidden", background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 16 }}>
+                  <div style={{ height: 220, background: `linear-gradient(135deg, ${BASE.surface2}, ${BASE.bg2})`, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+                    <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: BASE.creamDim, textAlign: "center", lineHeight: 1.4, fontWeight: 500 }}>"{p.name}"</span>
+                  </div>
+                  <div style={{ padding: "18px 16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>{p.name}</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, color: T.accent, whiteSpace: "nowrap" }}>{p.price}</div>
+                    </div>
+                    <div style={{ fontSize: 13, color: BASE.taupe, marginBottom: 14 }}>{p.blurb}</div>
+                    <button style={{ width: "100%", textAlign: "center", padding: 13, borderRadius: 10, background: T.accent, color: "#1a140f", fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer" }}>Add to cart</button>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )
+      case "about":
+        return (
+          <div className="fade-in" style={{ padding: "8px 20px 0" }}>
+            <div style={{ textAlign: "center", margin: "16px 0 32px" }}>
+              <div style={{ width: 92, height: 92, borderRadius: "50%", margin: "0 auto 16px", background: `linear-gradient(135deg, ${T.accent}, ${BASE.terracottaDeep})`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Pinyon Script', cursive", fontSize: 44, color: "#1a140f", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>V</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 600, marginBottom: 6 }}>Vanessa Parkin</div>
+              <div style={{ fontSize: 12, color: BASE.taupe, letterSpacing: 2, textTransform: "uppercase" }}>RN · Mother · Founder</div>
+            </div>
+            <p style={{ fontFamily: "'Sacramento', cursive", fontSize: 36, textAlign: "center", color: T.accent, lineHeight: 1.3, margin: "0 20px 28px" }}>Capacity is not character.</p>
+            <div style={{ padding: "0 20px" }}>
+              <div style={{ padding: 20, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}` }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: T.accent }}>Why I built this</div>
+                <p style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.8 }}>For years I expected the same output from myself regardless of what I was carrying. As a nurse, wife, and mother of two under two, I kept measuring myself against my best days — and shaming myself when I fell short. The Capacity Method began as a way to stop fighting reality and start working with it.</p>
+              </div>
+            </div>
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
+  return (
+    <>
+      <Fonts /><GlobalStyle />
+      <div style={{ background: BASE.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto" }}>
+        <div style={{ padding: "18px 0 0", position: "sticky", top: 0, background: BASE.bg, zIndex: 10, borderBottom: `1px solid ${BASE.border}` }}>
+          <div style={{ padding: "0 18px" }}>
+            <div style={{ textAlign: "center", margin: "16px 0 4px", fontSize: 32, color: T.accent }}>▦</div>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 24, textAlign: "center", margin: "0 0 14px" }}>The Capacity Method</h1>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+              {["today", "trends", "library", "shop", "about"].map((t) => (
+                <button key={t} onClick={() => setTab(t)} style={{ flex: 1, minWidth: 70, padding: 9, background: tab === t ? T.accent : "transparent", color: tab === t ? "#1a140f" : BASE.cream, border: `1px solid ${tab === t ? T.accent : BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{t}</button>
+              ))}
+            </div>
+            <button onClick={handleLogout} style={{ width: "100%", padding: 9, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Log Out</button>
+          </div>
+        </div>
+        {renderContent()}
+        <div style={{ height: 40 }} />
+      </div>
     </>
   )
 }
-
-export default MyApp
