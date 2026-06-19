@@ -343,16 +343,16 @@ export default function App() {
     return arr.length ? arr[0][0] : null
   }
 
-  const stats = useMemo(() => {
+  const stats = (() => {
     if (!history.length) return null
     const counts = { red: 0, yellow: 0, green: 0 }
     let sum = 0
     history.forEach((d) => { counts[d.color]++; sum += d.pct })
     return { counts, avg: Math.round(sum / history.length), top: Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] }
-  }, [history])
+  })()
 
   // capacity average per cycle phase (needs cycle set + history)
-  const phaseAverages = useMemo(() => {
+  const phaseAverages = (() => {
     if (!cycleLength || !lastPeriod || !history.length) return null
     const buckets = { menstrual: [], follicular: [], ovulation: [], luteal: [] }
     history.forEach((d) => {
@@ -366,10 +366,10 @@ export default function App() {
       else out[p] = null
     })
     return any ? out : null
-  }, [history, cycleLength, lastPeriod])
+  })()
 
   // monthly capacity report (current calendar month)
-  const report = useMemo(() => {
+  const report = (() => {
     if (!history.length) return null
     const now = new Date()
     const m = now.getMonth(), y = now.getFullYear()
@@ -392,7 +392,7 @@ export default function App() {
       ? "You had at least as many Green Days as Red this month — your patterns are leaning steadier. That's worth noticing."
       : "Red Days outnumbered Green this month. That's information, not failure — it shows where your system needed more support."
     return { empty: false, monthName: now.toLocaleDateString("en-US", { month: "long" }), avg, counts, trigger, recovery, bestPhase, days: rows.length }
-  }, [history, phaseAverages])
+  })()
 
   const ReportLine = ({ label, value }) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "8px 0" }}>
