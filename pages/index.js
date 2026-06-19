@@ -27,6 +27,49 @@ const QUOTES = {
   none: "Stop expecting Green Day performance on Red Day energy.",
 }
 
+const PHASES = {
+  menstrual: {
+    emoji: "🩸", name: "Menstrual", accent: "#C97B6E",
+    thisIsntYou: "Rest is productive. Recovery is part of building capacity — not time taken away from it. Lower energy here isn't you slipping.",
+    lookingAhead: "You're in your menstrual phase. Keep your schedule lighter where you can, prioritize warmth, rest, and food, and let \u2018enough\u2019 be enough.",
+  },
+  follicular: {
+    emoji: "🌱", name: "Follicular", accent: "#94AC6E",
+    thisIsntYou: "You may notice more steadiness or motivation now. Use it intentionally — and don't expect yourself to feel this way every day. This is a season, not a standard.",
+    lookingAhead: "You're in your follicular phase. Often a good window for planning and starting things. Build gently — you don't have to spend it all at once.",
+  },
+  ovulation: {
+    emoji: "☀️", name: "Ovulation", accent: "#E3AC5E",
+    thisIsntYou: "This is often a higher-energy window. It can feel like your \u2018real\u2019 self — but every phase is you. Don't set the bar here for all the others.",
+    lookingAhead: "You're around your ovulation window. A good time for connection and anything that takes a little more social energy. Enjoy it without overcommitting.",
+  },
+  luteal: {
+    emoji: "🍂", name: "Luteal", accent: "#B98A6E",
+    thisIsntYou: "You're not becoming lazy or \u2018less.\u2019 Capacity often dips in this phase. Adjust your expectations — not your worth.",
+    lookingAhead: "You're heading into your luteal phase — historically a lower-capacity stretch for many. A good week to protect sleep, lean on protein and hydration, and give yourself extra grace.",
+  },
+}
+const PHASE_ORDER = ["menstrual", "follicular", "ovulation", "luteal"]
+
+// Estimate cycle day + phase from cycle length and last period start date
+function computeCycle(cycleLength, lastPeriodISO, when) {
+  if (!cycleLength || !lastPeriodISO) return null
+  const L = Math.max(20, Math.min(45, parseInt(cycleLength)))
+  const start = new Date(lastPeriodISO + "T00:00:00")
+  const ref = when ? new Date(when) : new Date()
+  const ms = 86400000
+  const diff = Math.floor((ref - start) / ms)
+  if (isNaN(diff)) return null
+  const day = (((diff % L) + L) % L) + 1
+  const ovu = Math.max(12, L - 14)
+  let phase
+  if (day <= 5) phase = "menstrual"
+  else if (day < ovu - 1) phase = "follicular"
+  else if (day <= ovu + 1) phase = "ovulation"
+  else phase = "luteal"
+  return { day, phase, length: L }
+}
+
 const LibraryItems = [
   { icon: "❶", title: "Part 1 · The Capacity Assessment", sub: "Find your daily capacity", url: "https://capacity-app-ten.vercel.app/1-Capacity-Assessment.pdf" },
   { icon: "❷", title: "Part 2 · Red Day Protocol", sub: "What to do on low-capacity days", url: "https://capacity-app-ten.vercel.app/2-Red-Day-Protocol.pdf" },
@@ -57,8 +100,25 @@ export default function App() {
   const [baseline, setBaseline] = useState([false, false, false, false, false])
   const [saving, setSaving] = useState(false)
   const [saveErr, setSaveErr] = useState("")
+  // cycle settings (stored on device for v1)
+  const [cycleLength, setCycleLength] = useState("")
+  const [lastPeriod, setLastPeriod] = useState("")
+  const [editCycle, setEditCycle] = useState(false)
+  const [tmpLen, setTmpLen] = useState("28")
+  const [tmpStart, setTmpStart] = useState("")
 
   useEffect(() => { checkAuth() }, [])
+
+  useEffect(() => {
+    try {
+      const L = window.localStorage.getItem("cap_cycle_length")
+      const S = window.localStorage.getItem("cap_last_period")
+      if (L) setCycleLength(L)
+      if (S) setLastPeriod(S)
+      if (L) setTmpLen(L)
+      if (S) setTmpStart(S)
+    } catch (e) {}
+  }, [])
 
   const checkAuth = async () => {
     try {
@@ -77,7 +137,14 @@ export default function App() {
   const loadHistory = async (uid) => {
     const { data } = await db.from("checkins").select("*").eq("user_id", uid).order("date", { ascending: true })
     const rows = data || []
-    setHistory(rows.map((d) => ({ date: new Date(d.date), pct: d.pct, color: d.color })))
+    setHistory(rows.map((d) => ({
+      date: new Date(d.date + "T00:00:00"),
+      dateISO: d.date,
+      pct: d.pct,
+      color: d.color,
+      factors: Array.isArray(d.factors) ? d.factors : [],
+      supports: Array.isArray(d.supports) ? d.supports : [],
+    })))
     const today = new Date().toISOString().slice(0, 10)
     if (rows.some((d) => d.date === today)) setCheckedIn(true)
   }
@@ -123,6 +190,17 @@ export default function App() {
     if (error) { setSaveErr(error.message); return }
     setCheckedIn(true)
     await loadHistory(user.id)
+  }
+
+  const saveCycle = () => {
+    const L = String(Math.max(20, Math.min(45, parseInt(tmpLen) || 28)))
+    setCycleLength(L)
+    setLastPeriod(tmpStart)
+    try {
+      window.localStorage.setItem("cap_cycle_length", L)
+      window.localStorage.setItem("cap_last_period", tmpStart)
+    } catch (e) {}
+    setEditCycle(false)
   }
 
   const Fonts = () => (
@@ -185,6 +263,7 @@ export default function App() {
   const cur = colorFromPct(pct)
   const hasLib = profile?.has_membership
   const dateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+  const cycleNow = computeCycle(cycleLength, lastPeriod)
 
   const Label = ({ children }) => (
     <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, marginBottom: 10 }}>{children}</div>
@@ -215,7 +294,7 @@ export default function App() {
     return (
       <div className="fade-in" style={{ marginTop: 26 }}>
         <div style={{ textAlign: "center", padding: "0 6px 22px" }}>
-          <p style={{ fontFamily: "'Sacramento', cursive", fontSize: 30, lineHeight: 1.35, color: T.accent }}>“{QUOTES[cur]}”</p>
+          <p style={{ fontFamily: "'Sacramento', cursive", fontSize: 30, lineHeight: 1.35, color: T.accent }}>{"\u201C"}{QUOTES[cur]}{"\u201D"}</p>
           <p style={{ fontSize: 11, color: BASE.taupe, marginTop: 8, letterSpacing: 1 }}>— VANESSA, RN</p>
         </div>
         <div style={{ padding: 18, borderRadius: 16, background: T.tint, border: `1px solid rgba(${T.glow},0.3)` }}>
@@ -256,13 +335,72 @@ export default function App() {
     )
   }
 
-  const stats = (() => {
+  // ---- analytics over history ----
+  const topOf = (rows, key) => {
+    const tally = {}
+    rows.forEach((r) => (r[key] || []).forEach((v) => { tally[v] = (tally[v] || 0) + 1 }))
+    const arr = Object.entries(tally).sort((a, b) => b[1] - a[1])
+    return arr.length ? arr[0][0] : null
+  }
+
+  const stats = useMemo(() => {
     if (!history.length) return null
     const counts = { red: 0, yellow: 0, green: 0 }
     let sum = 0
     history.forEach((d) => { counts[d.color]++; sum += d.pct })
     return { counts, avg: Math.round(sum / history.length), top: Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] }
-  })()
+  }, [history])
+
+  // capacity average per cycle phase (needs cycle set + history)
+  const phaseAverages = useMemo(() => {
+    if (!cycleLength || !lastPeriod || !history.length) return null
+    const buckets = { menstrual: [], follicular: [], ovulation: [], luteal: [] }
+    history.forEach((d) => {
+      const c = computeCycle(cycleLength, lastPeriod, d.date)
+      if (c) buckets[c.phase].push(d.pct)
+    })
+    const out = {}
+    let any = false
+    PHASE_ORDER.forEach((p) => {
+      if (buckets[p].length) { out[p] = Math.round(buckets[p].reduce((a, b) => a + b, 0) / buckets[p].length); any = true }
+      else out[p] = null
+    })
+    return any ? out : null
+  }, [history, cycleLength, lastPeriod])
+
+  // monthly capacity report (current calendar month)
+  const report = useMemo(() => {
+    if (!history.length) return null
+    const now = new Date()
+    const m = now.getMonth(), y = now.getFullYear()
+    const rows = history.filter((d) => d.date.getMonth() === m && d.date.getFullYear() === y)
+    if (!rows.length) return { empty: true, monthName: now.toLocaleDateString("en-US", { month: "long" }) }
+    const counts = { red: 0, yellow: 0, green: 0 }
+    let sum = 0
+    rows.forEach((d) => { counts[d.color]++; sum += d.pct })
+    const avg = Math.round(sum / rows.length)
+    const redRows = rows.filter((d) => d.color === "red")
+    const greenRows = rows.filter((d) => d.color === "green")
+    const trigger = topOf(redRows.length ? redRows : rows, "factors")
+    const recovery = topOf(greenRows.length ? greenRows : rows, "supports")
+    let bestPhase = null
+    if (phaseAverages) {
+      const ranked = PHASE_ORDER.filter((p) => phaseAverages[p] != null).sort((a, b) => phaseAverages[b] - phaseAverages[a])
+      if (ranked.length) bestPhase = ranked[0]
+    }
+    const reminder = counts.green >= counts.red
+      ? "You had at least as many Green Days as Red this month — your patterns are leaning steadier. That's worth noticing."
+      : "Red Days outnumbered Green this month. That's information, not failure — it shows where your system needed more support."
+    return { empty: false, monthName: now.toLocaleDateString("en-US", { month: "long" }), avg, counts, trigger, recovery, bestPhase, days: rows.length }
+  }, [history, phaseAverages])
+
+  const ReportLine = ({ label, value }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "8px 0" }}>
+      <span style={{ fontSize: 13, color: BASE.taupe }}>{label}</span>
+      <span style={{ fontSize: 14, color: BASE.cream, fontWeight: 600, textAlign: "right" }}>{value}</span>
+    </div>
+  )
+
 
   const renderContent = () => {
     if (tab === "today") {
@@ -308,6 +446,74 @@ export default function App() {
       )
     }
 
+    if (tab === "cycle") {
+      const needSetup = !cycleLength || !lastPeriod
+      const todayPct = checkedIn ? pct : (history.length ? history[history.length - 1].pct : null)
+      const P = cycleNow ? PHASES[cycleNow.phase] : null
+      return (
+        <div className="fade-in" style={{ padding: "8px 18px 0" }}>
+          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 4px" }}>Cycle & Capacity</h2>
+          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>Your energy, in the context of your cycle.</p>
+
+          {(needSetup || editCycle) ? (
+            <div style={{ padding: 20, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}` }}>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{needSetup ? "Set up your cycle" : "Update your cycle info"}</div>
+              <p style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 18 }}>Two quick things and the app can start showing your capacity by phase.</p>
+              <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 6 }}>Your typical cycle length (days)</div>
+              <input type="number" min="20" max="45" value={tmpLen} onChange={(e) => setTmpLen(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, marginBottom: 16, outline: "none" }} />
+              <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 6 }}>First day of your last period</div>
+              <input type="date" value={tmpStart} onChange={(e) => setTmpStart(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, marginBottom: 20, outline: "none" }} />
+              <button onClick={saveCycle} disabled={!tmpStart} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", cursor: tmpStart ? "pointer" : "not-allowed", background: BASE.terracotta, color: "#1a140f", fontSize: 15, fontWeight: 700, opacity: tmpStart ? 1 : 0.5 }}>Save</button>
+              <p style={{ fontSize: 11, color: BASE.taupe, lineHeight: 1.5, marginTop: 14, textAlign: "center" }}>This is an estimate based on what you enter — not medical or contraceptive guidance.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ padding: 22, borderRadius: 18, background: `rgba(${P.accent === "#94AC6E" ? "148,172,110" : "208,133,96"},0.08)`, border: `1px solid ${P.accent}55`, textAlign: "center", marginBottom: 14 }}>
+                <div style={{ fontSize: 40 }}>{P.emoji}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 600, color: P.accent, marginTop: 4 }}>{P.name}</div>
+                <div style={{ fontSize: 12, color: BASE.taupe, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Cycle Day {cycleNow.day}</div>
+                {todayPct != null && (
+                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: `0.5px solid ${BASE.border}` }}>
+                    <div style={{ fontSize: 11, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1 }}>Today's Capacity</div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 600, color: THEMES[colorFromPct(todayPct)].accent, marginTop: 2 }}>{todayPct}%</div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ padding: 18, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 14 }}>
+                <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: P.accent, fontWeight: 700, marginBottom: 10 }}>This isn't you</div>
+                <p style={{ fontSize: 15, color: BASE.cream, lineHeight: 1.65 }}>{P.thisIsntYou}</p>
+              </div>
+
+              <div style={{ padding: 18, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 14 }}>
+                <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, fontWeight: 700, marginBottom: 10 }}>Looking ahead</div>
+                <p style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.65 }}>{P.lookingAhead}</p>
+              </div>
+
+              {phaseAverages && (
+                <div style={{ padding: 18, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Your capacity by phase</div>
+                  <p style={{ fontSize: 12, color: BASE.taupe, marginBottom: 14 }}>From the check-ins you've logged so far.</p>
+                  {PHASE_ORDER.map((p) => (
+                    <div key={p} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                      <div style={{ width: 96, fontSize: 13, color: BASE.creamDim }}>{PHASES[p].emoji} {PHASES[p].name}</div>
+                      <div style={{ flex: 1, height: 10, borderRadius: 999, background: BASE.surface2, overflow: "hidden" }}>
+                        <div style={{ width: `${phaseAverages[p] || 0}%`, height: "100%", background: PHASES[p].accent, borderRadius: 999 }} />
+                      </div>
+                      <div style={{ width: 40, textAlign: "right", fontSize: 13, color: phaseAverages[p] != null ? PHASES[p].accent : BASE.taupe, fontWeight: 600 }}>{phaseAverages[p] != null ? phaseAverages[p] + "%" : "—"}</div>
+                    </div>
+                  ))}
+                  <p style={{ fontSize: 11, color: BASE.taupe, lineHeight: 1.5, marginTop: 6 }}>The more you check in across a full cycle, the clearer this gets.</p>
+                </div>
+              )}
+
+              <button onClick={() => { setTmpLen(cycleLength); setTmpStart(lastPeriod); setEditCycle(true) }} style={{ width: "100%", padding: 12, borderRadius: 12, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Update cycle info</button>
+            </>
+          )}
+        </div>
+      )
+    }
+
     if (tab === "trends") {
       return (
         <div style={{ padding: "8px 18px 0" }} className="fade-in">
@@ -329,6 +535,37 @@ export default function App() {
                 <Stat label="Yellow Days" value={stats.counts.yellow} accent={THEMES.yellow.accent} />
                 <Stat label="Red Days" value={stats.counts.red} accent={THEMES.red.accent} />
               </div>
+
+              {report && (
+                <div style={{ padding: 22, borderRadius: 18, background: `linear-gradient(160deg, ${BASE.surface}, ${BASE.bg2})`, border: `1px solid ${BASE.border}`, marginBottom: 16 }}>
+                  <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 30, color: BASE.cream, textAlign: "center", lineHeight: 1 }}>Your {report.monthName} Report</div>
+                  <div style={{ width: 40, height: 2, background: T.accent, margin: "12px auto 18px", borderRadius: 2 }} />
+                  {report.empty ? (
+                    <p style={{ fontSize: 13, color: BASE.creamDim, textAlign: "center", lineHeight: 1.6 }}>No check-ins yet this month. As you log your days, your {report.monthName} report will appear here.</p>
+                  ) : (
+                    <>
+                      <div style={{ textAlign: "center", marginBottom: 18 }}>
+                        <div style={{ fontSize: 11, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1 }}>Average capacity</div>
+                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontWeight: 600, color: THEMES[colorFromPct(report.avg)].accent }}>{report.avg}%</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+                        {[["Green", report.counts.green, THEMES.green.accent], ["Yellow", report.counts.yellow, THEMES.yellow.accent], ["Red", report.counts.red, THEMES.red.accent]].map(([lbl, n, c]) => (
+                          <div key={lbl} style={{ flex: 1, textAlign: "center", padding: "12px 4px", borderRadius: 12, background: BASE.surface2 }}>
+                            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, color: c }}>{n}</div>
+                            <div style={{ fontSize: 11, color: BASE.taupe }}>{lbl} Days</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ borderTop: `0.5px solid ${BASE.border}`, paddingTop: 14 }}>
+                        {report.trigger && <ReportLine label="Most common Red Day trigger" value={report.trigger} />}
+                        {report.recovery && <ReportLine label="Strongest recovery factor" value={report.recovery} />}
+                        {report.bestPhase && <ReportLine label="Highest-capacity phase" value={PHASES[report.bestPhase].emoji + " " + PHASES[report.bestPhase].name} />}
+                      </div>
+                      <p style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.65, marginTop: 16, fontStyle: "italic" }}>{report.empty ? "" : (report.counts.green >= report.counts.red ? "You had at least as many Green Days as Red this month — your patterns are leaning steadier. That's worth noticing." : "Red Days outnumbered Green this month. That's information, not failure — it shows where your system needed more support.")}</p>
+                    </>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -426,10 +663,10 @@ export default function App() {
             <div style={{ fontSize: 11, letterSpacing: 4, textTransform: "uppercase", color: BASE.taupe, marginTop: 6 }}>The Capacity Method</div>
           </header>
           <div style={{ display: "flex", gap: 6, padding: "14px 18px 0", flexWrap: "wrap" }}>
-            {["today", "trends", "library", "shop", "about"].map((t) => (
-              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, minWidth: 70, padding: 9, background: tab === t ? T.accent : "transparent", color: tab === t ? "#1a140f" : BASE.cream, border: `1px solid ${tab === t ? T.accent : BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{t}</button>
+            {["today", "cycle", "trends", "library", "shop", "about"].map((t) => (
+              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, minWidth: 64, padding: 9, background: tab === t ? T.accent : "transparent", color: tab === t ? "#1a140f" : BASE.cream, border: `1px solid ${tab === t ? T.accent : BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{t}</button>
             ))}
-            <button onClick={handleLogout} style={{ flex: 1, minWidth: 70, padding: 9, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Log Out</button>
+            <button onClick={handleLogout} style={{ flex: 1, minWidth: 64, padding: 9, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Log Out</button>
           </div>
           {renderContent()}
           <div style={{ height: 48 }} />
