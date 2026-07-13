@@ -8,8 +8,8 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 const BASE = {
   bg: "#FDF7F4", bg2: "#FAF0EC", surface: "#FFFFFF", surface2: "#F6E9E7",
-  border: "rgba(74,44,56,0.10)", cream: "#3D2531", creamDim: "#6B4A58",
-  taupe: "#A3808E", terracotta: "#D9749B", terracottaDeep: "#C25A84",
+  border: "rgba(42,21,34,0.13)", cream: "#2A1522", creamDim: "#4E2C40",
+  taupe: "#8C6577", terracotta: "#D9749B", terracottaDeep: "#C25A84",
 }
 const THEMES = {
   none: { accent: BASE.terracotta, glow: "217,116,155", tint: "rgba(217,116,155,0.08)", label: "", range: "", word: "" },
@@ -81,12 +81,17 @@ function computeCycle(cycleLength, lastPeriodISO, when) {
 // Capacity-based workout library: 5 types x 3 capacity levels, with how-to steps
 const PHASE_SUGGESTION = { menstrual: "red", follicular: "green", ovulation: "green", luteal: "yellow" }
 const WO_TYPES = [
-  { key: "full", label: "Full Body" },
-  { key: "legs", label: "Legs" },
-  { key: "glutes", label: "Glutes" },
-  { key: "upper", label: "Upper" },
-  { key: "walk", label: "Walk" },
+  { key: "full", label: "Full Body", icon: "\u2728" },
+  { key: "legs", label: "Legs", icon: "\ud83e\uddb5" },
+  { key: "glutes", label: "Glutes", icon: "\ud83c\udf51" },
+  { key: "upper", label: "Upper", icon: "\ud83d\udcaa" },
+  { key: "walk", label: "Walk", icon: "\ud83d\udeb6\u200d\u2640\ufe0f" },
 ]
+const HERO_GRAD = {
+  red: "linear-gradient(135deg, #E0705F 0%, #C34A3B 100%)",
+  yellow: "linear-gradient(135deg, #E3A94E 0%, #C07E20 100%)",
+  green: "linear-gradient(135deg, #93B061 0%, #66883E 100%)",
+}
 const WEEK_PLAN = [
   { d: "Mon", t: "full" }, { d: "Tue", t: "walk" }, { d: "Wed", t: "legs" },
   { d: "Thu", t: "upper" }, { d: "Fri", t: "walk" }, { d: "Sat", t: "glutes" }, { d: "Sun", t: "rest" },
@@ -406,7 +411,7 @@ export default function App() {
   const GlobalStyle = () => (
     <style jsx global>{`
       * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body { background: #FDF7F4; color: #3D2531; font-family: 'Nunito Sans', -apple-system, sans-serif; }
+      html, body { background: #FDF7F4; color: #2A1522; font-family: 'Nunito Sans', -apple-system, sans-serif; }
       ::-webkit-scrollbar { width: 0; }
       a { text-decoration: none; }
       input[type=range] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; outline: none; }
@@ -646,9 +651,13 @@ export default function App() {
           <p style={{ textAlign: "center", color: BASE.creamDim, fontSize: 14, margin: "4px 0 2px" }}>Good morning</p>
           <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 12 }}>{dateStr}</p>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 24, textAlign: "center", margin: "26px 0 4px" }}>How's your capacity today?</h2>
-          <div style={{ textAlign: "center", margin: "10px 0 4px" }}>
-            <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 64, fontWeight: 600, color: THEMES[cur].accent }}>{pct}</span>
-            <span style={{ fontSize: 22, color: BASE.taupe }}>%</span>
+          <div style={{ display: "flex", justifyContent: "center", margin: "14px 0 8px" }}>
+            <svg width="170" height="170" viewBox="0 0 170 170">
+              <circle cx="85" cy="85" r="70" fill="none" stroke={BASE.surface2} strokeWidth="13" />
+              <circle cx="85" cy="85" r="70" fill="none" stroke={THEMES[cur].accent} strokeWidth="13" strokeLinecap="round" strokeDasharray={`${(pct / 100) * 439.8} 439.8`} transform="rotate(-90 85 85)" style={{ transition: "stroke-dasharray 0.25s ease, stroke 0.25s ease" }} />
+              <text x="85" y="82" textAnchor="middle" fill={THEMES[cur].accent} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 700 }}>{pct}%</text>
+              <text x="85" y="106" textAnchor="middle" fill={BASE.taupe} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>{THEMES[cur].label}</text>
+            </svg>
           </div>
           <input type="range" min="0" max="100" step="5" value={pct} onChange={(e) => setPct(+e.target.value)} style={{ width: "100%", margin: "8px 0 20px", background: `linear-gradient(90deg, ${THEMES[cur].accent} ${pct}%, ${BASE.surface2} ${pct}%)` }} />
           <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
@@ -816,20 +825,23 @@ export default function App() {
 
           <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
             {WO_TYPES.map((t) => (
-              <button key={t.key} onClick={() => setWoType(t.key)} style={{ flex: 1, minWidth: 62, padding: 9, background: woType === t.key ? THEMES[gymColor].accent : BASE.surface, color: woType === t.key ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${woType === t.key ? THEMES[gymColor].accent : BASE.border}`, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{t.label}</button>
+              <button key={t.key} onClick={() => setWoType(t.key)} style={{ flex: 1, minWidth: 62, padding: "10px 4px", background: woType === t.key ? HERO_GRAD[gymColor] : BASE.surface, color: woType === t.key ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${woType === t.key ? "transparent" : BASE.border}`, borderRadius: 14, cursor: "pointer", fontSize: 11.5, fontWeight: 800, boxShadow: woType === t.key ? `0 4px 12px rgba(${THEMES[gymColor].glow},0.35)` : "none" }}><span style={{ fontSize: 16, display: "block", marginBottom: 2 }}>{t.icon}</span>{t.label}</button>
             ))}
           </div>
 
-          <div style={{ padding: 18, borderRadius: 18, background: `linear-gradient(135deg, ${THEMES[gymColor].tint}, ${BASE.surface})`, border: `1.5px solid rgba(${THEMES[gymColor].glow},0.35)`, marginBottom: 14, boxShadow: "0 4px 18px rgba(74,44,56,0.06)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, color: THEMES[gymColor].accent }}>{wo.title}</div>
-              <div style={{ fontSize: 12, color: BASE.taupe, fontWeight: 700 }}>{wo.time}</div>
+          <div style={{ padding: "22px 20px", borderRadius: 22, background: HERO_GRAD[gymColor], marginBottom: 14, boxShadow: `0 10px 26px rgba(${THEMES[gymColor].glow},0.35)`, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", right: -30, top: -30, width: 140, height: 140, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
+            <div style={{ position: "absolute", right: 30, bottom: -50, width: 110, height: 110, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.85)" }}>{THEMES[gymColor].label} · {WO_TYPES.find((t) => t.key === woType).label}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: "#FFFFFF", background: "rgba(255,255,255,0.22)", padding: "5px 12px", borderRadius: 999 }}>{wo.time}</span>
             </div>
-            <p style={{ fontSize: 12.5, color: BASE.creamDim, margin: "6px 0 10px", lineHeight: 1.5 }}>{wo.note}</p>
-            <div style={{ height: 6, borderRadius: 999, background: BASE.surface2, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${totalSets ? Math.round((doneSets / totalSets) * 100) : 0}%`, background: THEMES[gymColor].accent, borderRadius: 999, transition: "width 0.3s ease" }} />
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 700, color: "#FFFFFF", margin: "10px 0 4px", lineHeight: 1.05, position: "relative" }}>{wo.title}</div>
+            <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.92)", margin: "0 0 14px", lineHeight: 1.5, position: "relative" }}>{wo.note}</p>
+            <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.25)", overflow: "hidden", position: "relative" }}>
+              <div style={{ height: "100%", width: `${totalSets ? Math.round((doneSets / totalSets) * 100) : 0}%`, background: "#FFFFFF", borderRadius: 999, transition: "width 0.3s ease" }} />
             </div>
-            <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 5, fontWeight: 600 }}>{doneSets} / {totalSets} sets</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", marginTop: 6, fontWeight: 800, position: "relative" }}>{doneSets} / {totalSets} sets complete</div>
           </div>
 
           {wo.exercises.map((ex, i) => {
