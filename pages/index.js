@@ -7,15 +7,15 @@ const SUPABASE_KEY = "sb_publishable_bmt_uXzHvBlMTBpvkkRJPA_VpsEfPnp"
 const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 const BASE = {
-  bg: "#181410", bg2: "#211B15", surface: "#2A2219", surface2: "#352B20",
-  border: "rgba(217,199,172,0.12)", cream: "#F2EADD", creamDim: "#D9C7AC",
-  taupe: "#A8987F", terracotta: "#D08560", terracottaDeep: "#B56A47",
+  bg: "#FDF7F4", bg2: "#FAF0EC", surface: "#FFFFFF", surface2: "#F6E9E7",
+  border: "rgba(74,44,56,0.10)", cream: "#3D2531", creamDim: "#6B4A58",
+  taupe: "#A3808E", terracotta: "#D9749B", terracottaDeep: "#C25A84",
 }
 const THEMES = {
-  none: { accent: BASE.terracotta, glow: "208,133,96", tint: "rgba(208,133,96,0.05)", label: "", range: "", word: "" },
-  red: { accent: "#DC6F5E", glow: "220,111,94", tint: "rgba(220,111,94,0.10)", label: "Red Day", range: "0–35%", word: "Survive · stabilize · simplify" },
-  yellow: { accent: "#E3AC5E", glow: "227,172,94", tint: "rgba(227,172,94,0.10)", label: "Yellow Day", range: "36–70%", word: "Steady progress, protect tomorrow" },
-  green: { accent: "#94AC6E", glow: "148,172,110", tint: "rgba(148,172,110,0.10)", label: "Green Day", range: "71–100%", word: "Plan · grow · build" },
+  none: { accent: BASE.terracotta, glow: "217,116,155", tint: "rgba(217,116,155,0.08)", label: "", range: "", word: "" },
+  red: { accent: "#D65C4E", glow: "214,92,78", tint: "rgba(214,92,78,0.10)", label: "Red Day", range: "0–35%", word: "Survive · stabilize · simplify" },
+  yellow: { accent: "#D08F2E", glow: "208,143,46", tint: "rgba(208,143,46,0.12)", label: "Yellow Day", range: "36–70%", word: "Steady progress, protect tomorrow" },
+  green: { accent: "#7FA054", glow: "127,160,84", tint: "rgba(127,160,84,0.12)", label: "Green Day", range: "71–100%", word: "Plan · grow · build" },
 }
 const colorFromPct = (p) => (p <= 35 ? "red" : p <= 70 ? "yellow" : "green")
 const FACTORS = ["Poor sleep", "Interrupted sleep", "Stress", "Work demands", "Parenting", "Hormonal changes", "Anxiety", "Mental load", "Illness", "Grief or loss"]
@@ -78,85 +78,110 @@ function computeCycle(cycleLength, lastPeriodISO, when) {
   return { day, phase, length: L }
 }
 
-// Capacity-based workout library: 4 types x 3 capacity levels
+// Capacity-based workout library: 5 types x 3 capacity levels, with how-to steps
 const PHASE_SUGGESTION = { menstrual: "red", follicular: "green", ovulation: "green", luteal: "yellow" }
 const WO_TYPES = [
   { key: "full", label: "Full Body" },
-  { key: "legs", label: "Leg Day" },
-  { key: "upper", label: "Upper Body" },
-  { key: "walk", label: "Walk / Cardio" },
+  { key: "legs", label: "Legs" },
+  { key: "glutes", label: "Glutes" },
+  { key: "upper", label: "Upper" },
+  { key: "walk", label: "Walk" },
 ]
+const WEEK_PLAN = [
+  { d: "Mon", t: "full" }, { d: "Tue", t: "walk" }, { d: "Wed", t: "legs" },
+  { d: "Thu", t: "upper" }, { d: "Fri", t: "walk" }, { d: "Sat", t: "glutes" }, { d: "Sun", t: "rest" },
+]
+const demoLink = (name) => "https://www.youtube.com/results?search_query=" + encodeURIComponent(name + " form how to")
 const WORKOUTS = {
   walk: {
     red: { title: "Show Up Gently", time: "10-20 min", note: "On a Red day, showing up IS the workout. Walk, then go home proud.", exercises: [
-      { name: "Treadmill walk - easy pace", sets: 1, reps: "10-20 min", cue: "Flat or a gentle incline. Music or silence - your call." },
+      { name: "Treadmill walk - easy pace", sets: 1, reps: "10-20 min", cue: "Flat or a gentle incline.", how: ["Start slow for 2 minutes and let your body arrive.", "Settle into a pace where you could chat comfortably.", "Stop while it still feels good - that is the point today."] },
     ]},
     yellow: { title: "The Steady Walk", time: "20-30 min", note: "Purposeful, not punishing. You should be able to talk, but not sing.", exercises: [
-      { name: "Treadmill walk - brisk", sets: 1, reps: "20-30 min", cue: "Comfortable but intentional pace." },
-      { name: "Incline minutes (optional)", sets: 1, reps: "5 x 1 min", cue: "Bump incline to 3-5% for a minute, then recover flat." },
+      { name: "Treadmill walk - brisk", sets: 1, reps: "20-30 min", cue: "Comfortable but intentional pace.", how: ["Warm up easy for 3 minutes.", "Pick a pace that feels purposeful - talking possible, singing not.", "Last 2 minutes, ease back down."] },
+      { name: "Incline minutes (optional)", sets: 1, reps: "5 x 1 min", cue: "Recover flat between.", how: ["Raise incline to 3-5% for one minute.", "Return to flat for 1-2 minutes to recover.", "Repeat up to 5 times if it feels good."] },
     ]},
     green: { title: "Cardio That Builds", time: "40-60 min", note: "You have energy today - use it well, without spending tomorrow's.", exercises: [
-      { name: "Warmup walk", sets: 1, reps: "5 min", cue: "Ease in. Let your body arrive." },
-      { name: "Incline or jog intervals", sets: 1, reps: "8-10 x 2 min", cue: "Work hard-ish for 2 minutes, easy for 1 between." },
-      { name: "Cooldown + stretch", sets: 1, reps: "5-10 min", cue: "Let your heart rate come all the way down." },
+      { name: "Warmup walk", sets: 1, reps: "5 min", cue: "Ease in.", how: ["Start flat and easy.", "Gradually pick up pace over 5 minutes."] },
+      { name: "Incline or jog intervals", sets: 1, reps: "8-10 x 2 min", cue: "Work 2 min, easy 1 min.", how: ["Push pace or incline for 2 minutes - breathing hard but controlled.", "Recover at an easy pace for 1 minute.", "Repeat 8-10 rounds."] },
+      { name: "Cooldown + stretch", sets: 1, reps: "5-10 min", cue: "Let your heart rate come all the way down.", how: ["Walk slow until breathing is normal.", "Stretch calves, quads, and hips gently."] },
     ]},
   },
   full: {
     red: { title: "The Gentle Circuit", time: "~15 min", note: "Light, kind movement. Every rep here fully counts.", exercises: [
-      { name: "Squat to a bench", sets: 2, reps: "10", cue: "Sit back until you touch, stand tall. Control over speed." },
-      { name: "Wall or incline pushups", sets: 2, reps: "8-10", cue: "Body in one line. Ease down slowly." },
-      { name: "Band or light seated row", sets: 2, reps: "10", cue: "Shoulders down, squeeze between the shoulder blades." },
-      { name: "Stretch anything tight", sets: 1, reps: "5 min", cue: "Whatever feels kind today." },
+      { name: "Squat to a bench", sets: 2, reps: "10", cue: "Control over speed.", how: ["Stand in front of a bench, feet shoulder-width.", "Sit back slowly until you lightly touch the bench.", "Stand tall by driving through your heels."] },
+      { name: "Wall or incline pushups", sets: 2, reps: "8-10", cue: "Body in one line.", how: ["Hands on a wall or raised bar, body straight.", "Lower your chest slowly toward your hands.", "Press back up without letting hips sag."] },
+      { name: "Band or light seated row", sets: 2, reps: "10", cue: "Squeeze the shoulder blades.", how: ["Sit tall, arms extended holding band or handle.", "Pull toward your ribs, squeezing shoulder blades together.", "Release slowly with control."] },
+      { name: "Stretch anything tight", sets: 1, reps: "5 min", cue: "Whatever feels kind today.", how: ["Pick 2-3 areas that feel tight.", "Hold each stretch 30 seconds, breathing slow."] },
     ]},
     yellow: { title: "Short + Solid", time: "~25 min", note: "Three lifts, done well. Enough beats impressive.", exercises: [
-      { name: "Goblet squat", sets: 3, reps: "10", cue: "Hold the weight at your chest, elbows inside knees at the bottom." },
-      { name: "Seated cable row", sets: 3, reps: "10", cue: "Tall posture. Pull to your ribs, not your neck." },
-      { name: "Machine chest press", sets: 3, reps: "10", cue: "Wrists stacked over elbows. Smooth on the way back." },
+      { name: "Goblet squat", sets: 3, reps: "10", cue: "Elbows inside knees at the bottom.", how: ["Hold a dumbbell vertically at your chest.", "Squat down slowly, chest tall, until elbows brush inner knees.", "Drive up through your heels."] },
+      { name: "Seated cable row", sets: 3, reps: "10", cue: "Pull to your ribs, not your neck.", how: ["Sit tall, feet braced, grab the handle.", "Pull to your lower ribs, squeezing your mid-back.", "Let the weight pull your arms back out slowly."] },
+      { name: "Machine chest press", sets: 3, reps: "10", cue: "Smooth both directions.", how: ["Adjust the seat so handles sit at mid-chest.", "Press out without locking elbows hard.", "Return slowly - 2 to 3 seconds back."] },
     ]},
     green: { title: "The Full Builder", time: "40-60 min", note: "The complete session - strength you will feel all week.", exercises: [
-      { name: "Goblet or barbell squat", sets: 4, reps: "8-10", cue: "Brace like someone is about to poke your stomach." },
-      { name: "Romanian deadlift", sets: 3, reps: "10", cue: "Soft knees, push hips back, feel the hamstrings - not the low back." },
-      { name: "Chest press", sets: 3, reps: "8-10", cue: "Control down, powerful up." },
-      { name: "Lat pulldown", sets: 3, reps: "10", cue: "Lead with the elbows. Chest tall." },
-      { name: "Plank", sets: 3, reps: "30-45 sec", cue: "Squeeze glutes, ribs down. Quality over seconds." },
+      { name: "Goblet or barbell squat", sets: 4, reps: "8-10", cue: "Brace your core hard.", how: ["Brace like someone is about to poke your stomach.", "Sit down between your hips, knees tracking over toes.", "Drive up hard through the whole foot."] },
+      { name: "Romanian deadlift", sets: 3, reps: "10", cue: "Feel hamstrings, not low back.", how: ["Hold weights in front of thighs, soft knees.", "Push your hips straight back, weights sliding down your legs.", "When hamstrings pull, squeeze glutes and stand tall."] },
+      { name: "Chest press", sets: 3, reps: "8-10", cue: "Control down, powerful up.", how: ["Lower with control for 2-3 seconds.", "Press up strong without bouncing.", "Keep wrists stacked over elbows."] },
+      { name: "Lat pulldown", sets: 3, reps: "10", cue: "Lead with the elbows.", how: ["Grip slightly wider than shoulders, chest tall.", "Pull the bar to your collarbone, elbows driving down.", "Release slowly all the way up."] },
+      { name: "Plank", sets: 3, reps: "30-45 sec", cue: "Quality over seconds.", how: ["Forearms down, body in one straight line.", "Squeeze glutes, pull ribs down.", "Stop when your hips start to sag."] },
     ]},
   },
   legs: {
     red: { title: "Legs, Softly", time: "~15 min", note: "Blood flow, not breakdown. Gentle counts.", exercises: [
-      { name: "Easy bike or walk", sets: 1, reps: "10 min", cue: "Conversational pace. Just warm the legs up." },
-      { name: "Glute bridge", sets: 2, reps: "12", cue: "Ribs down, squeeze at the top for a full second." },
-      { name: "Calf raises", sets: 2, reps: "12", cue: "Slow up, slower down." },
+      { name: "Easy bike or walk", sets: 1, reps: "10 min", cue: "Conversational pace.", how: ["Low resistance, easy rhythm.", "Just warm the legs and lift your mood."] },
+      { name: "Glute bridge", sets: 2, reps: "12", cue: "Squeeze at the top.", how: ["Lie on your back, knees bent, feet flat.", "Drive hips up through your heels.", "Squeeze glutes for a full second at the top, lower slow."] },
+      { name: "Calf raises", sets: 2, reps: "12", cue: "Slow up, slower down.", how: ["Rise onto the balls of your feet.", "Pause at the top.", "Lower down over 2-3 seconds."] },
     ]},
     yellow: { title: "Essential Legs", time: "~25 min", note: "The big movers, kept honest and short.", exercises: [
-      { name: "Goblet squat", sets: 3, reps: "10", cue: "Depth you can control - no lower." },
-      { name: "Leg press", sets: 3, reps: "12", cue: "Feet mid-platform. Do not lock the knees hard at the top." },
-      { name: "Glute bridge", sets: 3, reps: "12", cue: "Drive through the heels." },
+      { name: "Goblet squat", sets: 3, reps: "10", cue: "Depth you can control.", how: ["Weight at your chest, feet shoulder-width.", "Squat to a depth you fully control.", "Drive up through the heels."] },
+      { name: "Leg press", sets: 3, reps: "12", cue: "Never slam the weight.", how: ["Feet mid-platform, hip-width apart.", "Lower until knees reach about 90 degrees.", "Press out without locking knees hard."] },
+      { name: "Glute bridge", sets: 3, reps: "12", cue: "Drive through the heels.", how: ["Knees bent, feet flat and close to your hips.", "Lift hips until body forms a line, squeeze hard.", "Lower with control."] },
     ]},
     green: { title: "Leg Day, For Real", time: "45-60 min", note: "Five movements. Strong legs carry everything else.", exercises: [
-      { name: "Squat", sets: 4, reps: "8", cue: "Brace, sit down between your hips, drive up." },
-      { name: "Romanian deadlift", sets: 3, reps: "10", cue: "Hips back until the hamstrings speak, then stand tall." },
-      { name: "Leg press", sets: 3, reps: "10-12", cue: "Full control - the weight never slams." },
-      { name: "Walking lunges", sets: 3, reps: "10/leg", cue: "Long steps, torso proud." },
-      { name: "Hip thrust or glute bridge", sets: 3, reps: "12", cue: "Chin tucked, full squeeze at the top." },
+      { name: "Squat", sets: 4, reps: "8", cue: "Brace, sit, drive.", how: ["Brace your core before every rep.", "Sit down between your hips, chest proud.", "Drive up through the whole foot."] },
+      { name: "Romanian deadlift", sets: 3, reps: "10", cue: "Hips back, hamstrings loaded.", how: ["Soft knees, weights close to your legs.", "Push hips back until hamstrings pull.", "Squeeze glutes to stand - do not yank with your back."] },
+      { name: "Leg press", sets: 3, reps: "10-12", cue: "Full control.", how: ["Lower slowly to about 90 degrees.", "Press out smooth and strong.", "Keep knees tracking over toes."] },
+      { name: "Walking lunges", sets: 3, reps: "10/leg", cue: "Long steps, torso proud.", how: ["Step long, lower the back knee toward the floor.", "Push through the front heel to step through.", "Keep your torso tall the whole time."] },
+      { name: "Hip thrust", sets: 3, reps: "12", cue: "Full squeeze at the top.", how: ["Upper back on a bench, bar or weight over hips.", "Drive hips up until your body is level, chin tucked.", "Squeeze glutes hard for a second at the top."] },
+    ]},
+  },
+  glutes: {
+    red: { title: "Glutes, Gently", time: "~15 min", note: "Wake them up kindly. Activation still builds.", exercises: [
+      { name: "Glute bridge", sets: 2, reps: "12", cue: "Slow and squeezed.", how: ["Feet flat and close to your hips.", "Lift and squeeze for a full second at the top.", "Lower over 2-3 seconds."] },
+      { name: "Clamshells", sets: 2, reps: "12/side", cue: "Keep hips stacked.", how: ["Lie on your side, knees bent, feet together.", "Open the top knee like a clamshell without rolling back.", "Close slowly. Switch sides."] },
+      { name: "Standing kickbacks", sets: 2, reps: "10/side", cue: "Squeeze, do not swing.", how: ["Hold something for balance, stand tall.", "Kick one leg straight back with a glute squeeze.", "Return with control - no momentum."] },
+    ]},
+    yellow: { title: "Glute Essentials", time: "~25 min", note: "The moves that actually build - the honest middle version.", exercises: [
+      { name: "Hip thrust or glute bridge", sets: 3, reps: "10", cue: "Chin tucked, full squeeze.", how: ["Upper back on a bench (or floor bridge).", "Drive hips up until level, squeeze hard.", "Lower with control."] },
+      { name: "Sumo goblet squat", sets: 3, reps: "10", cue: "Wide stance, toes out.", how: ["Feet wide, toes turned out, weight at chest.", "Squat down keeping knees pushed out.", "Drive up squeezing your glutes."] },
+      { name: "Cable or band kickbacks", sets: 3, reps: "12/side", cue: "Glute does the work.", how: ["Attach cable or band at ankle, hold support.", "Kick straight back with a hard glute squeeze.", "Return slow - never let it swing."] },
+    ]},
+    green: { title: "The Glute Builder", time: "45-60 min", note: "The full session. This is where shape gets built.", exercises: [
+      { name: "Hip thrust", sets: 4, reps: "10", cue: "Your main lift today - load it.", how: ["Upper back on a bench, weight over hips.", "Drive up until level, chin tucked, ribs down.", "One-second hard squeeze at the top, lower slow."] },
+      { name: "Romanian deadlift", sets: 3, reps: "10", cue: "Glutes finish the lift.", how: ["Push hips back, weights close to your legs.", "Feel the hamstring stretch.", "Squeeze glutes to stand tall - they do the work."] },
+      { name: "Bulgarian split squat", sets: 3, reps: "8/leg", cue: "Front leg does everything.", how: ["Back foot on a bench behind you.", "Lower straight down, front knee over toes.", "Push through the front heel to rise."] },
+      { name: "Cable kickbacks", sets: 3, reps: "12/side", cue: "Strict and squeezed.", how: ["Cable at ankle, slight forward lean, hold support.", "Kick back and slightly up, squeezing hard.", "Control the return every rep."] },
+      { name: "Hip abduction machine", sets: 3, reps: "15", cue: "Push out, pause, resist back.", how: ["Sit tall, pads outside your knees.", "Push out as far as comfortable and pause.", "Resist the weight on the way back in."] },
     ]},
   },
   upper: {
     red: { title: "Upper, Easy Does It", time: "~15 min", note: "Wake the muscles up without emptying the tank.", exercises: [
-      { name: "Band pull-aparts", sets: 2, reps: "12", cue: "Arms straight, squeeze the shoulder blades." },
-      { name: "Wall pushups", sets: 2, reps: "8-10", cue: "Slow and controlled beats many and messy." },
-      { name: "Light dumbbell curls", sets: 2, reps: "10", cue: "Elbows glued to your sides." },
+      { name: "Band pull-aparts", sets: 2, reps: "12", cue: "Arms straight, blades squeeze.", how: ["Hold a band at shoulder height, arms straight.", "Pull it apart until it touches your chest.", "Return slowly."] },
+      { name: "Wall pushups", sets: 2, reps: "8-10", cue: "Slow beats many.", how: ["Hands on the wall, body in one line.", "Lower your chest slowly toward the wall.", "Press back without sagging hips."] },
+      { name: "Light dumbbell curls", sets: 2, reps: "10", cue: "Elbows glued to sides.", how: ["Light weights, palms up.", "Curl without swinging.", "Lower over 2-3 seconds."] },
     ]},
     yellow: { title: "Upper Essentials", time: "~25 min", note: "Push, pull, press. The trio that keeps you strong.", exercises: [
-      { name: "Lat pulldown", sets: 3, reps: "10", cue: "Pull to the collarbone, elbows down and back." },
-      { name: "Machine chest press", sets: 3, reps: "10", cue: "Smooth tempo both directions." },
-      { name: "Seated shoulder press", sets: 3, reps: "10", cue: "Ribs down - do not arch to push." },
+      { name: "Lat pulldown", sets: 3, reps: "10", cue: "Elbows down and back.", how: ["Grip slightly wider than shoulders.", "Pull to your collarbone, chest tall.", "Release slowly all the way."] },
+      { name: "Machine chest press", sets: 3, reps: "10", cue: "Smooth tempo.", how: ["Handles at mid-chest height.", "Press out without hard lockout.", "Return over 2-3 seconds."] },
+      { name: "Seated shoulder press", sets: 3, reps: "10", cue: "Ribs down - do not arch.", how: ["Back supported, weights at shoulder height.", "Press up and slightly back.", "Lower to ear height with control."] },
     ]},
     green: { title: "The Upper Builder", time: "40-60 min", note: "The full session. Strong shoulders, strong posture, strong you.", exercises: [
-      { name: "Lat pulldown", sets: 4, reps: "10", cue: "Chest tall, lead with the elbows." },
-      { name: "Chest press", sets: 4, reps: "8-10", cue: "Control the negative - that is where strength builds." },
-      { name: "Seated row", sets: 3, reps: "10", cue: "Squeeze the mid-back, not the arms." },
-      { name: "Shoulder press", sets: 3, reps: "10", cue: "Press up and slightly back, biceps by the ears." },
-      { name: "Curls + triceps pushdown superset", sets: 3, reps: "12 each", cue: "Back to back, minimal rest. Finish strong." },
+      { name: "Lat pulldown", sets: 4, reps: "10", cue: "Chest tall, elbows lead.", how: ["Wide grip, slight lean back.", "Pull to collarbone, squeezing lats.", "Slow full release each rep."] },
+      { name: "Chest press", sets: 4, reps: "8-10", cue: "Control the negative.", how: ["Lower for 2-3 seconds - that is where strength builds.", "Press up strong.", "Keep shoulder blades pinned back."] },
+      { name: "Seated row", sets: 3, reps: "10", cue: "Mid-back, not arms.", how: ["Sit tall, pull the handle to your lower ribs.", "Squeeze between your shoulder blades.", "Release slow."] },
+      { name: "Shoulder press", sets: 3, reps: "10", cue: "Biceps by the ears.", how: ["Press up and slightly back.", "Do not arch your lower back.", "Lower with control to ear height."] },
+      { name: "Curls + triceps pushdown superset", sets: 3, reps: "12 each", cue: "Back to back, finish strong.", how: ["Do a set of curls, elbows pinned.", "Immediately do a set of pushdowns.", "Rest one minute, repeat."] },
     ]},
   },
 }
@@ -204,6 +229,13 @@ export default function App() {
   const [woColor, setWoColor] = useState(null)
   const [woType, setWoType] = useState("full")
   const [woDone, setWoDone] = useState({})
+  const [woOpen, setWoOpen] = useState(null)
+  const [woLog, setWoLog] = useState([])
+  const [woLogged, setWoLogged] = useState(false)
+
+  useEffect(() => {
+    try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
+  }, [])
 
   useEffect(() => { checkAuth() }, [])
 
@@ -374,12 +406,12 @@ export default function App() {
   const GlobalStyle = () => (
     <style jsx global>{`
       * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body { background: #181410; color: #F2EADD; font-family: 'Nunito Sans', -apple-system, sans-serif; }
+      html, body { background: #FDF7F4; color: #3D2531; font-family: 'Nunito Sans', -apple-system, sans-serif; }
       ::-webkit-scrollbar { width: 0; }
       a { text-decoration: none; }
       input[type=range] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; outline: none; }
-      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #F2EADD; cursor: pointer; border: 3px solid var(--accent, #D08560); }
-      input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #F2EADD; cursor: pointer; border: 3px solid var(--accent, #D08560); }
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D9749B); }
+      input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D9749B); }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
       @keyframes breathe { 0%,100% { opacity: .9; } 50% { opacity: 1; } }
       .fade-in { animation: fadeIn 0.5s ease both; }
@@ -407,7 +439,7 @@ export default function App() {
           </div>
           <input type="password" placeholder="New password" value={newPass} onChange={(e) => setNewPass(e.target.value)} style={{ width: "100%", padding: 14, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, borderRadius: 8, fontSize: 14, marginBottom: 16 }} />
           {authMsg && <div style={{ fontSize: 13, color: BASE.creamDim, textAlign: "center", marginBottom: 14, lineHeight: 1.5 }}>{authMsg}</div>}
-          <button onClick={handleSetNewPassword} style={{ width: "100%", padding: 16, background: BASE.terracotta, color: "#1a140f", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Save new password</button>
+          <button onClick={handleSetNewPassword} style={{ width: "100%", padding: 16, background: BASE.terracotta, color: "#FFFFFF", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Save new password</button>
         </div>
       </>
     )
@@ -426,8 +458,8 @@ export default function App() {
           <div onClick={handleForgot} style={{ fontSize: 12, color: BASE.taupe, textAlign: "right", marginBottom: 18, cursor: "pointer" }}>Forgot password?</div>
           {authMsg && <div style={{ fontSize: 13, color: BASE.creamDim, textAlign: "center", marginBottom: 14, lineHeight: 1.5 }}>{authMsg}</div>}
           <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <button onClick={handleLogin} style={{ flex: 1, padding: 16, background: BASE.terracotta, color: "#1a140f", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Log In</button>
-            <button onClick={handleSignUp} style={{ flex: 1, padding: 16, background: BASE.terracotta, color: "#1a140f", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Sign Up</button>
+            <button onClick={handleLogin} style={{ flex: 1, padding: 16, background: BASE.terracotta, color: "#FFFFFF", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Log In</button>
+            <button onClick={handleSignUp} style={{ flex: 1, padding: 16, background: BASE.terracotta, color: "#FFFFFF", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Sign Up</button>
           </div>
           <button onClick={() => { setGuest(true); setAuthMsg("") }} style={{ width: "100%", padding: 14, background: "transparent", color: BASE.cream, border: `1px solid ${BASE.border}`, borderRadius: 12, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Try it first — no account needed</button>
         </div>
@@ -457,7 +489,7 @@ export default function App() {
             <p style={{ fontSize: 11, color: BASE.taupe, marginTop: 8, letterSpacing: 1 }}>— VANESSA, RN</p>
           </div>
           <p style={{ fontSize: 14, color: BASE.creamDim, textAlign: "center", lineHeight: 1.6, marginBottom: 18 }}>This is your daily check-in. Create a free account to save your days, see your trends, and unlock your cycle insights.</p>
-          <button onClick={() => { setGuest(false); setAuthMsg("") }} style={{ width: "100%", padding: 16, background: GT.accent, color: "#1a140f", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Create my free account</button>
+          <button onClick={() => { setGuest(false); setAuthMsg("") }} style={{ width: "100%", padding: 16, background: GT.accent, color: "#FFFFFF", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Create my free account</button>
           <button onClick={() => setGuest(false)} style={{ width: "100%", padding: 12, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, borderRadius: 12, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Back</button>
         </div>
       </>
@@ -479,7 +511,7 @@ export default function App() {
       {items.map((item) => {
         const on = selected.includes(item)
         return (
-          <button key={item} onClick={() => onToggle(item)} style={{ padding: "8px 14px", borderRadius: 999, fontSize: 13, cursor: "pointer", background: on ? THEMES[cur].accent : BASE.surface, color: on ? "#1a140f" : BASE.creamDim, border: `1px solid ${on ? THEMES[cur].accent : BASE.border}`, fontWeight: on ? 700 : 500 }}>
+          <button key={item} onClick={() => onToggle(item)} style={{ padding: "8px 14px", borderRadius: 999, fontSize: 13, cursor: "pointer", background: on ? THEMES[cur].accent : BASE.surface, color: on ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${on ? THEMES[cur].accent : BASE.border}`, fontWeight: on ? 700 : 500 }}>
             {item}
           </button>
         )
@@ -510,7 +542,7 @@ export default function App() {
               <div style={{ fontSize: 11, color: BASE.taupe, marginBottom: 8, fontWeight: 600 }}>BASELINE CARE</div>
               {RED.map((item, i) => (
                 <div key={i} onClick={() => setBaseline(baseline.map((b, j) => (j === i ? !b : b)))} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", cursor: "pointer", borderBottom: i < 4 ? `0.5px solid ${BASE.border}` : "none" }}>
-                  <span style={{ width: 22, height: 22, borderRadius: "50%", border: `1.5px solid ${baseline[i] ? T.accent : BASE.taupe}`, background: baseline[i] ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#1a140f" }}>{baseline[i] ? "✓" : ""}</span>
+                  <span style={{ width: 22, height: 22, borderRadius: "50%", border: `1.5px solid ${baseline[i] ? T.accent : BASE.taupe}`, background: baseline[i] ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#FFFFFF" }}>{baseline[i] ? "✓" : ""}</span>
                   <span style={{ fontSize: 14, color: baseline[i] ? BASE.taupe : BASE.cream, textDecoration: baseline[i] ? "line-through" : "none" }}>{item}</span>
                 </div>
               ))}
@@ -640,7 +672,7 @@ export default function App() {
           <input type="text" value={oneThing} onChange={(e) => setOneThing(e.target.value)} placeholder="The single thing that would make today a success…" style={{ width: "100%", padding: "13px 15px", borderRadius: 12, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14, outline: "none" }} />
           {saveErr && <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: "rgba(220,111,94,0.12)", border: "1px solid rgba(220,111,94,0.4)", color: "#DC6F5E", fontSize: 13, textAlign: "center" }}>Couldn't save: {saveErr}</div>}
           {!checkedIn ? (
-            <button onClick={saveCheckin} disabled={saving} style={{ width: "100%", marginTop: 24, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[cur].accent, color: "#1a140f", fontSize: 15, fontWeight: 700, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Set my capacity for today"}</button>
+            <button onClick={saveCheckin} disabled={saving} style={{ width: "100%", marginTop: 24, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[cur].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Set my capacity for today"}</button>
           ) : (
             <>
               <div className="fade-in" style={{ marginTop: 24, padding: 13, borderRadius: 12, background: THEMES[cur].tint, border: `1px solid rgba(${THEMES[cur].glow},0.4)`, textAlign: "center", color: THEMES[cur].accent, fontSize: 14, fontWeight: 700 }}>Saved ✓&nbsp;&nbsp;Your capacity is set for today</div>
@@ -668,7 +700,7 @@ export default function App() {
               <input type="number" min="20" max="45" value={tmpLen} onChange={(e) => setTmpLen(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, marginBottom: 16, outline: "none" }} />
               <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 6 }}>First day of your last period</div>
               <input type="date" value={tmpStart} onChange={(e) => setTmpStart(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, marginBottom: 20, outline: "none" }} />
-              <button onClick={saveCycle} disabled={!tmpStart} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", cursor: tmpStart ? "pointer" : "not-allowed", background: BASE.terracotta, color: "#1a140f", fontSize: 15, fontWeight: 700, opacity: tmpStart ? 1 : 0.5 }}>Save</button>
+              <button onClick={saveCycle} disabled={!tmpStart} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", cursor: tmpStart ? "pointer" : "not-allowed", background: BASE.terracotta, color: "#FFFFFF", fontSize: 15, fontWeight: 700, opacity: tmpStart ? 1 : 0.5 }}>Save</button>
               <p style={{ fontSize: 11, color: BASE.taupe, lineHeight: 1.5, marginTop: 14, textAlign: "center" }}>This is an estimate based on what you enter — not medical or contraceptive guidance.</p>
             </div>
           ) : (
@@ -723,63 +755,122 @@ export default function App() {
       const gymColor = woColor || cur
       const wo = WORKOUTS[woType][gymColor]
       const suggestion = cycleNow ? PHASE_SUGGESTION[cycleNow.phase] : null
-      const setKey = (i, s) => woType + "|" + gymColor + "|" + i + "|" + s
-      const toggleSet = (i, s) => setWoDone((prev) => ({ ...prev, [setKey(i, s)]: !prev[setKey(i, s)] }))
+      const setKey = (i, sx) => woType + "|" + gymColor + "|" + i + "|" + sx
+      const toggleSet = (i, sx) => setWoDone((prev) => ({ ...prev, [setKey(i, sx)]: !prev[setKey(i, sx)] }))
+      const todayISO = new Date().toISOString().slice(0, 10)
+      const weekday = (new Date().getDay() + 6) % 7
+      const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekday); weekStart.setHours(0,0,0,0)
+      const thisWeek = woLog.filter((w) => new Date(w.date + "T12:00:00") >= weekStart)
+      const loggedToday = woLogged || woLog.some((w) => w.date === todayISO)
+      const dayDone = (idx) => {
+        const d = new Date(weekStart); d.setDate(weekStart.getDate() + idx)
+        const iso = d.toISOString().slice(0, 10)
+        return woLog.some((w) => w.date === iso)
+      }
+      const finishWorkout = () => {
+        const entry = { date: todayISO, type: woType, color: gymColor }
+        const next = [...woLog.filter((w) => w.date !== todayISO), entry]
+        setWoLog(next); setWoLogged(true)
+        try { localStorage.setItem("nr_workout_log", JSON.stringify(next)) } catch (e) {}
+      }
+      const totalSets = wo.exercises.reduce((a, e) => a + e.sets, 0)
+      const doneSets = wo.exercises.reduce((a, e, i) => a + Array.from({ length: e.sets }).filter((_, sx) => woDone[setKey(i, sx)]).length, 0)
       return (
         <div style={{ padding: "8px 18px 0" }}>
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 24, textAlign: "center", margin: "14px 0 4px" }}>Train the body you woke up with</h2>
-          <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 12, margin: "0 0 16px" }}>Pick your capacity, pick your day. The workout meets you there.</p>
+          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, textAlign: "center", margin: "14px 0 2px" }}>Train the body you woke up with</h2>
+          <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 12, margin: "0 0 14px" }}>{thisWeek.length} workout{thisWeek.length === 1 ? "" : "s"} this week</p>
+
+          <div style={{ display: "flex", gap: 5, marginBottom: 16 }}>
+            {WEEK_PLAN.map((p, idx) => {
+              const isToday = idx === weekday
+              const done = dayDone(idx)
+              const rest = p.t === "rest"
+              return (
+                <div key={p.d} onClick={() => { if (!rest) setWoType(p.t) }} style={{ flex: 1, textAlign: "center", cursor: rest ? "default" : "pointer", padding: "8px 2px", borderRadius: 12, background: isToday ? THEMES[gymColor].tint : BASE.surface, border: `1.5px solid ${isToday ? THEMES[gymColor].accent : BASE.border}`, opacity: rest ? 0.55 : 1 }}>
+                  <div style={{ fontSize: 9.5, color: BASE.taupe, fontWeight: 700, textTransform: "uppercase" }}>{p.d}</div>
+                  <div style={{ fontSize: 13, marginTop: 3 }}>{done ? "\u2713" : rest ? "\u2014" : ""}</div>
+                  <div style={{ fontSize: 8.5, color: done ? THEMES.green.accent : BASE.taupe, fontWeight: 600, textTransform: "capitalize", marginTop: 1 }}>{rest ? "rest" : WO_TYPES.find((t) => t.key === p.t).label.split(" ")[0]}</div>
+                </div>
+              )
+            })}
+          </div>
 
           {suggestion && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderRadius: 12, background: THEMES[suggestion].tint, border: `1px solid rgba(${THEMES[suggestion].glow},0.35)`, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderRadius: 12, background: THEMES[suggestion].tint, border: `1px solid rgba(${THEMES[suggestion].glow},0.35)`, marginBottom: 12 }}>
               <span style={{ fontSize: 12, color: BASE.creamDim }}>Cycle hint: <b style={{ color: THEMES[suggestion].accent }}>{cycleNow.phase}</b> (day {cycleNow.day}) often feels like a {THEMES[suggestion].label}</span>
-              <button onClick={() => setWoColor(suggestion)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: THEMES[suggestion].accent, color: "#1a140f", fontSize: 11, fontWeight: 700 }}>Use it</button>
+              <button onClick={() => setWoColor(suggestion)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: THEMES[suggestion].accent, color: "#FFFFFF", fontSize: 11, fontWeight: 700 }}>Use it</button>
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             {["red", "yellow", "green"].map((k) => {
               const active = gymColor === k
               return (
-                <div key={k} onClick={() => setWoColor(k)} style={{ flex: 1, cursor: "pointer", textAlign: "center", padding: "12px 6px", borderRadius: 14, background: active ? THEMES[k].tint : BASE.surface, border: `1.5px solid ${active ? THEMES[k].accent : BASE.border}` }}>
+                <div key={k} onClick={() => setWoColor(k)} style={{ flex: 1, cursor: "pointer", textAlign: "center", padding: "11px 6px", borderRadius: 14, background: active ? THEMES[k].tint : BASE.surface, border: `1.5px solid ${active ? THEMES[k].accent : BASE.border}` }}>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 600, color: THEMES[k].accent }}>{THEMES[k].label.split(" ")[0]}</div>
                 </div>
               )
             })}
           </div>
-          {!woColor && <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 11, margin: "0 0 12px" }}>Following today's check-in ({THEMES[cur].label}). Tap a color to override.</p>}
+          {!woColor && <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 11, margin: "0 0 10px" }}>Following today's check-in ({THEMES[cur].label}). Tap a color to override.</p>}
 
-          <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
             {WO_TYPES.map((t) => (
-              <button key={t.key} onClick={() => setWoType(t.key)} style={{ flex: 1, minWidth: 90, padding: 9, background: woType === t.key ? T.accent : "transparent", color: woType === t.key ? "#1a140f" : BASE.cream, border: `1px solid ${woType === t.key ? T.accent : BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>{t.label}</button>
+              <button key={t.key} onClick={() => setWoType(t.key)} style={{ flex: 1, minWidth: 62, padding: 9, background: woType === t.key ? THEMES[gymColor].accent : BASE.surface, color: woType === t.key ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${woType === t.key ? THEMES[gymColor].accent : BASE.border}`, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{t.label}</button>
             ))}
           </div>
 
-          <div style={{ padding: 16, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 14 }}>
+          <div style={{ padding: 18, borderRadius: 18, background: `linear-gradient(135deg, ${THEMES[gymColor].tint}, ${BASE.surface})`, border: `1.5px solid rgba(${THEMES[gymColor].glow},0.35)`, marginBottom: 14, boxShadow: "0 4px 18px rgba(74,44,56,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, color: THEMES[gymColor].accent }}>{wo.title}</div>
-              <div style={{ fontSize: 12, color: BASE.taupe }}>{wo.time}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, color: THEMES[gymColor].accent }}>{wo.title}</div>
+              <div style={{ fontSize: 12, color: BASE.taupe, fontWeight: 700 }}>{wo.time}</div>
             </div>
-            <p style={{ fontSize: 12.5, color: BASE.creamDim, margin: "6px 0 0", lineHeight: 1.5 }}>{wo.note}</p>
+            <p style={{ fontSize: 12.5, color: BASE.creamDim, margin: "6px 0 10px", lineHeight: 1.5 }}>{wo.note}</p>
+            <div style={{ height: 6, borderRadius: 999, background: BASE.surface2, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${totalSets ? Math.round((doneSets / totalSets) * 100) : 0}%`, background: THEMES[gymColor].accent, borderRadius: 999, transition: "width 0.3s ease" }} />
+            </div>
+            <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 5, fontWeight: 600 }}>{doneSets} / {totalSets} sets</div>
           </div>
 
-          {wo.exercises.map((ex, i) => (
-            <div key={i} style={{ padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                <div style={{ fontSize: 14, color: BASE.cream, fontWeight: 600 }}>{ex.name}</div>
-                <div style={{ fontSize: 12, color: THEMES[gymColor].accent, fontWeight: 700, whiteSpace: "nowrap" }}>{ex.sets > 1 ? ex.sets + " x " + ex.reps : ex.reps}</div>
+          {wo.exercises.map((ex, i) => {
+            const open = woOpen === i
+            return (
+              <div key={i} style={{ padding: "13px 15px", borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, boxShadow: "0 2px 10px rgba(74,44,56,0.04)" }}>
+                <div onClick={() => setWoOpen(open ? null : i)} style={{ cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontSize: 14.5, color: BASE.cream, fontWeight: 700 }}>{ex.name}</div>
+                    <div style={{ fontSize: 12, color: THEMES[gymColor].accent, fontWeight: 700, whiteSpace: "nowrap" }}>{ex.sets > 1 ? ex.sets + " x " + ex.reps : ex.reps}</div>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.45 }}>{ex.cue} <span style={{ color: BASE.terracotta, fontWeight: 700 }}>{open ? "\u2212 close" : "+ how to"}</span></div>
+                </div>
+                {open && (
+                  <div className="fade-in" style={{ marginTop: 10, padding: "11px 13px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}` }}>
+                    {ex.how.map((step, si) => (
+                      <div key={si} style={{ display: "flex", gap: 9, marginBottom: si === ex.how.length - 1 ? 0 : 7 }}>
+                        <span style={{ minWidth: 18, height: 18, borderRadius: "50%", background: THEMES[gymColor].tint, color: THEMES[gymColor].accent, fontSize: 10.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{si + 1}</span>
+                        <span style={{ fontSize: 12, color: BASE.creamDim, lineHeight: 1.5 }}>{step}</span>
+                      </div>
+                    ))}
+                    <a href={demoLink(ex.name)} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 11.5, fontWeight: 800, color: BASE.terracotta }}>Watch a demo ↗</a>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  {Array.from({ length: ex.sets }).map((_, sx) => {
+                    const done = !!woDone[setKey(i, sx)]
+                    return (
+                      <div key={sx} onClick={() => toggleSet(i, sx)} style={{ width: 32, height: 32, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, background: done ? THEMES[gymColor].accent : "transparent", color: done ? "#FFFFFF" : BASE.taupe, border: `1.5px solid ${done ? THEMES[gymColor].accent : BASE.border}`, transition: "all 0.15s ease" }}>{done ? "\u2713" : sx + 1}</div>
+                    )
+                  })}
+                </div>
               </div>
-              <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 4, lineHeight: 1.45 }}>{ex.cue}</div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                {Array.from({ length: ex.sets }).map((_, s) => {
-                  const done = !!woDone[setKey(i, s)]
-                  return (
-                    <div key={s} onClick={() => toggleSet(i, s)} style={{ width: 30, height: 30, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, background: done ? THEMES[gymColor].accent : "transparent", color: done ? "#1a140f" : BASE.taupe, border: `1.5px solid ${done ? THEMES[gymColor].accent : BASE.border}` }}>{done ? "✓" : s + 1}</div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+            )
+          })}
+
+          {!loggedToday ? (
+            <button onClick={finishWorkout} style={{ width: "100%", marginTop: 8, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[gymColor].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 800 }}>Finish workout ✓</button>
+          ) : (
+            <div className="fade-in" style={{ marginTop: 8, padding: 14, borderRadius: 14, background: THEMES[gymColor].tint, border: `1px solid rgba(${THEMES[gymColor].glow},0.4)`, textAlign: "center", color: THEMES[gymColor].accent, fontSize: 14, fontWeight: 800 }}>Logged for today ✓ — that fully counted</div>
+          )}
 
           <p style={{ fontSize: 10.5, color: BASE.taupe, textAlign: "center", margin: "16px 0 0", lineHeight: 1.5 }}>General fitness guidance, not medical advice. Especially if you're postpartum, healing, or managing a condition - move within your provider's guidance.</p>
         </div>
@@ -885,7 +976,7 @@ export default function App() {
             <div style={{ marginTop: 14, paddingTop: 12, borderTop: `0.5px solid ${BASE.border}`, fontSize: 10, color: BASE.taupe, letterSpacing: 1 }}>SHARED VIA NEW RAY · THE CAPACITY METHOD</div>
           </div>
 
-          <button onClick={handleShare} style={{ width: "100%", marginTop: 18, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: ST.accent, color: "#1a140f", fontSize: 15, fontWeight: 700 }}>Send to my partner</button>
+          <button onClick={handleShare} style={{ width: "100%", marginTop: 18, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: ST.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700 }}>Send to my partner</button>
           <button onClick={handleCopyShare} style={{ width: "100%", marginTop: 10, padding: 13, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Copy message</button>
           {shareStatus && <div style={{ marginTop: 12, textAlign: "center", fontSize: 13, color: ST.accent, fontWeight: 700 }}>{shareStatus}</div>}
         </div>
@@ -909,7 +1000,7 @@ export default function App() {
                     <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, color: T.accent, whiteSpace: "nowrap" }}>{p.price}</div>
                   </div>
                   <div style={{ fontSize: 13, color: BASE.taupe, marginBottom: 14 }}>{p.blurb}</div>
-                  <button style={{ width: "100%", textAlign: "center", padding: 13, borderRadius: 10, background: T.accent, color: "#1a140f", fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer" }}>Add to cart</button>
+                  <button style={{ width: "100%", textAlign: "center", padding: 13, borderRadius: 10, background: T.accent, color: "#FFFFFF", fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer" }}>Add to cart</button>
                 </div>
               </div>
             </a>
@@ -922,7 +1013,7 @@ export default function App() {
       return (
         <div className="fade-in" style={{ padding: "8px 20px 0" }}>
           <div style={{ textAlign: "center", margin: "16px 0 32px" }}>
-            <div style={{ width: 92, height: 92, borderRadius: "50%", margin: "0 auto 16px", background: `linear-gradient(135deg, ${T.accent}, ${BASE.terracottaDeep})`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Pinyon Script', cursive", fontSize: 44, color: "#1a140f", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>V</div>
+            <div style={{ width: 92, height: 92, borderRadius: "50%", margin: "0 auto 16px", background: `linear-gradient(135deg, ${T.accent}, ${BASE.terracottaDeep})`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Pinyon Script', cursive", fontSize: 44, color: "#FFFFFF", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>V</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 600, marginBottom: 6 }}>Vanessa Parkin</div>
             <div style={{ fontSize: 12, color: BASE.taupe, letterSpacing: 2, textTransform: "uppercase" }}>RN · Mother · Founder</div>
           </div>
@@ -943,7 +1034,7 @@ export default function App() {
   return (
     <><Fonts /><GlobalStyle />
       <div style={{ "--accent": T.accent, background: BASE.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
-        <div className="glow-breathe" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360, background: `radial-gradient(120% 80% at 50% 0%, rgba(${T.glow},0.22) 0%, transparent 60%)`, pointerEvents: "none" }} />
+        <div className="glow-breathe" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360, background: `radial-gradient(120% 80% at 50% 0%, rgba(${T.glow},0.12) 0%, transparent 60%)`, pointerEvents: "none" }} />
         <div style={{ position: "relative" }}>
           <header style={{ padding: "22px 22px 6px", textAlign: "center" }}>
             <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 40, lineHeight: 1, color: BASE.cream }}>New Ray</div>
@@ -951,7 +1042,7 @@ export default function App() {
           </header>
           <div style={{ display: "flex", gap: 6, padding: "14px 18px 0", flexWrap: "wrap" }}>
             {["today", "gym", "cycle", "trends", "share", "shop", "about"].map((t) => (
-              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, minWidth: 64, padding: 9, background: tab === t ? T.accent : "transparent", color: tab === t ? "#1a140f" : BASE.cream, border: `1px solid ${tab === t ? T.accent : BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{t}</button>
+              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, minWidth: 64, padding: 9, background: tab === t ? T.accent : "transparent", color: tab === t ? "#FFFFFF" : BASE.cream, border: `1px solid ${tab === t ? T.accent : BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{t}</button>
             ))}
             <button onClick={handleLogout} style={{ flex: 1, minWidth: 64, padding: 9, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Log Out</button>
           </div>
