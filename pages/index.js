@@ -726,6 +726,12 @@ export default function App() {
           {saveErr && <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: "rgba(220,111,94,0.12)", border: "1px solid rgba(220,111,94,0.4)", color: "#DC6F5E", fontSize: 13, textAlign: "center" }}>Couldn't save: {saveErr}</div>}
           {!checkedIn ? (
             <button onClick={saveCheckin} disabled={saving} style={{ width: "100%", marginTop: 24, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[cur].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Set my capacity for today"}</button>
+          ) : (
+            <>
+              <div className="fade-in" style={{ marginTop: 24, padding: 13, borderRadius: 12, background: THEMES[cur].tint, border: `1px solid rgba(${THEMES[cur].glow},0.4)`, textAlign: "center", color: THEMES[cur].accent, fontSize: 14, fontWeight: 700 }}>Saved ✓&nbsp;&nbsp;Your capacity is set for today</div>
+              <Protocol />
+            </>
+          )}
 
           {(() => {
             const todayISO = new Date().toISOString().slice(0, 10)
@@ -770,12 +776,6 @@ export default function App() {
               </div>
             )
           })()}
-          ) : (
-            <>
-              <div className="fade-in" style={{ marginTop: 24, padding: 13, borderRadius: 12, background: THEMES[cur].tint, border: `1px solid rgba(${THEMES[cur].glow},0.4)`, textAlign: "center", color: THEMES[cur].accent, fontSize: 14, fontWeight: 700 }}>Saved ✓&nbsp;&nbsp;Your capacity is set for today</div>
-              <Protocol />
-            </>
-          )}
         </div>
       )
     }
