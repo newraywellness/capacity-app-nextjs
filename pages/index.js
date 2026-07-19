@@ -78,7 +78,7 @@ function computeCycle(cycleLength, lastPeriodISO, when) {
   return { day, phase, length: L }
 }
 
-// Capacity-based workout library: 5 types x 3 capacity levels, with how-to steps
+
 const PHASE_SUGGESTION = { menstrual: "red", follicular: "green", ovulation: "green", luteal: "yellow" }
 const WO_TYPES = [
   { key: "full", label: "Full Body", icon: "\u2728" },
@@ -87,16 +87,53 @@ const WO_TYPES = [
   { key: "upper", label: "Upper", icon: "\ud83d\udcaa" },
   { key: "walk", label: "Walk", icon: "\ud83d\udeb6\u200d\u2640\ufe0f" },
 ]
+const WEEK_PLAN = [
+  { d: "Mon", t: "full" }, { d: "Tue", t: "walk" }, { d: "Wed", t: "legs" },
+  { d: "Thu", t: "upper" }, { d: "Fri", t: "walk" }, { d: "Sat", t: "glutes" }, { d: "Sun", t: "rest" },
+]
 const HERO_GRAD = {
   red: "linear-gradient(135deg, #E0705F 0%, #C34A3B 100%)",
   yellow: "linear-gradient(135deg, #E3A94E 0%, #C07E20 100%)",
   green: "linear-gradient(135deg, #93B061 0%, #66883E 100%)",
 }
-const WEEK_PLAN = [
-  { d: "Mon", t: "full" }, { d: "Tue", t: "walk" }, { d: "Wed", t: "legs" },
-  { d: "Thu", t: "upper" }, { d: "Fri", t: "walk" }, { d: "Sat", t: "glutes" }, { d: "Sun", t: "rest" },
-]
 const demoLink = (name) => "https://www.youtube.com/results?search_query=" + encodeURIComponent(name + " form how to")
+const GLOWUP = [
+  { key: "water", icon: "\ud83d\udca7", red: "One glass of water", yellow: "Water before coffee", green: "Water before coffee + one refill" },
+  { key: "protein", icon: "\ud83c\udf73", red: "One easy protein (yogurt, cheese stick)", yellow: "Protein at breakfast", green: "Protein anchoring every meal" },
+  { key: "move", icon: "\ud83d\udc5f", red: "Step outside or stretch for 2 minutes", yellow: "A 10-minute walk", green: "Your workout (see Body)" },
+  { key: "kind", icon: "\ud83d\udc9c", red: "Catch one harsh thought, answer kindly", yellow: "Catch one harsh thought, answer kindly", green: "Catch one harsh thought, answer kindly" },
+  { key: "soft", icon: "\ud83c\udf38", red: "One soft touch \u2014 candle, pretty glass", yellow: "5-minute reset of one space", green: "Reset one space + one soft touch" },
+]
+const GLOW_THRESHOLD = { red: 1, yellow: 3, green: 4 }
+const REFRAMES = [
+  "You're not lazy. You're depleted. There's a difference.",
+  "Capacity is not character.",
+  "Stop planning every day like it's a good day.",
+  "This is a hard season, not a character flaw.",
+  "Rest isn't something you earn after everything's done.",
+  "Tiny is not nothing. On the hard days, tiny IS the win.",
+  "You don't have to wait for an easier season to become her.",
+  "You planned for a woman who didn't wake up today. Plan for the one who did.",
+  "You can't hate yourself into becoming her. You can only be gentle enough to keep showing up.",
+]
+const BLOOM_PROMPTS = [
+  "The woman I'm becoming is someone who...",
+  "What would make today 1% softer?",
+  "One thing I want more of, that I've felt guilty for wanting:",
+  "What did I do today that counted \u2014 even if it was tiny?",
+  "Whose voice is my inner critic... and do I want to keep listening to it?",
+  "What's one honest 'no' I need to say this week?",
+  "What's one small promise I can keep to myself tomorrow?",
+]
+const RESETS = [
+  { name: "The 5-minute space reset", icon: "\ud83c\udff5\ufe0f", how: "Pick ONE spot \u2014 the counter, your nightstand. Timer for 5 minutes. Reset only that. One calm corner does some of the calming for you." },
+  { name: "Long-exhale breathing", icon: "\ud83c\udf2c\ufe0f", how: "Two minutes: breathe in for 4, out for 8. The long exhale is the fastest lever your body has for switching off alarm mode." },
+  { name: "Step outside", icon: "\u2600\ufe0f", how: "Ten minutes of daylight, ideally morning. It sets your energy rhythm and quiets the noise. No phone required." },
+  { name: "The pretty glass ritual", icon: "\ud83e\udd42", how: "Your water, but in the prettiest glass you own. Tiny sensory pleasures are how ordinary days start feeling beautiful." },
+  { name: "Phone down, lights low", icon: "\ud83c\udf19", how: "Pick one wind-down anchor tonight \u2014 phone away a little earlier, lights dimmed. Tomorrow begins tonight." },
+]
+const dayIndex = (len) => { const d = new Date(); return (d.getFullYear() * 366 + Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000)) % len }
+
 const WORKOUTS = {
   walk: {
     red: { title: "Show Up Gently", time: "10-20 min", note: "On a Red day, showing up IS the workout. Walk, then go home proud.", exercises: [
@@ -237,9 +274,16 @@ export default function App() {
   const [woOpen, setWoOpen] = useState(null)
   const [woLog, setWoLog] = useState([])
   const [woLogged, setWoLogged] = useState(false)
+  const [bodyView, setBodyView] = useState("gym")
+  const [progressView, setProgressView] = useState("trends")
+  const [moreView, setMoreView] = useState("share")
+  const [glowLog, setGlowLog] = useState({})
+  const [bloomNotes, setBloomNotes] = useState({})
 
   useEffect(() => {
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
+    try { setGlowLog(JSON.parse(localStorage.getItem("nr_glow_log") || "{}")) } catch (e) {}
+    try { setBloomNotes(JSON.parse(localStorage.getItem("nr_bloom_notes") || "{}")) } catch (e) {}
   }, [])
 
   useEffect(() => { checkAuth() }, [])
@@ -415,8 +459,8 @@ export default function App() {
       ::-webkit-scrollbar { width: 0; }
       a { text-decoration: none; }
       input[type=range] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; outline: none; }
-      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D9749B); }
-      input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D9749B); }
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
+      input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
       @keyframes breathe { 0%,100% { opacity: .9; } 50% { opacity: 1; } }
       .fade-in { animation: fadeIn 0.5s ease both; }
@@ -682,6 +726,50 @@ export default function App() {
           {saveErr && <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: "rgba(220,111,94,0.12)", border: "1px solid rgba(220,111,94,0.4)", color: "#DC6F5E", fontSize: 13, textAlign: "center" }}>Couldn't save: {saveErr}</div>}
           {!checkedIn ? (
             <button onClick={saveCheckin} disabled={saving} style={{ width: "100%", marginTop: 24, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[cur].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Set my capacity for today"}</button>
+
+          {(() => {
+            const todayISO = new Date().toISOString().slice(0, 10)
+            const todayGlow = glowLog[todayISO] || {}
+            const doneCount = GLOWUP.filter((g) => todayGlow[g.key]).length
+            const threshold = GLOW_THRESHOLD[cur]
+            const counted = doneCount >= threshold
+            const streak = (() => {
+              let n = 0; const d = new Date()
+              for (;;) {
+                const iso = d.toISOString().slice(0, 10)
+                const day = glowLog[iso] || {}
+                const c = GLOWUP.filter((g) => day[g.key]).length
+                if (c >= 1) { n++; d.setDate(d.getDate() - 1) } else break
+                if (n > 400) break
+              }
+              return n
+            })()
+            const toggleGlow = (key) => {
+              const next = { ...glowLog, [todayISO]: { ...todayGlow, [key]: !todayGlow[key] } }
+              setGlowLog(next)
+              try { localStorage.setItem("nr_glow_log", JSON.stringify(next)) } catch (e) {}
+            }
+            return (
+              <div style={{ marginTop: 26 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700 }}>Glow Up Central</h3>
+                  {streak > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: BASE.terracotta }}>{streak} day{streak === 1 ? "" : "s"} {"\ud83d\udd25"}</span>}
+                </div>
+                <p style={{ fontSize: 12, color: BASE.taupe, marginBottom: 12 }}>Today's version, sized to a {THEMES[cur].label}. {threshold} of these = today counted.</p>
+                {GLOWUP.map((g) => {
+                  const done = !!todayGlow[g.key]
+                  return (
+                    <div key={g.key} onClick={() => toggleGlow(g.key)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", borderRadius: 14, marginBottom: 8, cursor: "pointer", background: done ? THEMES[cur].tint : BASE.surface, border: `1.5px solid ${done ? THEMES[cur].accent : BASE.border}`, transition: "all 0.15s ease" }}>
+                      <span style={{ fontSize: 20 }}>{g.icon}</span>
+                      <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: done ? THEMES[cur].accent : BASE.cream, textDecoration: done ? "line-through" : "none", opacity: done ? 0.85 : 1 }}>{g[cur]}</span>
+                      <span style={{ width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, background: done ? THEMES[cur].accent : "transparent", color: done ? "#FFFFFF" : BASE.taupe, border: `1.5px solid ${done ? THEMES[cur].accent : BASE.border}` }}>{done ? "\u2713" : ""}</span>
+                    </div>
+                  )
+                })}
+                {counted && <div className="fade-in" style={{ padding: 13, borderRadius: 14, background: THEMES[cur].tint, border: `1px solid rgba(${THEMES[cur].glow},0.4)`, textAlign: "center", color: THEMES[cur].accent, fontSize: 13.5, fontWeight: 800 }}>Today counted {"\ud83e\udd0d"} You showed up for yourself.</div>}
+              </div>
+            )
+          })()}
           ) : (
             <>
               <div className="fade-in" style={{ marginTop: 24, padding: 13, borderRadius: 12, background: THEMES[cur].tint, border: `1px solid rgba(${THEMES[cur].glow},0.4)`, textAlign: "center", color: THEMES[cur].accent, fontSize: 14, fontWeight: 700 }}>Saved ✓&nbsp;&nbsp;Your capacity is set for today</div>
@@ -692,7 +780,7 @@ export default function App() {
       )
     }
 
-    if (tab === "cycle") {
+    if (tab === "body" && bodyView === "cycle") {
       const needSetup = !cycleLength || !lastPeriod
       const todayPct = checkedIn ? pct : (history.length ? history[history.length - 1].pct : null)
       const P = cycleNow ? PHASES[cycleNow.phase] : null
@@ -760,7 +848,7 @@ export default function App() {
       )
     }
 
-    if (tab === "gym") {
+    if (tab === "body" && bodyView === "gym") {
       const gymColor = woColor || cur
       const wo = WORKOUTS[woType][gymColor]
       const suggestion = cycleNow ? PHASE_SUGGESTION[cycleNow.phase] : null
@@ -879,9 +967,9 @@ export default function App() {
           })}
 
           {!loggedToday ? (
-            <button onClick={finishWorkout} style={{ width: "100%", marginTop: 8, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[gymColor].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 800 }}>Finish workout ✓</button>
+            <button onClick={finishWorkout} style={{ width: "100%", marginTop: 8, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[gymColor].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 800 }}>Finish workout {"\u2713"}</button>
           ) : (
-            <div className="fade-in" style={{ marginTop: 8, padding: 14, borderRadius: 14, background: THEMES[gymColor].tint, border: `1px solid rgba(${THEMES[gymColor].glow},0.4)`, textAlign: "center", color: THEMES[gymColor].accent, fontSize: 14, fontWeight: 800 }}>Logged for today ✓ — that fully counted</div>
+            <div className="fade-in" style={{ marginTop: 8, padding: 14, borderRadius: 14, background: THEMES[gymColor].tint, border: `1px solid rgba(${THEMES[gymColor].glow},0.4)`, textAlign: "center", color: THEMES[gymColor].accent, fontSize: 14, fontWeight: 800 }}>Logged for today {"\u2713"} {"\u2014"} that fully counted</div>
           )}
 
           <p style={{ fontSize: 10.5, color: BASE.taupe, textAlign: "center", margin: "16px 0 0", lineHeight: 1.5 }}>General fitness guidance, not medical advice. Especially if you're postpartum, healing, or managing a condition - move within your provider's guidance.</p>
@@ -889,7 +977,70 @@ export default function App() {
       )
     }
 
-    if (tab === "trends") {
+    if (tab === "bloom") {
+      const todayISO = new Date().toISOString().slice(0, 10)
+      const reframe = REFRAMES[dayIndex(REFRAMES.length)]
+      const prompt = BLOOM_PROMPTS[dayIndex(BLOOM_PROMPTS.length)]
+      const note = bloomNotes[todayISO] || ""
+      const saveNote = (v) => {
+        const next = { ...bloomNotes, [todayISO]: v }
+        setBloomNotes(next)
+        try { localStorage.setItem("nr_bloom_notes", JSON.stringify(next)) } catch (e) {}
+      }
+      return (
+        <div className="fade-in" style={{ padding: "8px 18px 0" }}>
+          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, margin: "12px 0 4px" }}>Bloom</h2>
+          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 18 }}>The mental glow up {"\u2014"} one gentle shift at a time.</p>
+
+          <div style={{ padding: "24px 20px", borderRadius: 22, background: "linear-gradient(135deg, #D9749B 0%, #B44E7C 100%)", marginBottom: 16, boxShadow: "0 10px 26px rgba(217,116,155,0.35)", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", right: -30, top: -30, width: 140, height: 140, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.85)", position: "relative" }}>Today's reframe</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 600, color: "#FFFFFF", marginTop: 10, lineHeight: 1.3, position: "relative" }}>{reframe}</div>
+          </div>
+
+          <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, marginBottom: 10 }}>Soft resets</div>
+          {RESETS.map((r, i) => (
+            <div key={i} style={{ padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{r.icon} {r.name}</div>
+              <div style={{ fontSize: 12, color: BASE.creamDim, marginTop: 4, lineHeight: 1.55 }}>{r.how}</div>
+            </div>
+          ))}
+
+          <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, margin: "18px 0 8px" }}>Tonight's prompt</div>
+          <div style={{ padding: "14px 15px", borderRadius: 14, background: THEMES.none.tint, border: `1px solid rgba(217,116,155,0.3)`, marginBottom: 10 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 600, color: BASE.terracottaDeep, lineHeight: 1.4 }}>{prompt}</div>
+          </div>
+          <textarea value={note} onChange={(e) => saveNote(e.target.value)} placeholder="Write a line or two… it saves as you type." rows={4} style={{ width: "100%", padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
+          <p style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 8, textAlign: "center" }}>Saved privately on this device.</p>
+        </div>
+      )
+    }
+
+    if (tab === "progress" && progressView === "workouts") {
+      const sorted = [...woLog].sort((a, b) => (a.date < b.date ? 1 : -1))
+      return (
+        <div className="fade-in" style={{ padding: "8px 18px 0" }}>
+          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, margin: "12px 0 6px" }}>Your workouts</h2>
+          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>{woLog.length} logged {"\u00b7"} every one counted.</p>
+          {!sorted.length ? (
+            <div style={{ padding: 24, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.taupe, fontSize: 14, lineHeight: 1.6, textAlign: "center" }}>Finish a workout in the Body tab and it will show up here.</div>
+          ) : (
+            sorted.map((w, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: THEMES[w.color] ? THEMES[w.color].accent : BASE.terracotta }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{(WO_TYPES.find((t) => t.key === w.type) || { label: w.type }).label}</div>
+                  <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 1 }}>{new Date(w.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 800, color: THEMES[w.color] ? THEMES[w.color].accent : BASE.terracotta }}>{THEMES[w.color] ? THEMES[w.color].label.split(" ")[0] : ""}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )
+    }
+
+    if (tab === "progress" && progressView === "trends") {
       return (
         <div style={{ padding: "8px 18px 0" }} className="fade-in">
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 6px" }}>Your capacity over time</h2>
@@ -947,7 +1098,7 @@ export default function App() {
       )
     }
 
-    if (tab === "share") {
+    if (tab === "more" && moreView === "share") {
       const SL = SHARE_LEVELS[shareLevel]
       const ST = THEMES[shareLevel]
       return (
@@ -995,7 +1146,7 @@ export default function App() {
       )
     }
 
-    if (tab === "shop") {
+    if (tab === "more" && moreView === "shop") {
       return (
         <div className="fade-in" style={{ padding: "8px 20px 0" }}>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 6px" }}>The Capacity Method Shop</h2>
@@ -1021,7 +1172,7 @@ export default function App() {
       )
     }
 
-    if (tab === "about") {
+    if (tab === "more" && moreView === "about") {
       return (
         <div className="fade-in" style={{ padding: "8px 20px 0" }}>
           <div style={{ textAlign: "center", margin: "16px 0 32px" }}>
@@ -1036,6 +1187,7 @@ export default function App() {
               <p style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.8 }}>For years I expected the same output from myself regardless of what I was carrying. As a nurse, wife, and mother of two under two, I kept measuring myself against my best days — and shaming myself when I fell short. The Capacity Method began as a way to stop fighting reality and start working with it.</p>
             </div>
           </div>
+          <button onClick={handleLogout} style={{ width: "calc(100% - 40px)", margin: "18px 20px 0", padding: 13, borderRadius: 12, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Log Out</button>
         </div>
       )
     }
@@ -1053,11 +1205,31 @@ export default function App() {
             <div style={{ fontSize: 11, letterSpacing: 4, textTransform: "uppercase", color: BASE.taupe, marginTop: 6 }}>The Capacity Method</div>
           </header>
           <div style={{ display: "flex", gap: 6, padding: "14px 18px 0", flexWrap: "wrap" }}>
-            {["today", "gym", "cycle", "trends", "share", "shop", "about"].map((t) => (
-              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, minWidth: 64, padding: 9, background: tab === t ? T.accent : "transparent", color: tab === t ? "#FFFFFF" : BASE.cream, border: `1px solid ${tab === t ? T.accent : BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{t}</button>
+            {[["today", "Today", "\u2600\ufe0f"], ["body", "Body", "\ud83d\udcaa"], ["bloom", "Bloom", "\ud83c\udf38"], ["progress", "Progress", "\ud83d\udcc8"], ["more", "More", "\ud83e\udd0d"]].map(([k, lbl, ic]) => (
+              <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: "9px 2px", background: tab === k ? T.accent : "transparent", color: tab === k ? "#FFFFFF" : BASE.cream, border: `1px solid ${tab === k ? T.accent : BASE.border}`, borderRadius: 12, cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}><span style={{ fontSize: 15, display: "block", marginBottom: 1 }}>{ic}</span>{lbl}</button>
             ))}
-            <button onClick={handleLogout} style={{ flex: 1, minWidth: 64, padding: 9, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Log Out</button>
           </div>
+          {tab === "body" && (
+            <div style={{ display: "flex", gap: 8, padding: "12px 18px 0" }}>
+              {[["gym", "Gym"], ["cycle", "Cycle"]].map(([k, lbl]) => (
+                <button key={k} onClick={() => setBodyView(k)} style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: bodyView === k ? T.accent : BASE.surface, color: bodyView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${bodyView === k ? T.accent : BASE.border}` }}>{lbl}</button>
+              ))}
+            </div>
+          )}
+          {tab === "progress" && (
+            <div style={{ display: "flex", gap: 8, padding: "12px 18px 0" }}>
+              {[["trends", "Trends"], ["workouts", "Workouts"]].map(([k, lbl]) => (
+                <button key={k} onClick={() => setProgressView(k)} style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: progressView === k ? T.accent : BASE.surface, color: progressView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${progressView === k ? T.accent : BASE.border}` }}>{lbl}</button>
+              ))}
+            </div>
+          )}
+          {tab === "more" && (
+            <div style={{ display: "flex", gap: 8, padding: "12px 18px 0" }}>
+              {[["share", "Share"], ["shop", "Shop"], ["about", "About"]].map(([k, lbl]) => (
+                <button key={k} onClick={() => setMoreView(k)} style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: moreView === k ? T.accent : BASE.surface, color: moreView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${moreView === k ? T.accent : BASE.border}` }}>{lbl}</button>
+              ))}
+            </div>
+          )}
           {renderContent()}
           <div style={{ height: 48 }} />
         </div>
