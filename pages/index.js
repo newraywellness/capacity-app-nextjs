@@ -97,6 +97,46 @@ const HERO_GRAD = {
   green: "linear-gradient(135deg, #93B061 0%, #66883E 100%)",
 }
 const demoLink = (name) => "https://www.youtube.com/results?search_query=" + encodeURIComponent(name + " form how to")
+const PROGRAMS = [
+  { id: "foundations", emoji: "\ud83c\udf31", name: "Strong Foundations", tag: "Build consistency & confidence",
+    desc: "Learn strength training and build lifelong habits. For beginners or anyone returning after time away.",
+    style: "Compound moves, machines, dumbbells, walking", equip: "Home or Gym", weeks: 8,
+    split: ["full", "walk", "legs", "upper", "walk", "glutes", "rest"], grad: "linear-gradient(135deg,#9CC79A,#6E9E6B)" },
+  { id: "strength", emoji: "\ud83d\udcaa", name: "Build Strength", tag: "Get stronger every week",
+    desc: "Increase strength and build muscle with progressive overload. For women with basic lifting experience.",
+    style: "Barbells, machines, dumbbells, heavier lifting", equip: "Gym", weeks: 12,
+    split: ["legs", "upper", "walk", "glutes", "full", "upper", "rest"], grad: "linear-gradient(135deg,#E984B4,#A54E86)" },
+  { id: "mama", emoji: "\ud83e\udd31", name: "Strong Mama Rebuild", tag: "Rebuild gently, respect healing",
+    desc: "Postpartum recovery that reconnects the core and rebuilds strength gradually. Includes pelvic-floor awareness. Never rushed.",
+    style: "Core, gentle strength, walking, mobility", equip: "Home or Gym", weeks: 10,
+    split: ["walk", "full", "walk", "glutes", "walk", "upper", "rest"], grad: "linear-gradient(135deg,#F0B7D4,#C97BA8)" },
+  { id: "move", emoji: "\ud83d\udeb6", name: "Just Move", tag: "Momentum without pressure",
+    desc: "Walking, light resistance, simple sessions. Built for overwhelmed seasons and anyone who struggles with consistency.",
+    style: "Walking + light full-body movement", equip: "Home", weeks: 6,
+    split: ["walk", "full", "walk", "walk", "legs", "walk", "rest"], grad: "linear-gradient(135deg,#7FB3E8,#4E85C2)" },
+  { id: "balanced", emoji: "\u2696\ufe0f", name: "Balanced Strength", tag: "Feel healthy & capable",
+    desc: "A blend of strength, mobility, conditioning, and recovery. For women who want longevity and to feel good, not chase aesthetics.",
+    style: "Strength, mobility, conditioning, recovery", equip: "Home or Gym", weeks: 8,
+    split: ["full", "walk", "upper", "legs", "walk", "glutes", "rest"], grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)" },
+]
+const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
+// Deterministic schedule: days since program start -> week + weekday -> workout type
+const progSchedule = (prog, startISO) => {
+  const start = startISO ? new Date(startISO + "T00:00:00") : new Date()
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const dayNum = Math.max(0, Math.floor((today - start) / 86400000))
+  const week = Math.floor(dayNum / 7) % prog.weeks + 1
+  const weekday = (today.getDay() + 6) % 7
+  const type = prog.split[weekday]
+  return { week, weekday, type, totalWeeks: prog.weeks }
+}
+// Capacity -> today's version (label, minutes, note)
+const CAP_VERSION = {
+  green: { label: "Full session", mins: [40, 55], note: "You have room today \u2014 this is the full workout, at full volume." },
+  yellow: { label: "Shortened", mins: [25, 32], note: "Because today is a Yellow day, we shortened the workout, reduced volume, and removed the finisher." },
+  red: { label: "Movement only", mins: [12, 18], note: "Because today is a Red day, this is a short, gentle movement session. Showing up is the whole win." },
+}
+
 const GLOWUP = [
   { key: "water", icon: "💧", red: "One glass of water", yellow: "Water before coffee", green: "Water before coffee + one refill" },
   { key: "protein", icon: "🍳", red: "One easy protein (yogurt, cheese stick)", yellow: "Protein at breakfast", green: "Protein anchoring every meal" },
@@ -344,12 +384,18 @@ export default function App() {
   const [bloomNotes, setBloomNotes] = useState({})
   const [ctxOpen, setCtxOpen] = useState(false)
   const [editLife, setEditLife] = useState(null)
+  const [programId, setProgramId] = useState(null)
+  const [programStart, setProgramStart] = useState(null)
+  const [trainView, setTrainView] = useState("home")
+  const [whyOpen, setWhyOpen] = useState(false)
   const [lifeMsg, setLifeMsg] = useState("")
 
   useEffect(() => {
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
     try { setGlowLog(JSON.parse(localStorage.getItem("nr_glow_log") || "{}")) } catch (e) {}
     try { setBloomNotes(JSON.parse(localStorage.getItem("nr_bloom_notes") || "{}")) } catch (e) {}
+    try { const pid = localStorage.getItem("nr_program"); if (pid) setProgramId(pid) } catch (e) {}
+    try { const ps = localStorage.getItem("nr_program_start"); if (ps) setProgramStart(ps) } catch (e) {}
     try { const n = localStorage.getItem("nr_name"); if (n) setFirstName(n) } catch (e) {}
     try { const st = localStorage.getItem("nr_setup"); if (st) setSetupData(JSON.parse(st)) } catch (e) {}
   }, [])
@@ -930,7 +976,126 @@ export default function App() {
       )
     }
 
-    if (tab === "body" && bodyView === "gym") {
+    if (tab === "body" && bodyView === "gym" && !programId) {
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Choose your program</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Pick the journey that feels right for this season of your life. From there, New Ray handles the daily decisions — you choose the destination, we choose today's route.</div>
+          {PROGRAMS.map((p) => (
+            <div key={p.id} style={{ borderRadius: 20, overflow: "hidden", marginBottom: 16, boxShadow: "0 8px 22px rgba(120,80,130,0.12)", border: `1px solid ${BASE.border}` }}>
+              <div style={{ background: p.grad, padding: "20px 20px 18px", position: "relative" }}>
+                <div style={{ position: "absolute", right: -24, top: -24, width: 96, height: 96, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
+                <div style={{ fontSize: 30, position: "relative" }}>{p.emoji}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, color: "#fff", marginTop: 6, position: "relative" }}>{p.name}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.92)", fontStyle: "italic", position: "relative" }}>{p.tag}</div>
+              </div>
+              <div style={{ padding: "16px 18px", background: BASE.surface }}>
+                <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 12 }}>{p.desc}</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.cream }}>Style:</b> {p.style}</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.cream }}>Equipment:</b> {p.equip}</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 14 }}><b style={{ color: BASE.cream }}>Length:</b> {p.weeks} weeks</div>
+                <button onClick={() => { const iso = new Date().toISOString().slice(0,10); setProgramId(p.id); setProgramStart(iso); try { localStorage.setItem("nr_program", p.id); localStorage.setItem("nr_program_start", iso) } catch (e) {} }} style={{ width: "100%", padding: 13, borderRadius: 12, border: "none", cursor: "pointer", background: p.grad, color: "#fff", fontSize: 14, fontWeight: 700 }}>Choose {p.name}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    if (tab === "body" && bodyView === "gym" && programId && trainView === "home") {
+      const prog = PROG_BY_ID(programId)
+      const sched = progSchedule(prog, programStart)
+      const recovery = pct < 10
+      const capKey = recovery ? "red" : cur
+      const version = CAP_VERSION[capKey]
+      const woType2 = recovery ? "walk" : sched.type
+      const isRest = woType2 === "rest"
+      const typeLabel = isRest ? "Rest & recover" : (WO_TYPES.find((t) => t.key === woType2) || { label: woType2 }).label
+      const mins = version.mins
+      const heroGrad = recovery ? "linear-gradient(135deg,#8A6FA8,#5E4578)" : HERO_GRAD[cur]
+      const pctThroughWeeks = Math.round((sched.week / prog.weeks) * 100)
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 24, lineHeight: 1.3, marginBottom: 2 }}>Your body needs today's version of you.</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>Let's honor it.</div>
+
+          {recovery ? (
+            <div style={{ borderRadius: 22, padding: "26px 22px", background: heroGrad, color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.3)", marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "rgba(255,255,255,0.85)" }}>TODAY</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, margin: "8px 0 6px" }}>Recovery is today's training.</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.55 }}>Your program will continue when you're ready. Nothing is lost — tomorrow picks up right where you are.</div>
+            </div>
+          ) : isRest ? (
+            <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#B9A0CE,#8A6FA8)", color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.28)", marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "rgba(255,255,255,0.85)" }}>{prog.name.toUpperCase()} · WEEK {sched.week}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, margin: "8px 0 6px" }}>Today is a rest day.</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.55 }}>Rest is part of the program, not a break from it. Come back tomorrow.</div>
+            </div>
+          ) : (
+            <>
+              <div style={{ borderRadius: 22, padding: "24px 22px", background: heroGrad, color: "#fff", boxShadow: `0 14px 32px rgba(${THEMES[cur].glow},0.32)`, position: "relative", overflow: "hidden", marginBottom: 14 }}>
+                <div style={{ position: "absolute", right: -30, top: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.13)" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "rgba(255,255,255,0.85)" }}>{THEMES[cur].label.toUpperCase()} · {pct}%</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "rgba(255,255,255,0.22)", padding: "4px 11px", borderRadius: 999 }}>{version.label}</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "rgba(255,255,255,0.8)", marginTop: 16 }}>TODAY'S VERSION WORKOUT</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 700, margin: "4px 0 2px", position: "relative" }}>{typeLabel}</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", position: "relative" }}>{mins[0]}–{mins[1]} minutes · built for your {pct}% today</div>
+              </div>
+
+              <button onClick={() => { setWoColor(cur); setWoType(woType2); setTrainView("workout") }} style={{ width: "100%", padding: 18, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.4)", marginBottom: 14 }}>Start Workout</button>
+
+              <div onClick={() => setWhyOpen(!whyOpen)} style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 16px", cursor: "pointer", marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>Why today looks different</span>
+                  <span style={{ color: BASE.taupe }}>{whyOpen ? "\u2212" : "+"}</span>
+                </div>
+                {whyOpen && <div className="fade-in" style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.6, marginTop: 10 }}>{version.note} No guilt, no falling behind — tomorrow resumes Week {sched.week}.</div>}
+              </div>
+            </>
+          )}
+
+          <div style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 18px", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 22 }}>{prog.emoji}</span>
+              <div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700 }}>{prog.name}</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe }}>Week {sched.week} of {prog.weeks} · Day {sched.weekday + 1}</div>
+              </div>
+            </div>
+            <div style={{ height: 7, borderRadius: 999, background: BASE.surface2, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${pctThroughWeeks}%`, background: prog.grad, borderRadius: 999 }} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { setWoColor(cur); setWoType(isRest ? "full" : woType2); setTrainView("workout") }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Exercise Library</button>
+            <button onClick={() => { setTab("progress"); setProgressView("workouts") }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>History</button>
+            <button onClick={() => { if (confirm("Change your program? Your progress in the current one is kept, but a new program starts today.")) { setProgramId(null); try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {} } }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Change Program</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (tab === "body" && bodyView === "nourish") {
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#F0B77E,#D98A6A)", color: "#fff", boxShadow: "0 14px 32px rgba(200,130,90,0.3)", marginBottom: 18, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", right: -24, top: -24, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
+            <div style={{ fontSize: 30 }}>\ud83c\udf7d\ufe0f</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, marginTop: 6 }}>Nourish</div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.5, marginTop: 4 }}>Simple, realistic food support that flexes with your capacity — not another diet to fail.</div>
+          </div>
+          <div style={{ textAlign: "center", padding: "30px 20px", borderRadius: 18, background: BASE.surface, border: `1px dashed ${BASE.border}` }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: BASE.cream, marginBottom: 8 }}>Coming next</div>
+            <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6 }}>Capacity-based eating support: what to reach for on a Red day, easy protein, real-life meal patterns — all in your nurse's voice, no calorie counting, ever.</div>
+          </div>
+        </div>
+      )
+    }
+
+    if (tab === "body" && bodyView === "gym" && programId && trainView === "workout") {
       const gymColor = woColor || cur
       const wo = WORKOUTS[woType][gymColor]
       const suggestion = cycleNow ? PHASE_SUGGESTION[cycleNow.phase] : null
@@ -956,7 +1121,8 @@ export default function App() {
       const doneSets = wo.exercises.reduce((a, e, i) => a + Array.from({ length: e.sets }).filter((_, sx) => woDone[setKey(i, sx)]).length, 0)
       return (
         <div style={{ padding: "8px 18px 0" }}>
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, textAlign: "center", margin: "14px 0 2px" }}>Train the body you woke up with</h2>
+          <div onClick={() => setTrainView("home")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 8 }}>{"\u2039 Today's plan"}</div>
+          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, textAlign: "center", margin: "6px 0 2px" }}>{(WO_TYPES.find((t) => t.key === woType) || {label: "Workout"}).label}</h2>
           <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 12, margin: "0 0 14px" }}>{thisWeek.length} workout{thisWeek.length === 1 ? "" : "s"} this week</p>
 
           <div style={{ display: "flex", gap: 5, marginBottom: 16 }}>
@@ -1433,8 +1599,8 @@ export default function App() {
         <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
             <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
-              {[["gym", "Gym"], ["cycle", "Cycle"]].map(([k, lbl]) => (
-                <button key={k} onClick={() => setBodyView(k)} style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: bodyView === k ? T.accent : BASE.surface, color: bodyView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${bodyView === k ? T.accent : BASE.border}` }}>{lbl}</button>
+              {[["gym", "Train", "\ud83d\udcaa"], ["nourish", "Nourish", "\ud83c\udf7d\ufe0f"], ["cycle", "Cycle", "\ud83c\udf19"]].map(([k, lbl, ic]) => (
+                <button key={k} onClick={() => setBodyView(k)} style={{ flex: 1, padding: "10px 4px", borderRadius: 16, cursor: "pointer", fontSize: 12, fontWeight: 700, background: bodyView === k ? T.accent : BASE.surface, color: bodyView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${bodyView === k ? T.accent : BASE.border}` }}><span style={{ fontSize: 16, display: "block", marginBottom: 2 }}>{ic}</span>{lbl}</button>
               ))}
             </div>
           )}
