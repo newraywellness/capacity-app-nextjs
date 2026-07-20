@@ -228,6 +228,63 @@ const WORKOUTS = {
   },
 }
 
+// ---- Atmosphere engine: environment = f(hour, capacity) ----
+const ENV = (hour, color) => {
+  let mode = hour >= 5 && hour < 11 ? "morning" : hour >= 11 && hour < 17 ? "afternoon" : "evening"
+  if (color === "red") mode = "evening"
+  const bright = color === "green"
+  const bgs = {
+    morning: "linear-gradient(180deg,#FFEDD8 0%,#FFE0E4 28%,#F7D8EE 56%,#E6D5F6 100%)",
+    afternoon: "linear-gradient(180deg,#FFE3C4 0%,#FFD9D2 30%,#F5D3E8 62%,#E4D0F2 100%)",
+    evening: "linear-gradient(180deg,#2E2149 0%,#4A2E5E 40%,#6E3F6E 72%,#8A4E70 100%)",
+  }
+  return { mode, bright, bg: bgs[mode], dark: mode === "evening" }
+}
+const SUGGEST = {
+  none: [
+    { icon: "water", text: "A glass of water before your next coffee" },
+    { icon: "food", text: "Something with protein, whenever breakfast happens" },
+    { icon: "heart", text: "One kind thought toward yourself" },
+  ],
+  red: [
+    { icon: "water", text: "A glass of water, slowly" },
+    { icon: "heart", text: "Ten quiet minutes that belong to you" },
+    { icon: "moon", text: "Permission to do less today" },
+  ],
+  yellow: [
+    { icon: "water", text: "A glass of water before your next coffee" },
+    { icon: "food", text: "Something with protein, whenever breakfast happens" },
+    { icon: "heart", text: "One kind thought toward yourself" },
+  ],
+  green: [
+    { icon: "water", text: "A glass of water before your next coffee" },
+    { icon: "food", text: "Something with protein, whenever breakfast happens" },
+    { icon: "move", text: "Movement while the energy is here" },
+    { icon: "heart", text: "One kind thought toward yourself" },
+  ],
+}
+const NEXT_STEP = (color, hour) => {
+  if (color === "red") return { line: "Rest counts as progress today.", sub: "Chosen for a Red day - recovery is the work" }
+  if (color === "green") return hour < 12
+    ? { line: "Your full workout, while the tank is full.", sub: "Chosen for a Green day - energy likes to be used" }
+    : { line: "Something that moves you forward today.", sub: "Chosen for a Green day - you have room to grow" }
+  return hour < 12
+    ? { line: "A ten-minute walk, whenever the day allows.", sub: "Chosen for a Yellow day - steady beats intense" }
+    : { line: "One meaningful thing, then permission to coast.", sub: "Chosen for a Yellow day - protect your energy" }
+}
+const SICON = (k, c) => {
+  if (k === "water") return <svg width="20" height="24" viewBox="0 0 20 24"><path d="M10 2 C 14 8, 17 12, 17 16 A 7 7 0 1 1 3 16 C 3 12, 6 8, 10 2 Z" fill="none" stroke={c} strokeWidth="1.4" /></svg>
+  if (k === "food") return <svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 13 H 19 A 8 8 0 0 1 3 13 Z" fill="none" stroke={c} strokeWidth="1.4" /><path d="M8 9 C 8 7, 9 7, 9 5 M 13 9 C 13 7, 14 7, 14 5" fill="none" stroke={c} strokeWidth="1.2" strokeLinecap="round" /></svg>
+  if (k === "move") return <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="5" r="2.2" fill="none" stroke={c} strokeWidth="1.4" /><path d="M11 7.5 L 11 13 M 11 9 L 6.5 11.5 M 11 9 L 15.5 11 M 11 13 L 7.5 19 M 11 13 L 14.5 19" fill="none" stroke={c} strokeWidth="1.4" strokeLinecap="round" /></svg>
+  if (k === "moon") return <svg width="20" height="20" viewBox="0 0 20 20"><path d="M14 2 A 8.5 8.5 0 1 0 18 12 A 6.8 6.8 0 0 1 14 2 Z" fill="none" stroke={c} strokeWidth="1.4" /></svg>
+  return <svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 17 C 4 12, 2 9, 2 6.5 A 3.6 3.6 0 0 1 10 5 A 3.6 3.6 0 0 1 18 6.5 C 18 9, 16 12, 10 17 Z" fill="none" stroke={c} strokeWidth="1.4" /></svg>
+}
+const SEASONS = ["Busy professional", "Mom", "Postpartum", "Student", "Caregiver", "Other"]
+const HOPES = ["More energy", "Lose weight", "Build strength", "Feel calmer", "Create routines", "Reduce overwhelm"]
+const LEVELS = ["Beginner", "Intermediate", "Advanced"]
+const EQUIP = ["Home", "Gym", "Both"]
+const CYCLEPREF = ["Yes", "No", "Later"]
+
 const ShopItems = [
   { name: "Respectfully, No", price: "$54", blurb: "For the art of the boundary.", url: "https://new-ray-wellness.myshopify.com/products/hoodie-respectfully-no-floral-graphic-pullover" },
   { name: "Out of Office: Nervous System Maintenance", price: "$58", blurb: "A Red Day, worn proudly.", url: "https://new-ray-wellness.myshopify.com/products/minimalist-hoodie-subtle-embossed-text-crew-pullover" },
@@ -258,6 +315,12 @@ export default function App() {
   const [tmpStart, setTmpStart] = useState("")
   // auth UX: guest preview, password recovery, status messages
   const [guest, setGuest] = useState(false)
+  const [authView, setAuthView] = useState("welcome")
+  const [firstName, setFirstName] = useState("")
+  const [confirmPw, setConfirmPw] = useState("")
+  const [setupData, setSetupData] = useState(null)
+  const [setupStep, setSetupStep] = useState(0)
+  const [draftSetup, setDraftSetup] = useState({ season: "", hopes: [], level: "", equip: "", cyclePref: "" })
   const [recovery, setRecovery] = useState(false)
   const [authMsg, setAuthMsg] = useState("")
   const [newPass, setNewPass] = useState("")
@@ -276,14 +339,17 @@ export default function App() {
   const [woLogged, setWoLogged] = useState(false)
   const [bodyView, setBodyView] = useState("gym")
   const [progressView, setProgressView] = useState("trends")
-  const [moreView, setMoreView] = useState("share")
+  const [moreView, setMoreView] = useState("menu")
   const [glowLog, setGlowLog] = useState({})
   const [bloomNotes, setBloomNotes] = useState({})
+  const [ctxOpen, setCtxOpen] = useState(false)
 
   useEffect(() => {
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
     try { setGlowLog(JSON.parse(localStorage.getItem("nr_glow_log") || "{}")) } catch (e) {}
     try { setBloomNotes(JSON.parse(localStorage.getItem("nr_bloom_notes") || "{}")) } catch (e) {}
+    try { const n = localStorage.getItem("nr_name"); if (n) setFirstName(n) } catch (e) {}
+    try { const st = localStorage.getItem("nr_setup"); if (st) setSetupData(JSON.parse(st)) } catch (e) {}
   }, [])
 
   useEffect(() => { checkAuth() }, [])
@@ -463,6 +529,10 @@ export default function App() {
       input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
       @keyframes breathe { 0%,100% { opacity: .9; } 50% { opacity: 1; } }
+      @keyframes drift { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-16px,-12px) rotate(-5deg); } 100% { transform: translate(0,0) rotate(0deg); } }
+      @keyframes flicker { 0%,100% { opacity: .35; } 50% { opacity: .95; } }
+      @keyframes mistfloat { 0%,100% { transform: translateX(0); } 50% { transform: translateX(18px); } }
+      @keyframes twinkle { 0%,100% { opacity: .4; } 50% { opacity: .9; } }
       .fade-in { animation: fadeIn 0.5s ease both; }
       .glow-breathe { animation: breathe 6s ease-in-out infinite; }
     `}</style>
@@ -495,22 +565,51 @@ export default function App() {
   }
 
   if (!user && !guest) {
+    const envA = ENV(new Date().getHours(), null)
     return (
       <><Fonts /><GlobalStyle />
-        <div style={{ background: BASE.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-          <div style={{ textAlign: "center", marginBottom: 14 }}>
-            <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 52, color: BASE.cream, marginBottom: 8 }}>New Ray</div>
-            <div style={{ fontSize: 11, letterSpacing: 4, textTransform: "uppercase", color: BASE.taupe }}>The Capacity Method</div>
-          </div>
-          <input type="email" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setAuthMsg("") }} style={{ width: "100%", padding: 14, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, borderRadius: 8, fontSize: 14, marginBottom: 12 }} />
-          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: "100%", padding: 14, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, borderRadius: 8, fontSize: 14, marginBottom: 8 }} />
-          <div onClick={handleForgot} style={{ fontSize: 12, color: BASE.taupe, textAlign: "right", marginBottom: 18, cursor: "pointer" }}>Forgot password?</div>
-          {authMsg && <div style={{ fontSize: 13, color: BASE.creamDim, textAlign: "center", marginBottom: 14, lineHeight: 1.5 }}>{authMsg}</div>}
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <button onClick={handleLogin} style={{ flex: 1, padding: 16, background: BASE.terracotta, color: "#FFFFFF", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Log In</button>
-            <button onClick={handleSignUp} style={{ flex: 1, padding: 16, background: BASE.terracotta, color: "#FFFFFF", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Sign Up</button>
-          </div>
-          <button onClick={() => { setGuest(true); setAuthMsg("") }} style={{ width: "100%", padding: 14, background: "transparent", color: BASE.cream, border: `1px solid ${BASE.border}`, borderRadius: 12, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Try it first — no account needed</button>
+        <div style={{ background: envA.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 70, left: "50%", marginLeft: -55, width: 110, height: 110, borderRadius: "50%", background: envA.dark ? "radial-gradient(circle,#F5E6C4 30%,rgba(245,230,196,0.35) 60%,rgba(245,230,196,0) 78%)" : "radial-gradient(circle,#FFE7B8 28%,rgba(255,220,155,0.5) 58%,rgba(255,220,155,0) 76%)" }} />
+          {envA.dark && <><span style={{ position: "absolute", top: 46, left: 60, color: "#E8B84B", opacity: 0.7, fontSize: 11, animation: "twinkle 3.5s ease-in-out infinite" }}>{"\u2726"}</span><span style={{ position: "absolute", top: 110, right: 52, color: "#E8B84B", opacity: 0.6, fontSize: 9, animation: "twinkle 4.5s ease-in-out infinite" }}>{"\u2726"}</span></>}
+          {authView === "welcome" && (
+            <div className="fade-in" style={{ textAlign: "center", position: "relative" }}>
+              <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 54, color: envA.dark ? "#FFF6EC" : "#4A2F45", marginBottom: 2 }}>New Ray</div>
+              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, color: envA.dark ? "#FFF6EC" : "#3D2545", margin: "18px 0 8px", lineHeight: 1.25 }}>A wellness app that adapts to your real life.</h1>
+              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: envA.dark ? "rgba(255,246,236,0.8)" : "#8E6C88", marginBottom: 34 }}>Less thinking. More living.</p>
+              <button onClick={() => { setAuthView("signup"); setAuthMsg("") }} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 15, boxShadow: "0 10px 26px rgba(168,123,209,0.4)" }}>Get Started</button>
+              <button onClick={() => { setAuthView("login"); setAuthMsg("") }} style={{ width: "100%", marginTop: 12, padding: 14, background: envA.dark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.6)", color: envA.dark ? "#FFF6EC" : "#4A2F45", border: `1px solid ${envA.dark ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.9)"}`, borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Already have an account? Log In</button>
+              <div onClick={() => { setGuest(true); setAuthMsg("") }} style={{ marginTop: 22, fontSize: 13, fontWeight: 600, color: envA.dark ? "#F0C879" : "#C9558E", cursor: "pointer" }}>Try a Preview {"\u2192"}</div>
+            </div>
+          )}
+          {authView === "login" && (
+            <div className="fade-in" style={{ position: "relative" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 600, color: envA.dark ? "#FFF6EC" : "#3D2545", marginBottom: 18, textAlign: "center" }}>Welcome back</div>
+              <input type="email" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setAuthMsg("") }} style={{ width: "100%", padding: 14, background: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.9)", color: "#3D2545", borderRadius: 12, fontSize: 14, marginBottom: 12 }} />
+              <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: "100%", padding: 14, background: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.9)", color: "#3D2545", borderRadius: 12, fontSize: 14, marginBottom: 8 }} />
+              <div onClick={handleForgot} style={{ fontSize: 12, color: envA.dark ? "rgba(255,246,236,0.7)" : "#8E6C88", textAlign: "right", marginBottom: 16, cursor: "pointer" }}>Forgot password?</div>
+              {authMsg && <div style={{ fontSize: 13, color: envA.dark ? "#FFD9A0" : "#8E4A70", textAlign: "center", marginBottom: 14, lineHeight: 1.5 }}>{authMsg}</div>}
+              <button onClick={handleLogin} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Log In</button>
+              <div onClick={() => { setAuthView("welcome"); setAuthMsg("") }} style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: envA.dark ? "rgba(255,246,236,0.7)" : "#8E6C88", cursor: "pointer" }}>{"\u2190"} Back</div>
+            </div>
+          )}
+          {authView === "signup" && (
+            <div className="fade-in" style={{ position: "relative" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 600, color: envA.dark ? "#FFF6EC" : "#3D2545", marginBottom: 18, textAlign: "center" }}>Create your account</div>
+              <input type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={{ width: "100%", padding: 14, background: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.9)", color: "#3D2545", borderRadius: 12, fontSize: 14, marginBottom: 12 }} />
+              <input type="email" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setAuthMsg("") }} style={{ width: "100%", padding: 14, background: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.9)", color: "#3D2545", borderRadius: 12, fontSize: 14, marginBottom: 12 }} />
+              <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: "100%", padding: 14, background: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.9)", color: "#3D2545", borderRadius: 12, fontSize: 14, marginBottom: 12 }} />
+              <input type="password" placeholder="Confirm password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} style={{ width: "100%", padding: 14, background: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.9)", color: "#3D2545", borderRadius: 12, fontSize: 14, marginBottom: 14 }} />
+              {authMsg && <div style={{ fontSize: 13, color: envA.dark ? "#FFD9A0" : "#8E4A70", textAlign: "center", marginBottom: 12, lineHeight: 1.5 }}>{authMsg}</div>}
+              <button onClick={() => {
+                if (!firstName.trim()) { setAuthMsg("What should we call you? Add your first name."); return }
+                if (password !== confirmPw) { setAuthMsg("Those passwords do not match yet."); return }
+                try { localStorage.setItem("nr_name", firstName.trim()) } catch (e) {}
+                handleSignUp()
+              }} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 15 }}>Create Account</button>
+              <button onClick={async () => { try { const { error } = await db.auth.signInWithOAuth({ provider: "google" }); if (error) setAuthMsg("Google sign-in is not configured yet.") } catch (e) { setAuthMsg("Google sign-in is not configured yet.") } }} style={{ width: "100%", marginTop: 10, padding: 14, background: "rgba(255,255,255,0.85)", color: "#3D2545", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Continue with Google</button>
+              <div onClick={() => { setAuthView("welcome"); setAuthMsg("") }} style={{ marginTop: 16, textAlign: "center", fontSize: 13, color: envA.dark ? "rgba(255,246,236,0.7)" : "#8E6C88", cursor: "pointer" }}>{"\u2190"} Back</div>
+            </div>
+          )}
         </div>
       </>
     )
@@ -545,10 +644,60 @@ export default function App() {
     )
   }
 
+  if (user && !setupData) {
+    const envS = ENV(new Date().getHours(), null)
+    const steps = [
+      { key: "season", q: "What season are you in?", opts: SEASONS, multi: false },
+      { key: "hopes", q: "What are you hoping New Ray helps with most?", opts: HOPES, multi: true },
+      { key: "level", q: "Your movement experience?", opts: LEVELS, multi: false },
+      { key: "equip", q: "Where will you move?", opts: EQUIP, multi: false },
+      { key: "cyclePref", q: "Would you like cycle tracking?", opts: CYCLEPREF, multi: false },
+    ]
+    const st = steps[setupStep]
+    const val = draftSetup[st.key]
+    const pick = (o) => {
+      if (st.multi) {
+        const arr = val.includes(o) ? val.filter((x) => x !== o) : [...val, o]
+        setDraftSetup({ ...draftSetup, [st.key]: arr })
+      } else setDraftSetup({ ...draftSetup, [st.key]: o })
+    }
+    const canNext = st.multi ? val.length > 0 : !!val
+    const finish = () => {
+      const data = { ...draftSetup, name: firstName }
+      setSetupData(data)
+      try { localStorage.setItem("nr_setup", JSON.stringify(data)) } catch (e) {}
+      try { db.from("profiles").update({ setup: data, first_name: firstName }).eq("id", user.id).then(() => {}) } catch (e) {}
+    }
+    return (
+      <><Fonts /><GlobalStyle />
+        <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 26px" }}>
+          <div className="fade-in" key={setupStep}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "#C9558E", marginBottom: 8 }}>TELL US ABOUT YOU {"\u00b7"} {setupStep + 1} OF {steps.length}</div>
+            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, color: envS.dark ? "#FFF6EC" : "#3D2545", marginBottom: 20, lineHeight: 1.25 }}>{st.q}</h2>
+            {st.opts.map((o) => {
+              const on = st.multi ? val.includes(o) : val === o
+              return (
+                <div key={o} onClick={() => pick(o)} style={{ padding: "15px 17px", borderRadius: 14, marginBottom: 9, cursor: "pointer", background: on ? "linear-gradient(135deg,rgba(233,132,180,0.9),rgba(168,123,209,0.9))" : "rgba(255,255,255,0.75)", color: on ? "#FFFFFF" : "#4A3050", border: `1px solid ${on ? "transparent" : "rgba(255,255,255,0.9)"}`, fontSize: 14.5, fontWeight: 600 }}>{o}</div>
+              )
+            })}
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              {setupStep > 0 && <button onClick={() => setSetupStep(setupStep - 1)} style={{ flex: 1, padding: 14, background: "rgba(255,255,255,0.6)", color: "#4A3050", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Back</button>}
+              {setupStep < steps.length - 1
+                ? <button disabled={!canNext} onClick={() => setSetupStep(setupStep + 1)} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>Continue</button>
+                : <button disabled={!canNext} onClick={finish} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>Done {"\u2192"}</button>}
+            </div>
+            <div onClick={finish} style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: envS.dark ? "rgba(255,246,236,0.6)" : "#8E6C88", cursor: "pointer" }}>Skip for now</div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   const themeKey = checkedIn ? colorFromPct(pct) : "none"
   const T = THEMES[themeKey]
   const cur = colorFromPct(pct)
   const dateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+  const envRoot = ENV(new Date().getHours(), checkedIn ? cur : null)
   const cycleNow = computeCycle(cycleLength, lastPeriod)
 
   const Label = ({ children }) => (
@@ -690,160 +839,81 @@ export default function App() {
 
   const renderContent = () => {
     if (tab === "today") {
+      const hour = new Date().getHours()
+      const env = ENV(hour, checkedIn ? cur : null)
+      const ink = env.dark ? "#F5E9F2" : "#3D2545"
+      const mut = env.dark ? "rgba(240,220,240,0.75)" : "#A97FA0"
+      const cardBg = env.dark ? "rgba(56,40,84,0.6)" : "rgba(255,255,255,0.62)"
+      const cardBd = env.dark ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.85)"
+      const nm = (setupData && setupData.name) || ""
+      const greetWord = env.mode === "morning" ? "Good morning" : env.mode === "afternoon" ? "Good afternoon" : "Good evening"
+      const step = NEXT_STEP(cur, hour)
+      const suggs = SUGGEST[checkedIn ? cur : "none"]
       return (
-        <div style={{ padding: "8px 18px 0" }}>
-          <p style={{ textAlign: "center", color: BASE.creamDim, fontSize: 14, margin: "4px 0 2px" }}>Good morning</p>
-          <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 12 }}>{dateStr}</p>
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 24, textAlign: "center", margin: "26px 0 4px" }}>How's your capacity today?</h2>
-          <div style={{ display: "flex", justifyContent: "center", margin: "14px 0 8px" }}>
-            <svg width="170" height="170" viewBox="0 0 170 170">
-              <circle cx="85" cy="85" r="70" fill="none" stroke={BASE.surface2} strokeWidth="13" />
-              <circle cx="85" cy="85" r="70" fill="none" stroke={THEMES[cur].accent} strokeWidth="13" strokeLinecap="round" strokeDasharray={`${(pct / 100) * 439.8} 439.8`} transform="rotate(-90 85 85)" style={{ transition: "stroke-dasharray 0.25s ease, stroke 0.25s ease" }} />
-              <text x="85" y="82" textAnchor="middle" fill={THEMES[cur].accent} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 700 }}>{pct}%</text>
-              <text x="85" y="106" textAnchor="middle" fill={BASE.taupe} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>{THEMES[cur].label}</text>
-            </svg>
-          </div>
-          <input type="range" min="0" max="100" step="5" value={pct} onChange={(e) => setPct(+e.target.value)} style={{ width: "100%", margin: "8px 0 20px", background: `linear-gradient(90deg, ${THEMES[cur].accent} ${pct}%, ${BASE.surface2} ${pct}%)` }} />
-          <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
-            {["red", "yellow", "green"].map((k) => {
-              const active = cur === k
-              return (
-                <div key={k} onClick={() => setPct(k === "red" ? 25 : k === "yellow" ? 55 : 85)} style={{ flex: 1, cursor: "pointer", textAlign: "center", padding: "16px 6px", borderRadius: 16, background: active ? THEMES[k].tint : BASE.surface, border: `1.5px solid ${active ? THEMES[k].accent : BASE.border}` }}>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 600, color: THEMES[k].accent }}>{THEMES[k].label.split(" ")[0]}</div>
-                  <div style={{ fontSize: 10, color: BASE.taupe, marginTop: 2 }}>{THEMES[k].range}</div>
+        <div style={{ padding: "10px 20px 0", position: "relative" }}>
+          <div className="fade-in" style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 28, color: ink }}>{greetWord}{nm ? ", " + nm : ""}</div>
+          <div style={{ fontSize: 10, letterSpacing: 2.8, color: mut, textTransform: "uppercase", marginTop: 5 }}>{dateStr}</div>
+
+          <div style={{ marginTop: env.mode === "morning" ? 96 : 34, borderRadius: 22, background: cardBg, border: `1px solid ${cardBd}`, padding: "24px 22px", boxShadow: env.dark ? "0 18px 40px rgba(0,0,0,0.35)" : "0 18px 40px rgba(120,80,130,0.16)", position: "relative" }}>
+            {!checkedIn ? (
+              <>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 3, color: env.dark ? "#F0C879" : "#C9558E" }}>BEFORE ANYTHING ELSE</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: ink, margin: "10px 0 30px", lineHeight: 1.25 }}>How much do you have today?</div>
+                <div style={{ position: "relative" }}>
+                  <div style={{ position: "absolute", left: `${pct}%`, top: -26, transform: "translateX(-50%)", fontSize: 11, fontWeight: 700, color: env.dark ? "#2E2149" : "#C9558E", background: env.dark ? "#F0C879" : "rgba(255,255,255,0.95)", border: env.dark ? "none" : "1px solid rgba(201,85,142,0.3)", borderRadius: 999, padding: "2px 9px", transition: "left 0.1s ease" }}>{pct}%</div>
+                  <input type="range" min="0" max="100" step="5" value={pct} onChange={(e) => setPct(+e.target.value)} style={{ width: "100%", background: `linear-gradient(90deg,#E08A8A 0%,#F0C879 50%,#9CC79A 100%)` }} />
                 </div>
-              )
-            })}
-          </div>
-          <Label>What's affecting you?</Label>
-          <Chips items={FACTORS} selected={factors} onToggle={(v) => toggle(factors, setFactors, v)} />
-          <div style={{ height: 20 }} />
-          <Label>What would support you most?</Label>
-          <Chips items={SUPPORTS} selected={supports} onToggle={(v) => toggle(supports, setSupports, v)} />
-          <div style={{ height: 20 }} />
-          <Label>Today's one thing</Label>
-          <input type="text" value={oneThing} onChange={(e) => setOneThing(e.target.value)} placeholder="The single thing that would make today a success…" style={{ width: "100%", padding: "13px 15px", borderRadius: 12, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14, outline: "none" }} />
-          {saveErr && <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: "rgba(220,111,94,0.12)", border: "1px solid rgba(220,111,94,0.4)", color: "#DC6F5E", fontSize: 13, textAlign: "center" }}>Couldn't save: {saveErr}</div>}
-          {!checkedIn ? (
-            <button onClick={saveCheckin} disabled={saving} style={{ width: "100%", marginTop: 24, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[cur].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Set my capacity for today"}</button>
-          ) : (
-            <>
-              <div className="fade-in" style={{ marginTop: 24, padding: 13, borderRadius: 12, background: THEMES[cur].tint, border: `1px solid rgba(${THEMES[cur].glow},0.4)`, textAlign: "center", color: THEMES[cur].accent, fontSize: 14, fontWeight: 700 }}>Saved ✓&nbsp;&nbsp;Your capacity is set for today</div>
-              <Protocol />
-            </>
-          )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: mut, fontStyle: "italic", fontFamily: "'Cormorant Garamond', serif", marginTop: 6 }}><span>running on empty</span><span>full of energy</span></div>
+                <div style={{ fontSize: 11, color: mut, marginTop: 16, lineHeight: 1.55 }}>There is no wrong answer. The whole day shapes itself around this.</div>
 
-          {(() => {
-            const todayISO = new Date().toISOString().slice(0, 10)
-            const todayGlow = glowLog[todayISO] || {}
-            const doneCount = GLOWUP.filter((g) => todayGlow[g.key]).length
-            const threshold = GLOW_THRESHOLD[cur]
-            const counted = doneCount >= threshold
-            const streak = (() => {
-              let n = 0; const d = new Date()
-              for (;;) {
-                const iso = d.toISOString().slice(0, 10)
-                const day = glowLog[iso] || {}
-                const c = GLOWUP.filter((g) => day[g.key]).length
-                if (c >= 1) { n++; d.setDate(d.getDate() - 1) } else break
-                if (n > 400) break
-              }
-              return n
-            })()
-            const toggleGlow = (key) => {
-              const next = { ...glowLog, [todayISO]: { ...todayGlow, [key]: !todayGlow[key] } }
-              setGlowLog(next)
-              try { localStorage.setItem("nr_glow_log", JSON.stringify(next)) } catch (e) {}
-            }
-            return (
-              <div style={{ marginTop: 26 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700 }}>Glow Up Central</h3>
-                  {streak > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: BASE.terracotta }}>{streak} day{streak === 1 ? "" : "s"} {"\ud83d\udd25"}</span>}
-                </div>
-                <p style={{ fontSize: 12, color: BASE.taupe, marginBottom: 12 }}>Today's version, sized to a {THEMES[cur].label}. {threshold} of these = today counted.</p>
-                {GLOWUP.map((g) => {
-                  const done = !!todayGlow[g.key]
-                  return (
-                    <div key={g.key} onClick={() => toggleGlow(g.key)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", borderRadius: 14, marginBottom: 8, cursor: "pointer", background: done ? THEMES[cur].tint : BASE.surface, border: `1.5px solid ${done ? THEMES[cur].accent : BASE.border}`, transition: "all 0.15s ease" }}>
-                      <span style={{ fontSize: 20 }}>{g.icon}</span>
-                      <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: done ? THEMES[cur].accent : BASE.cream, textDecoration: done ? "line-through" : "none", opacity: done ? 0.85 : 1 }}>{g[cur]}</span>
-                      <span style={{ width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, background: done ? THEMES[cur].accent : "transparent", color: done ? "#FFFFFF" : BASE.taupe, border: `1.5px solid ${done ? THEMES[cur].accent : BASE.border}` }}>{done ? "\u2713" : ""}</span>
-                    </div>
-                  )
-                })}
-                {counted && <div className="fade-in" style={{ padding: 13, borderRadius: 14, background: THEMES[cur].tint, border: `1px solid rgba(${THEMES[cur].glow},0.4)`, textAlign: "center", color: THEMES[cur].accent, fontSize: 13.5, fontWeight: 800 }}>Today counted {"\ud83e\udd0d"} You showed up for yourself.</div>}
-              </div>
-            )
-          })()}
-        </div>
-      )
-    }
-
-    if (tab === "body" && bodyView === "cycle") {
-      const needSetup = !cycleLength || !lastPeriod
-      const todayPct = checkedIn ? pct : (history.length ? history[history.length - 1].pct : null)
-      const P = cycleNow ? PHASES[cycleNow.phase] : null
-      return (
-        <div className="fade-in" style={{ padding: "8px 18px 0" }}>
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 4px" }}>Cycle & Capacity</h2>
-          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>Your energy, in the context of your cycle.</p>
-
-          {(needSetup || editCycle) ? (
-            <div style={{ padding: 20, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}` }}>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{needSetup ? "Set up your cycle" : "Update your cycle info"}</div>
-              <p style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 18 }}>Two quick things and the app can start showing your capacity by phase.</p>
-              <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 6 }}>Your typical cycle length (days)</div>
-              <input type="number" min="20" max="45" value={tmpLen} onChange={(e) => setTmpLen(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, marginBottom: 16, outline: "none" }} />
-              <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 6 }}>First day of your last period</div>
-              <input type="date" value={tmpStart} onChange={(e) => setTmpStart(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, marginBottom: 20, outline: "none" }} />
-              <button onClick={saveCycle} disabled={!tmpStart} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", cursor: tmpStart ? "pointer" : "not-allowed", background: BASE.terracotta, color: "#FFFFFF", fontSize: 15, fontWeight: 700, opacity: tmpStart ? 1 : 0.5 }}>Save</button>
-              <p style={{ fontSize: 11, color: BASE.taupe, lineHeight: 1.5, marginTop: 14, textAlign: "center" }}>This is an estimate based on what you enter — not medical or contraceptive guidance.</p>
-            </div>
-          ) : (
-            <>
-              <div style={{ padding: 22, borderRadius: 18, background: `rgba(${P.accent === "#94AC6E" ? "148,172,110" : "208,133,96"},0.08)`, border: `1px solid ${P.accent}55`, textAlign: "center", marginBottom: 14 }}>
-                <div style={{ fontSize: 40 }}>{P.emoji}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 600, color: P.accent, marginTop: 4 }}>{P.name}</div>
-                <div style={{ fontSize: 12, color: BASE.taupe, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Cycle Day {cycleNow.day}</div>
-                {todayPct != null && (
-                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: `0.5px solid ${BASE.border}` }}>
-                    <div style={{ fontSize: 11, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1 }}>Today's Capacity</div>
-                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 600, color: THEMES[colorFromPct(todayPct)].accent, marginTop: 2 }}>{todayPct}%</div>
+                <div onClick={() => setCtxOpen(!ctxOpen)} style={{ marginTop: 18, fontSize: 12, fontWeight: 700, color: env.dark ? "#F0C879" : "#C9558E", cursor: "pointer" }}>{ctxOpen ? "\u2212 Hide context" : "+ Add a little context (optional)"}</div>
+                {ctxOpen && (
+                  <div className="fade-in" style={{ marginTop: 14 }}>
+                    <Label>What's affecting you?</Label>
+                    <Chips items={FACTORS} selected={factors} onToggle={(v) => toggle(factors, setFactors, v)} />
+                    <div style={{ height: 14 }} />
+                    <Label>What would support you most?</Label>
+                    <Chips items={SUPPORTS} selected={supports} onToggle={(v) => toggle(supports, setSupports, v)} />
+                    <div style={{ height: 14 }} />
+                    <Label>Today's one thing</Label>
+                    <input type="text" value={oneThing} onChange={(e) => setOneThing(e.target.value)} placeholder="The single thing that would make today a success\u2026" style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: env.dark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.8)", border: `1px solid ${cardBd}`, color: ink, fontSize: 13.5, outline: "none" }} />
                   </div>
                 )}
-              </div>
-
-              <div style={{ padding: 18, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 14 }}>
-                <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: P.accent, fontWeight: 700, marginBottom: 10 }}>This isn't you</div>
-                <p style={{ fontSize: 15, color: BASE.cream, lineHeight: 1.65 }}>{P.thisIsntYou}</p>
-              </div>
-
-              <div style={{ padding: 18, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 14 }}>
-                <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, fontWeight: 700, marginBottom: 10 }}>Looking ahead</div>
-                <p style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.65 }}>{P.lookingAhead}</p>
-              </div>
-
-              {phaseAverages && (
-                <div style={{ padding: 18, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Your capacity by phase</div>
-                  <p style={{ fontSize: 12, color: BASE.taupe, marginBottom: 14 }}>From the check-ins you've logged so far.</p>
-                  {PHASE_ORDER.map((p) => (
-                    <div key={p} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                      <div style={{ width: 96, fontSize: 13, color: BASE.creamDim }}>{PHASES[p].emoji} {PHASES[p].name}</div>
-                      <div style={{ flex: 1, height: 10, borderRadius: 999, background: BASE.surface2, overflow: "hidden" }}>
-                        <div style={{ width: `${phaseAverages[p] || 0}%`, height: "100%", background: PHASES[p].accent, borderRadius: 999 }} />
-                      </div>
-                      <div style={{ width: 40, textAlign: "right", fontSize: 13, color: phaseAverages[p] != null ? PHASES[p].accent : BASE.taupe, fontWeight: 600 }}>{phaseAverages[p] != null ? phaseAverages[p] + "%" : "—"}</div>
-                    </div>
-                  ))}
-                  <p style={{ fontSize: 11, color: BASE.taupe, lineHeight: 1.5, marginTop: 6 }}>The more you check in across a full cycle, the clearer this gets.</p>
+                <button onClick={saveCheckin} disabled={saving} style={{ width: "100%", marginTop: 20, padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", fontSize: 14.5, fontWeight: 700, opacity: saving ? 0.6 : 1, boxShadow: "0 8px 22px rgba(168,123,209,0.35)" }}>{saving ? "Setting your day\u2026" : "Set my day"}</button>
+              </>
+            ) : (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 3, color: env.dark ? "#F0C879" : "#C9558E" }}>TODAY IS SET</div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, color: ink, marginTop: 6 }}>{pct}% \u00b7 {THEMES[cur].label}</div>
+                    <div style={{ fontSize: 11, color: mut, marginTop: 3 }}>Nothing else to figure out.</div>
+                  </div>
+                  <div onClick={() => setCheckedIn(false)} style={{ fontSize: 11, fontWeight: 700, color: mut, cursor: "pointer", textDecoration: "underline" }}>adjust</div>
                 </div>
-              )}
+              </>
+            )}
+          </div>
 
-              <button onClick={() => { setTmpLen(cycleLength); setTmpStart(lastPeriod); setEditCycle(true) }} style={{ width: "100%", padding: 12, borderRadius: 12, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Update cycle info</button>
-            </>
+          {checkedIn && (
+            <div className="fade-in" style={{ marginTop: 16, borderRadius: 22, padding: "22px 20px", background: "linear-gradient(135deg,#E984B4 0%,#A87BD1 100%)", boxShadow: "0 14px 32px rgba(168,123,209,0.35)", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", right: -34, top: -34, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.13)" }} />
+              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 3, color: "rgba(255,255,255,0.85)" }}>ONE MEANINGFUL NEXT STEP</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 23, color: "#fff", lineHeight: 1.3, margin: "10px 0 6px", position: "relative" }}>{step.line}</div>
+              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.9)", position: "relative" }}>{step.sub}</div>
+              <div style={{ marginTop: 14, display: "inline-block", padding: "8px 15px", borderRadius: 999, background: "rgba(255,255,255,0.22)", color: "#fff", fontSize: 11, fontWeight: 600 }}>No rush \u2014 whenever it happens.</div>
+            </div>
           )}
+
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 19, color: ink, margin: "30px 0 12px" }}>Today might feel better with\u2026</div>
+          {suggs.map((g, i) => (
+            <div key={i} className="fade-in" style={{ borderRadius: 16, background: cardBg, border: `1px solid ${cardBd}`, padding: "16px 17px", marginBottom: 10, display: "flex", alignItems: "center", boxShadow: env.dark ? "0 6px 18px rgba(0,0,0,0.25)" : "0 6px 18px rgba(120,80,130,0.08)" }}>
+              <div style={{ width: 36, marginRight: 10, textAlign: "center" }}>{SICON(g.icon, env.dark ? "#F0C879" : "#C9558E")}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15.5, color: ink, lineHeight: 1.45 }}>{g.text}</div>
+            </div>
+          ))}
+
+          <div style={{ textAlign: "center", fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: mut, margin: "28px 0 0" }}>New Ray changes with you \u2014 morning to evening, full to empty.</div>
         </div>
       )
     }
@@ -1098,6 +1168,85 @@ export default function App() {
       )
     }
 
+    if (tab === "more" && moreView === "menu") {
+      const nm = (setupData && setupData.name) || "friend"
+      const season = (setupData && setupData.season) || "Your season"
+      const Row = ({ label, onClick, chevron = true }) => (
+        <div onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 16px", cursor: "pointer", borderBottom: `1px solid ${BASE.border}` }}>
+          <span style={{ fontSize: 14, color: BASE.cream, fontWeight: 500 }}>{label}</span>
+          {chevron && <span style={{ color: BASE.taupe, fontSize: 16 }}>{"\u203a"}</span>}
+        </div>
+      )
+      const Group = ({ title, children }) => (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, margin: "0 4px 8px" }}>{title}</div>
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, overflow: "hidden" }}>{children}</div>
+        </div>
+      )
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("mylife")} style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, borderRadius: 20, background: "linear-gradient(135deg,#E984B4,#A87BD1)", cursor: "pointer", marginBottom: 22, boxShadow: "0 10px 26px rgba(168,123,209,0.3)" }}>
+            <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: "#fff" }}>{nm[0] ? nm[0].toUpperCase() : "\ud83c\udf38"}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.85)", textTransform: "uppercase" }}>{"\ud83c\udf38"} My Life</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: "#fff", marginTop: 2 }}>{nm}</div>
+              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.9)" }}>{season}</div>
+            </div>
+            <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 20 }}>{"\u203a"}</span>
+          </div>
+
+          <Group title="Wellness">
+            <Row label="Capacity reminders" onClick={() => setMoreView("mylife")} />
+            <Row label="Workout reminders" onClick={() => setMoreView("mylife")} />
+            <Row label="Cycle settings" onClick={() => { setTab("body"); setBodyView("cycle") }} />
+          </Group>
+          <Group title="New Ray">
+            <Row label="Share with a partner" onClick={() => setMoreView("share")} />
+            <Row label="Shop" onClick={() => setMoreView("shop")} />
+            <Row label="The Capacity Method" onClick={() => setMoreView("about")} />
+          </Group>
+          <Group title="Preferences">
+            <Row label="Morning greeting" onClick={() => setMoreView("mylife")} />
+            <Row label="Motion & sound" onClick={() => setMoreView("mylife")} />
+            <Row label="Theme" onClick={() => setMoreView("mylife")} />
+          </Group>
+          <Group title="Support">
+            <Row label="Contact & feedback" onClick={() => setMoreView("about")} />
+            <Row label="Privacy & terms" onClick={() => setMoreView("about")} />
+          </Group>
+          <button onClick={handleLogout} style={{ width: "100%", padding: 14, borderRadius: 14, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Log Out</button>
+        </div>
+      )
+    }
+
+    if (tab === "more" && moreView === "mylife") {
+      const d = setupData || {}
+      const Field = ({ label, value }) => (
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 16px", borderBottom: `1px solid ${BASE.border}` }}>
+          <span style={{ fontSize: 13.5, color: BASE.taupe }}>{label}</span>
+          <span style={{ fontSize: 13.5, color: BASE.cream, fontWeight: 600 }}>{value || "\u2014"}</span>
+        </div>
+      )
+      const Sec = ({ title, children }) => (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, margin: "0 4px 8px" }}>{title}</div>
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, overflow: "hidden" }}>{children}</div>
+        </div>
+      )
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039"} Back</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 2 }}>{"\ud83c\udf38"} My Life</div>
+          <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 22 }}>Everything here centers on your life, not your stats.</div>
+          <Sec title="About Me"><Field label="Name" value={d.name} /><Field label="My season" value={d.season} /></Sec>
+          <Sec title="My Goals">{(d.hopes && d.hopes.length ? d.hopes : ["\u2014"]).map((h, i) => (<Field key={i} label={i === 0 ? "Hoping for" : ""} value={h} />))}</Sec>
+          <Sec title="My Gym"><Field label="Experience" value={d.level} /><Field label="Equipment" value={d.equip} /></Sec>
+          <Sec title="My Preferences"><Field label="Cycle tracking" value={d.cyclePref} /><Field label="Morning greeting" value="On" /></Sec>
+          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", margin: "6px 0 4px", lineHeight: 1.6 }}>Editing your life details is coming soon. For now, these come from your welcome setup.</div>
+        </div>
+      )
+    }
+
     if (tab === "more" && moreView === "share") {
       const SL = SHARE_LEVELS[shareLevel]
       const ST = THEMES[shareLevel]
@@ -1197,41 +1346,69 @@ export default function App() {
 
   return (
     <><Fonts /><GlobalStyle />
-      <div style={{ "--accent": T.accent, background: BASE.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
-        <div className="glow-breathe" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360, background: `radial-gradient(120% 80% at 50% 0%, rgba(${T.glow},0.12) 0%, transparent 60%)`, pointerEvents: "none" }} />
-        <div style={{ position: "relative" }}>
-          <header style={{ padding: "22px 22px 6px", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 40, lineHeight: 1, color: BASE.cream }}>New Ray</div>
-            <div style={{ fontSize: 11, letterSpacing: 4, textTransform: "uppercase", color: BASE.taupe, marginTop: 6 }}>The Capacity Method</div>
-          </header>
-          <div style={{ display: "flex", gap: 6, padding: "14px 18px 0", flexWrap: "wrap" }}>
-            {[["today", "Today", "\u2600\ufe0f"], ["body", "Body", "\ud83d\udcaa"], ["bloom", "Bloom", "\ud83c\udf38"], ["progress", "Progress", "\ud83d\udcc8"], ["more", "More", "\ud83e\udd0d"]].map(([k, lbl, ic]) => (
-              <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: "9px 2px", background: tab === k ? T.accent : "transparent", color: tab === k ? "#FFFFFF" : BASE.cream, border: `1px solid ${tab === k ? T.accent : BASE.border}`, borderRadius: 12, cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}><span style={{ fontSize: 15, display: "block", marginBottom: 1 }}>{ic}</span>{lbl}</button>
-            ))}
+      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : BASE.bg, transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
+        {tab === "today" && (
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 420, pointerEvents: "none" }}>
+            {envRoot.mode === "morning" && (
+              <>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 220, background: "linear-gradient(180deg,rgba(240,200,120,0.18),rgba(240,200,120,0))" }} />
+                <div style={{ position: "absolute", top: 92, left: "50%", marginLeft: -50, width: 100, height: 100, borderRadius: "50%", background: "radial-gradient(circle,#FFE7B8 28%,rgba(255,220,155,0.5) 58%,rgba(255,220,155,0) 76%)", animation: "breathe 6s ease-in-out infinite" }} />
+                <div style={{ position: "absolute", top: 150, left: -20, right: -20, height: 90, borderRadius: "50%", background: "rgba(255,255,255,0.26)", animation: "mistfloat 10s ease-in-out infinite" }} />
+                <div style={{ position: "absolute", top: 182, left: 70, right: -20, height: 90, borderRadius: "50%", background: "rgba(255,255,255,0.2)", animation: "mistfloat 13s ease-in-out infinite" }} />
+                <svg style={{ position: "absolute", top: 200, right: 64, opacity: 0.55, animation: "drift 11s ease-in-out infinite" }} width="30" height="23" viewBox="0 0 34 26"><path d="M17 13 C 10 2, 1 4, 3 12 C 4 18, 12 18, 17 13" fill="#C489E0" /><path d="M17 13 C 24 2, 33 4, 31 12 C 30 18, 22 18, 17 13" fill="#E984B4" /></svg>
+              </>
+            )}
+            {envRoot.mode === "afternoon" && (
+              <>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 260, background: "linear-gradient(180deg,rgba(240,170,90,0.22),rgba(240,170,90,0))" }} />
+                <div style={{ position: "absolute", top: 200, right: -50, width: 190, height: 190, borderRadius: "50%", background: "rgba(255,255,255,0.16)", animation: "mistfloat 12s ease-in-out infinite" }} />
+                <div style={{ position: "absolute", top: 120, left: 30, width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.7)", animation: "drift 9s ease-in-out infinite" }} />
+                <div style={{ position: "absolute", top: 260, left: 90, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.6)", animation: "drift 14s ease-in-out infinite" }} />
+              </>
+            )}
+            {envRoot.mode === "evening" && (
+              <>
+                <svg style={{ position: "absolute", top: 58, right: 54 }} width="40" height="40" viewBox="0 0 40 40"><path d="M28 4 A 16 16 0 1 0 36 22 A 12.5 12.5 0 0 1 28 4 Z" fill="#F0E3B8" opacity="0.9" /></svg>
+                <div style={{ position: "absolute", top: 40, left: 60, color: "#F0C879", fontSize: 9, animation: "twinkle 3s ease-in-out infinite" }}>{"\u2726"}</div>
+                <div style={{ position: "absolute", top: 110, left: 150, color: "#F0C879", fontSize: 7, animation: "twinkle 4.4s ease-in-out infinite" }}>{"\u2726"}</div>
+                <div style={{ position: "absolute", top: 84, right: 130, color: "#F0C879", fontSize: 8, animation: "twinkle 3.7s ease-in-out infinite" }}>{"\u2726"}</div>
+                <div style={{ position: "absolute", top: 210, left: 36, width: 6, height: 6, borderRadius: "50%", background: "#F0C879", boxShadow: "0 0 10px 4px rgba(240,200,121,0.5)", animation: "flicker 3.2s ease-in-out infinite" }} />
+                <div style={{ position: "absolute", top: 300, right: 44, width: 5, height: 5, borderRadius: "50%", background: "#F0C879", boxShadow: "0 0 9px 3px rgba(240,200,121,0.45)", animation: "flicker 4.6s ease-in-out infinite" }} />
+              </>
+            )}
           </div>
+        )}
+        <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
-            <div style={{ display: "flex", gap: 8, padding: "12px 18px 0" }}>
+            <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
               {[["gym", "Gym"], ["cycle", "Cycle"]].map(([k, lbl]) => (
                 <button key={k} onClick={() => setBodyView(k)} style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: bodyView === k ? T.accent : BASE.surface, color: bodyView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${bodyView === k ? T.accent : BASE.border}` }}>{lbl}</button>
               ))}
             </div>
           )}
           {tab === "progress" && (
-            <div style={{ display: "flex", gap: 8, padding: "12px 18px 0" }}>
+            <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
               {[["trends", "Trends"], ["workouts", "Workouts"]].map(([k, lbl]) => (
                 <button key={k} onClick={() => setProgressView(k)} style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: progressView === k ? T.accent : BASE.surface, color: progressView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${progressView === k ? T.accent : BASE.border}` }}>{lbl}</button>
               ))}
             </div>
           )}
-          {tab === "more" && (
-            <div style={{ display: "flex", gap: 8, padding: "12px 18px 0" }}>
-              {[["share", "Share"], ["shop", "Shop"], ["about", "About"]].map(([k, lbl]) => (
-                <button key={k} onClick={() => setMoreView(k)} style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: moreView === k ? T.accent : BASE.surface, color: moreView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${moreView === k ? T.accent : BASE.border}` }}>{lbl}</button>
-              ))}
-            </div>
-          )}
           {renderContent()}
-          <div style={{ height: 48 }} />
+          <div style={{ height: 104 }} />
+        </div>
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60 }}>
+          <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", background: tab === "today" && envRoot.dark ? "rgba(40,28,64,0.92)" : "rgba(255,255,255,0.93)", borderTop: `1px solid ${tab === "today" && envRoot.dark ? "rgba(255,255,255,0.12)" : BASE.border}`, padding: "8px 6px 14px", boxShadow: "0 -6px 24px rgba(60,35,70,0.10)" }}>
+            {[["today", "Today", "\u2600\ufe0f"], ["body", "Body", "\ud83d\udcaa"], ["bloom", "Bloom", "\ud83c\udf38"], ["progress", "Progress", "\ud83d\udcc8"], ["more", "More", "\ud83e\udd0d"]].map(([k, lbl, ic]) => {
+              const active = tab === k
+              const darkbar = tab === "today" && envRoot.dark
+              return (
+                <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
+                  <span style={{ fontSize: 19, display: "block", marginBottom: 2, filter: active ? "none" : "grayscale(35%)" }}>{ic}</span>
+                  <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: darkbar ? "#F5E9F2" : (active ? "#C9558E" : BASE.taupe) }}>{lbl}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
     </>
