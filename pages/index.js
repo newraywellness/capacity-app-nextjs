@@ -87,10 +87,6 @@ const WO_TYPES = [
   { key: "upper", label: "Upper", icon: "💪" },
   { key: "walk", label: "Walk", icon: "🚶\u200d\u2640\ufe0f" },
 ]
-const WEEK_PLAN = [
-  { d: "Mon", t: "full" }, { d: "Tue", t: "walk" }, { d: "Wed", t: "legs" },
-  { d: "Thu", t: "upper" }, { d: "Fri", t: "walk" }, { d: "Sat", t: "glutes" }, { d: "Sun", t: "rest" },
-]
 const HERO_GRAD = {
   red: "linear-gradient(135deg, #E0705F 0%, #C34A3B 100%)",
   yellow: "linear-gradient(135deg, #E3A94E 0%, #C07E20 100%)",
@@ -595,13 +591,18 @@ const resolveSession = (session, env, capKey, phase) => {
     let sets = ex.sets
     if (capKey === "yellow") sets = Math.max(2, sets - 1)
     if (capKey === "red") sets = 2
-    // Phase rep bias: gently nudge rep targets up in the confidence phase (display only, non-destructive)
+    // Phase rep bias: gently nudge rep targets up as confidence builds (display only, non-destructive)
     let reps = ex.reps
     if (repBias && capKey !== "red" && /^\d+/.test(String(reps))) {
       const m = String(reps).match(/^(\d+)(?:-(\d+))?(.*)$/)
       if (m) { const lo = +m[1] + repBias; const hi = m[2] ? +m[2] + repBias : null; reps = hi ? `${lo}-${hi}${m[3]}` : `${lo}${m[3]}` }
     }
-    return { ...ex, sets, reps, role: sl.role, pattern: sl.pattern }
+    // Strength phase: progressive overload cue on primary lifts (add a little weight when it feels controlled)
+    let cue = ex.cue
+    if (phase && phase.addWeight && sl.role === "primary" && capKey === "green") {
+      cue = ex.cue + " When this feels controlled, add a little weight."
+    }
+    return { ...ex, sets, reps, cue, role: sl.role, pattern: sl.pattern }
   }).filter(Boolean)
 }
 
@@ -658,7 +659,7 @@ const PROGRAM_PHASES = {
   foundations: [
     { name: "Learn Your Body", weeks: [1, 2], level: "beginner", goal: "Create confidence and learn the movement patterns.", emphasis: "Proper form, controlled reps, building the routine.", repBias: 0, coach: "This week is about learning the movements. Slow and controlled beats heavy every time." },
     { name: "Build Confidence", weeks: [3, 5], level: "beginner", goal: "Increase strength and comfort.", emphasis: "A little more volume and resistance. Increase reps first, then weight.", repBias: 2, coach: "You know these movements now. Add a rep or a little weight when it feels good \u2014 no rush." },
-    { name: "Build Strength", weeks: [6, 8], level: "intermediate", goal: "Feel stronger and more capable.", emphasis: "Progressive overload and cleaner technique. Advanced-beginner options appear.", repBias: 0, coach: "You've built a real foundation. Trust it \u2014 you're stronger than week one, and it shows." },
+    { name: "Build Strength", weeks: [6, 8], level: "intermediate", goal: "Feel stronger and more capable.", emphasis: "Progressive overload and cleaner technique. Advanced-beginner options appear.", repBias: 1, addWeight: true, coach: "You've built a real foundation. Trust it \u2014 you're stronger than week one, and it shows." },
   ],
 }
 const phaseFor = (progId, week) => {
@@ -710,10 +711,11 @@ const progSchedule = (prog, startISO) => {
   const start = startISO ? new Date(startISO + "T00:00:00") : new Date()
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const dayNum = Math.max(0, Math.floor((today - start) / 86400000))
-  const week = Math.floor(dayNum / 7) % prog.weeks + 1
+  const rawWeek = Math.floor(dayNum / 7) + 1 // counts up; can exceed prog.weeks (triggers completion)
+  const week = Math.min(rawWeek, prog.weeks) // clamp for schedule/phase lookups
   const weekday = (today.getDay() + 6) % 7
   const type = prog.split[weekday]
-  return { week, weekday, type, totalWeeks: prog.weeks }
+  return { week, rawWeek, weekday, type, totalWeeks: prog.weeks, complete: rawWeek > prog.weeks }
 }
 // Capacity -> today's version (label, minutes, note)
 const CAP_VERSION = {
@@ -729,13 +731,6 @@ const RECOVERY_OPTIONS = [
   { key: "breath", icon: "\ud83c\udf2c\ufe0f", name: "Breathwork & reset", mins: "5 min", how: ["Breathe in for 4, out for 8, for two minutes.", "The long exhale calms your nervous system.", "Then sit quietly for a few breaths.", "This counts. Rest is training too."] },
 ]
 
-const GLOWUP = [
-  { key: "water", icon: "💧", red: "One glass of water", yellow: "Water before coffee", green: "Water before coffee + one refill" },
-  { key: "protein", icon: "🍳", red: "One easy protein (yogurt, cheese stick)", yellow: "Protein at breakfast", green: "Protein anchoring every meal" },
-  { key: "move", icon: "👟", red: "Step outside or stretch for 2 minutes", yellow: "A 10-minute walk", green: "Your workout (see Body)" },
-  { key: "kind", icon: "💜", red: "Catch one harsh thought, answer kindly", yellow: "Catch one harsh thought, answer kindly", green: "Catch one harsh thought, answer kindly" },
-  { key: "soft", icon: "🌸", red: "One soft touch — candle, pretty glass", yellow: "5-minute reset of one space", green: "Reset one space + one soft touch" },
-]
 const GLOW_THRESHOLD = { red: 1, yellow: 3, green: 4 }
 const REFRAMES = [
   "You're not lazy. You're depleted. There's a difference.",
@@ -766,99 +761,6 @@ const RESETS = [
 ]
 const dayIndex = (len) => { const d = new Date(); return (d.getFullYear() * 366 + Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000)) % len }
 
-const WORKOUTS = {
-  walk: {
-    red: { title: "Show Up Gently", time: "10-20 min", note: "On a Red day, showing up IS the workout. Walk, then go home proud.", exercises: [
-      { name: "Treadmill walk - easy pace", sets: 1, reps: "10-20 min", cue: "Flat or a gentle incline.", how: ["Start slow for 2 minutes and let your body arrive.", "Settle into a pace where you could chat comfortably.", "Stop while it still feels good - that is the point today."] },
-    ]},
-    yellow: { title: "The Steady Walk", time: "20-30 min", note: "Purposeful, not punishing. You should be able to talk, but not sing.", exercises: [
-      { name: "Treadmill walk - brisk", sets: 1, reps: "20-30 min", cue: "Comfortable but intentional pace.", how: ["Warm up easy for 3 minutes.", "Pick a pace that feels purposeful - talking possible, singing not.", "Last 2 minutes, ease back down."] },
-      { name: "Incline minutes (optional)", sets: 1, reps: "5 x 1 min", cue: "Recover flat between.", how: ["Raise incline to 3-5% for one minute.", "Return to flat for 1-2 minutes to recover.", "Repeat up to 5 times if it feels good."] },
-    ]},
-    green: { title: "Cardio That Builds", time: "40-60 min", note: "You have energy today - use it well, without spending tomorrow's.", exercises: [
-      { name: "Warmup walk", sets: 1, reps: "5 min", cue: "Ease in.", how: ["Start flat and easy.", "Gradually pick up pace over 5 minutes."] },
-      { name: "Incline or jog intervals", sets: 1, reps: "8-10 x 2 min", cue: "Work 2 min, easy 1 min.", how: ["Push pace or incline for 2 minutes - breathing hard but controlled.", "Recover at an easy pace for 1 minute.", "Repeat 8-10 rounds."] },
-      { name: "Cooldown + stretch", sets: 1, reps: "5-10 min", cue: "Let your heart rate come all the way down.", how: ["Walk slow until breathing is normal.", "Stretch calves, quads, and hips gently."] },
-    ]},
-  },
-  full: {
-    red: { title: "The Gentle Circuit", time: "~15 min", note: "Light, kind movement. Every rep here fully counts.", exercises: [
-      { name: "Squat to a bench", sets: 2, reps: "10", cue: "Control over speed.", how: ["Stand in front of a bench, feet shoulder-width.", "Sit back slowly until you lightly touch the bench.", "Stand tall by driving through your heels."] },
-      { name: "Wall or incline pushups", sets: 2, reps: "8-10", cue: "Body in one line.", how: ["Hands on a wall or raised bar, body straight.", "Lower your chest slowly toward your hands.", "Press back up without letting hips sag."] },
-      { name: "Band or light seated row", sets: 2, reps: "10", cue: "Squeeze the shoulder blades.", how: ["Sit tall, arms extended holding band or handle.", "Pull toward your ribs, squeezing shoulder blades together.", "Release slowly with control."] },
-      { name: "Stretch anything tight", sets: 1, reps: "5 min", cue: "Whatever feels kind today.", how: ["Pick 2-3 areas that feel tight.", "Hold each stretch 30 seconds, breathing slow."] },
-    ]},
-    yellow: { title: "Short + Solid", time: "~25 min", note: "Three lifts, done well. Enough beats impressive.", exercises: [
-      { name: "Goblet squat", sets: 3, reps: "10", cue: "Elbows inside knees at the bottom.", how: ["Hold a dumbbell vertically at your chest.", "Squat down slowly, chest tall, until elbows brush inner knees.", "Drive up through your heels."] },
-      { name: "Seated cable row", sets: 3, reps: "10", cue: "Pull to your ribs, not your neck.", how: ["Sit tall, feet braced, grab the handle.", "Pull to your lower ribs, squeezing your mid-back.", "Let the weight pull your arms back out slowly."] },
-      { name: "Machine chest press", sets: 3, reps: "10", cue: "Smooth both directions.", how: ["Adjust the seat so handles sit at mid-chest.", "Press out without locking elbows hard.", "Return slowly - 2 to 3 seconds back."] },
-    ]},
-    green: { title: "The Full Builder", time: "40-60 min", note: "The complete session - strength you will feel all week.", exercises: [
-      { name: "Goblet or barbell squat", sets: 4, reps: "8-10", cue: "Brace your core hard.", how: ["Brace like someone is about to poke your stomach.", "Sit down between your hips, knees tracking over toes.", "Drive up hard through the whole foot."] },
-      { name: "Romanian deadlift", sets: 3, reps: "10", cue: "Feel hamstrings, not low back.", how: ["Hold weights in front of thighs, soft knees.", "Push your hips straight back, weights sliding down your legs.", "When hamstrings pull, squeeze glutes and stand tall."] },
-      { name: "Chest press", sets: 3, reps: "8-10", cue: "Control down, powerful up.", how: ["Lower with control for 2-3 seconds.", "Press up strong without bouncing.", "Keep wrists stacked over elbows."] },
-      { name: "Lat pulldown", sets: 3, reps: "10", cue: "Lead with the elbows.", how: ["Grip slightly wider than shoulders, chest tall.", "Pull the bar to your collarbone, elbows driving down.", "Release slowly all the way up."] },
-      { name: "Plank", sets: 3, reps: "30-45 sec", cue: "Quality over seconds.", how: ["Forearms down, body in one straight line.", "Squeeze glutes, pull ribs down.", "Stop when your hips start to sag."] },
-    ]},
-  },
-  legs: {
-    red: { title: "Legs, Softly", time: "~15 min", note: "Blood flow, not breakdown. Gentle counts.", exercises: [
-      { name: "Easy bike or walk", sets: 1, reps: "10 min", cue: "Conversational pace.", how: ["Low resistance, easy rhythm.", "Just warm the legs and lift your mood."] },
-      { name: "Glute bridge", sets: 2, reps: "12", cue: "Squeeze at the top.", how: ["Lie on your back, knees bent, feet flat.", "Drive hips up through your heels.", "Squeeze glutes for a full second at the top, lower slow."] },
-      { name: "Calf raises", sets: 2, reps: "12", cue: "Slow up, slower down.", how: ["Rise onto the balls of your feet.", "Pause at the top.", "Lower down over 2-3 seconds."] },
-    ]},
-    yellow: { title: "Essential Legs", time: "~25 min", note: "The big movers, kept honest and short.", exercises: [
-      { name: "Goblet squat", sets: 3, reps: "10", cue: "Depth you can control.", how: ["Weight at your chest, feet shoulder-width.", "Squat to a depth you fully control.", "Drive up through the heels."] },
-      { name: "Leg press", sets: 3, reps: "12", cue: "Never slam the weight.", how: ["Feet mid-platform, hip-width apart.", "Lower until knees reach about 90 degrees.", "Press out without locking knees hard."] },
-      { name: "Glute bridge", sets: 3, reps: "12", cue: "Drive through the heels.", how: ["Knees bent, feet flat and close to your hips.", "Lift hips until body forms a line, squeeze hard.", "Lower with control."] },
-    ]},
-    green: { title: "Leg Day, For Real", time: "45-60 min", note: "Five movements. Strong legs carry everything else.", exercises: [
-      { name: "Squat", sets: 4, reps: "8", cue: "Brace, sit, drive.", how: ["Brace your core before every rep.", "Sit down between your hips, chest proud.", "Drive up through the whole foot."] },
-      { name: "Romanian deadlift", sets: 3, reps: "10", cue: "Hips back, hamstrings loaded.", how: ["Soft knees, weights close to your legs.", "Push hips back until hamstrings pull.", "Squeeze glutes to stand - do not yank with your back."] },
-      { name: "Leg press", sets: 3, reps: "10-12", cue: "Full control.", how: ["Lower slowly to about 90 degrees.", "Press out smooth and strong.", "Keep knees tracking over toes."] },
-      { name: "Walking lunges", sets: 3, reps: "10/leg", cue: "Long steps, torso proud.", how: ["Step long, lower the back knee toward the floor.", "Push through the front heel to step through.", "Keep your torso tall the whole time."] },
-      { name: "Hip thrust", sets: 3, reps: "12", cue: "Full squeeze at the top.", how: ["Upper back on a bench, bar or weight over hips.", "Drive hips up until your body is level, chin tucked.", "Squeeze glutes hard for a second at the top."] },
-    ]},
-  },
-  glutes: {
-    red: { title: "Glutes, Gently", time: "~15 min", note: "Wake them up kindly. Activation still builds.", exercises: [
-      { name: "Glute bridge", sets: 2, reps: "12", cue: "Slow and squeezed.", how: ["Feet flat and close to your hips.", "Lift and squeeze for a full second at the top.", "Lower over 2-3 seconds."] },
-      { name: "Clamshells", sets: 2, reps: "12/side", cue: "Keep hips stacked.", how: ["Lie on your side, knees bent, feet together.", "Open the top knee like a clamshell without rolling back.", "Close slowly. Switch sides."] },
-      { name: "Standing kickbacks", sets: 2, reps: "10/side", cue: "Squeeze, do not swing.", how: ["Hold something for balance, stand tall.", "Kick one leg straight back with a glute squeeze.", "Return with control - no momentum."] },
-    ]},
-    yellow: { title: "Glute Essentials", time: "~25 min", note: "The moves that actually build - the honest middle version.", exercises: [
-      { name: "Hip thrust or glute bridge", sets: 3, reps: "10", cue: "Chin tucked, full squeeze.", how: ["Upper back on a bench (or floor bridge).", "Drive hips up until level, squeeze hard.", "Lower with control."] },
-      { name: "Sumo goblet squat", sets: 3, reps: "10", cue: "Wide stance, toes out.", how: ["Feet wide, toes turned out, weight at chest.", "Squat down keeping knees pushed out.", "Drive up squeezing your glutes."] },
-      { name: "Cable or band kickbacks", sets: 3, reps: "12/side", cue: "Glute does the work.", how: ["Attach cable or band at ankle, hold support.", "Kick straight back with a hard glute squeeze.", "Return slow - never let it swing."] },
-    ]},
-    green: { title: "The Glute Builder", time: "45-60 min", note: "The full session. This is where shape gets built.", exercises: [
-      { name: "Hip thrust", sets: 4, reps: "10", cue: "Your main lift today - load it.", how: ["Upper back on a bench, weight over hips.", "Drive up until level, chin tucked, ribs down.", "One-second hard squeeze at the top, lower slow."] },
-      { name: "Romanian deadlift", sets: 3, reps: "10", cue: "Glutes finish the lift.", how: ["Push hips back, weights close to your legs.", "Feel the hamstring stretch.", "Squeeze glutes to stand tall - they do the work."] },
-      { name: "Bulgarian split squat", sets: 3, reps: "8/leg", cue: "Front leg does everything.", how: ["Back foot on a bench behind you.", "Lower straight down, front knee over toes.", "Push through the front heel to rise."] },
-      { name: "Cable kickbacks", sets: 3, reps: "12/side", cue: "Strict and squeezed.", how: ["Cable at ankle, slight forward lean, hold support.", "Kick back and slightly up, squeezing hard.", "Control the return every rep."] },
-      { name: "Hip abduction machine", sets: 3, reps: "15", cue: "Push out, pause, resist back.", how: ["Sit tall, pads outside your knees.", "Push out as far as comfortable and pause.", "Resist the weight on the way back in."] },
-    ]},
-  },
-  upper: {
-    red: { title: "Upper, Easy Does It", time: "~15 min", note: "Wake the muscles up without emptying the tank.", exercises: [
-      { name: "Band pull-aparts", sets: 2, reps: "12", cue: "Arms straight, blades squeeze.", how: ["Hold a band at shoulder height, arms straight.", "Pull it apart until it touches your chest.", "Return slowly."] },
-      { name: "Wall pushups", sets: 2, reps: "8-10", cue: "Slow beats many.", how: ["Hands on the wall, body in one line.", "Lower your chest slowly toward the wall.", "Press back without sagging hips."] },
-      { name: "Light dumbbell curls", sets: 2, reps: "10", cue: "Elbows glued to sides.", how: ["Light weights, palms up.", "Curl without swinging.", "Lower over 2-3 seconds."] },
-    ]},
-    yellow: { title: "Upper Essentials", time: "~25 min", note: "Push, pull, press. The trio that keeps you strong.", exercises: [
-      { name: "Lat pulldown", sets: 3, reps: "10", cue: "Elbows down and back.", how: ["Grip slightly wider than shoulders.", "Pull to your collarbone, chest tall.", "Release slowly all the way."] },
-      { name: "Machine chest press", sets: 3, reps: "10", cue: "Smooth tempo.", how: ["Handles at mid-chest height.", "Press out without hard lockout.", "Return over 2-3 seconds."] },
-      { name: "Seated shoulder press", sets: 3, reps: "10", cue: "Ribs down - do not arch.", how: ["Back supported, weights at shoulder height.", "Press up and slightly back.", "Lower to ear height with control."] },
-    ]},
-    green: { title: "The Upper Builder", time: "40-60 min", note: "The full session. Strong shoulders, strong posture, strong you.", exercises: [
-      { name: "Lat pulldown", sets: 4, reps: "10", cue: "Chest tall, elbows lead.", how: ["Wide grip, slight lean back.", "Pull to collarbone, squeezing lats.", "Slow full release each rep."] },
-      { name: "Chest press", sets: 4, reps: "8-10", cue: "Control the negative.", how: ["Lower for 2-3 seconds - that is where strength builds.", "Press up strong.", "Keep shoulder blades pinned back."] },
-      { name: "Seated row", sets: 3, reps: "10", cue: "Mid-back, not arms.", how: ["Sit tall, pull the handle to your lower ribs.", "Squeeze between your shoulder blades.", "Release slow."] },
-      { name: "Shoulder press", sets: 3, reps: "10", cue: "Biceps by the ears.", how: ["Press up and slightly back.", "Do not arch your lower back.", "Lower with control to ear height."] },
-      { name: "Curls + triceps pushdown superset", sets: 3, reps: "12 each", cue: "Back to back, finish strong.", how: ["Do a set of curls, elbows pinned.", "Immediately do a set of pushdowns.", "Rest one minute, repeat."] },
-    ]},
-  },
-}
 
 // ---- Atmosphere engine: environment = f(hour, capacity) ----
 const ENV = (hour, color) => {
@@ -1700,7 +1602,7 @@ export default function App() {
       const mins = version.mins
       const heroGrad = recovery ? "linear-gradient(135deg,#8A6FA8,#5E4578)" : HERO_GRAD[cur]
       const pctThroughWeeks = Math.round((sched.week / prog.weeks) * 100)
-      const programComplete = sched.week > prog.weeks
+      const programComplete = sched.complete
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 24, lineHeight: 1.3, marginBottom: 2 }}>Your body needs today's version of you.</div>
@@ -1994,7 +1896,7 @@ export default function App() {
       const _phase = phaseFor(programId, _sched.week)
       const _session = buildSession(programId, _sched.weekday, _capKey)
       const _resolved = resolveSession(_session, woEnv, _capKey, _phase)
-      const _fallback = (WORKOUTS[woType] && WORKOUTS[woType][gymColor]) || { title: _session.title || "Workout", note: _session.focus || "", exercises: [] }
+      const _fallback = { title: _session.title || "Workout", note: _session.focus || "", exercises: [] }
       const wo = (_resolved && _resolved.length)
         ? { title: _session.title, note: _session.focus, exercises: _resolved }
         : _fallback
