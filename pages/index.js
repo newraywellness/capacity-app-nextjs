@@ -137,6 +137,13 @@ const CAP_VERSION = {
   red: { label: "Movement only", mins: [12, 18], note: "Because today is a Red day, this is a short, gentle movement session. Showing up is the whole win." },
 }
 
+const RECOVERY_OPTIONS = [
+  { key: "mobility", icon: "\ud83e\uddd8\u200d\u2640\ufe0f", name: "10-minute mobility", mins: "10 min", how: ["Slow neck and shoulder circles, both directions.", "Cat-cow on hands and knees, 10 slow rounds.", "Hip circles and gentle lunges to open the hips.", "Move only where it feels good \u2014 nothing forced."] },
+  { key: "stretch", icon: "\ud83c\udf3f", name: "Gentle stretching", mins: "8-10 min", how: ["Hold each stretch 30 seconds, breathing slow.", "Hamstrings, hip flexors, chest, and lower back.", "Never bounce; ease deeper on each exhale.", "This is care, not a workout."] },
+  { key: "walk", icon: "\ud83d\udeb6\u200d\u2640\ufe0f", name: "Easy walk", mins: "10-20 min", how: ["Flat, easy pace \u2014 you could chat the whole time.", "Outside if you can, for the light and air.", "No pace goal. Movement is the only point.", "Come home feeling better than you left."] },
+  { key: "breath", icon: "\ud83c\udf2c\ufe0f", name: "Breathwork & reset", mins: "5 min", how: ["Breathe in for 4, out for 8, for two minutes.", "The long exhale calms your nervous system.", "Then sit quietly for a few breaths.", "This counts. Rest is training too."] },
+]
+
 const GLOWUP = [
   { key: "water", icon: "💧", red: "One glass of water", yellow: "Water before coffee", green: "Water before coffee + one refill" },
   { key: "protein", icon: "🍳", red: "One easy protein (yogurt, cheese stick)", yellow: "Protein at breakfast", green: "Protein anchoring every meal" },
@@ -388,6 +395,8 @@ export default function App() {
   const [programStart, setProgramStart] = useState(null)
   const [trainView, setTrainView] = useState("home")
   const [whyOpen, setWhyOpen] = useState(false)
+  const [recoveryOpen, setRecoveryOpen] = useState(null)
+  const [recoveryDone, setRecoveryDone] = useState(false)
   const [lifeMsg, setLifeMsg] = useState("")
 
   useEffect(() => {
@@ -1019,18 +1028,48 @@ export default function App() {
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 24, lineHeight: 1.3, marginBottom: 2 }}>Your body needs today's version of you.</div>
           <div style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>Let's honor it.</div>
 
-          {recovery ? (
-            <div style={{ borderRadius: 22, padding: "26px 22px", background: heroGrad, color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.3)", marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "rgba(255,255,255,0.85)" }}>TODAY</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, margin: "8px 0 6px" }}>Recovery is today's training.</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.55 }}>Your program will continue when you're ready. Nothing is lost — tomorrow picks up right where you are.</div>
-            </div>
-          ) : isRest ? (
-            <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#B9A0CE,#8A6FA8)", color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.28)", marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "rgba(255,255,255,0.85)" }}>{prog.name.toUpperCase()} · WEEK {sched.week}</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, margin: "8px 0 6px" }}>Today is a rest day.</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.55 }}>Rest is part of the program, not a break from it. Come back tomorrow.</div>
-            </div>
+          {(recovery || isRest) ? (
+            <>
+              <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#B9A0CE,#7E5E9E)", color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.3)", marginBottom: 16, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: -28, top: -28, width: 110, height: 110, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
+                <svg style={{ position: "absolute", right: 22, top: 20, opacity: 0.8 }} width="34" height="34" viewBox="0 0 40 40"><path d="M28 4 A 16 16 0 1 0 36 22 A 12.5 12.5 0 0 1 28 4 Z" fill="#F0E3B8" /></svg>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "rgba(255,255,255,0.8)", position: "relative" }}>TODAY'S VERSION</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 700, margin: "6px 0 10px", position: "relative" }}>Recovery</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.94)", lineHeight: 1.6, position: "relative" }}>Recovery is part of the program, not a break from it. Your body gets stronger when it has time to rebuild.</div>
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "0 2px 10px" }}>Choose how to recover</div>
+              {RECOVERY_OPTIONS.map((r) => {
+                const open = recoveryOpen === r.key
+                return (
+                  <div key={r.key} style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${open ? "#A87BD1" : BASE.border}`, marginBottom: 10, overflow: "hidden" }}>
+                    <div onClick={() => setRecoveryOpen(open ? null : r.key)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }}>
+                      <span style={{ fontSize: 22 }}>{r.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{r.name}</div>
+                        <div style={{ fontSize: 11.5, color: BASE.taupe }}>{r.mins}</div>
+                      </div>
+                      <span style={{ color: BASE.taupe }}>{open ? "\u2212" : "+"}</span>
+                    </div>
+                    {open && (
+                      <div className="fade-in" style={{ padding: "0 16px 16px" }}>
+                        {r.how.map((step, si) => (
+                          <div key={si} style={{ display: "flex", gap: 9, marginBottom: 6 }}>
+                            <span style={{ minWidth: 18, height: 18, borderRadius: "50%", background: "rgba(168,123,209,0.15)", color: "#A87BD1", fontSize: 10.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{si + 1}</span>
+                            <span style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.5 }}>{step}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              <button onClick={() => { setRecoveryDone(true) }} style={{ width: "100%", marginTop: 6, padding: 16, borderRadius: 16, border: "none", cursor: "pointer", background: recoveryDone ? "rgba(168,123,209,0.15)" : "linear-gradient(135deg,#B9A0CE,#8A6FA8)", color: recoveryDone ? "#8A6FA8" : "#fff", fontSize: 15.5, fontWeight: 800, boxShadow: recoveryDone ? "none" : "0 10px 26px rgba(138,111,168,0.35)" }}>{recoveryDone ? "Recovery logged \u2713 well done" : "Begin Recovery"}</button>
+
+              <div onClick={() => { setWoColor(cur); setWoType(recovery ? "walk" : "full"); setTrainView("workout") }} style={{ textAlign: "center", marginTop: 14, fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", textDecoration: "underline" }}>I want to train today {"\u2192"}</div>
+              <div style={{ height: 18 }} />
+            </>
           ) : (
             <>
               <div style={{ borderRadius: 22, padding: "24px 22px", background: heroGrad, color: "#fff", boxShadow: `0 14px 32px rgba(${THEMES[cur].glow},0.32)`, position: "relative", overflow: "hidden", marginBottom: 14 }}>
@@ -1067,6 +1106,7 @@ export default function App() {
             <div style={{ height: 7, borderRadius: 999, background: BASE.surface2, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${pctThroughWeeks}%`, background: prog.grad, borderRadius: 999 }} />
             </div>
+            <button onClick={() => setTrainView("week")} style={{ width: "100%", marginTop: 14, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>View Program</button>
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
@@ -1074,6 +1114,45 @@ export default function App() {
             <button onClick={() => { setTab("progress"); setProgressView("workouts") }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>History</button>
             <button onClick={() => { if (confirm("Change your program? Your progress in the current one is kept, but a new program starts today.")) { setProgramId(null); try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {} } }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Change Program</button>
           </div>
+        </div>
+      )
+    }
+
+    if (tab === "body" && bodyView === "gym" && programId && trainView === "week") {
+      const prog = PROG_BY_ID(programId)
+      const sched = progSchedule(prog, programStart)
+      const DAYNAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setTrainView("home")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 12 }}>{"\u2039 Today's plan"}</div>
+          <div style={{ borderRadius: 20, padding: "20px 20px", background: prog.grad, color: "#fff", marginBottom: 18, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", right: -24, top: -24, width: 96, height: 96, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
+            <div style={{ fontSize: 28, position: "relative" }}>{prog.emoji}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginTop: 4, position: "relative" }}>{prog.name}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.92)", position: "relative" }}>Week {sched.week} of {prog.weeks}</div>
+          </div>
+
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "0 2px 12px" }}>This week</div>
+          {prog.split.map((t, i) => {
+            const isToday = i === sched.weekday
+            const rest = t === "rest"
+            const label = rest ? "Recovery" : (WO_TYPES.find((x) => x.key === t) || { label: t }).label
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, background: isToday ? "rgba(168,123,209,0.1)" : BASE.surface, border: `1.5px solid ${isToday ? "#A87BD1" : BASE.border}`, marginBottom: 8 }}>
+                <div style={{ width: 38, textAlign: "center" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: BASE.taupe, textTransform: "uppercase" }}>{DAYNAMES[i]}</div>
+                  <div style={{ fontSize: 18, marginTop: 2 }}>{rest ? "🌙" : (WO_TYPES.find((x) => x.key === t) || {}).icon}</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{label}</div>
+                  <div style={{ fontSize: 11, color: BASE.taupe }}>{isToday ? "Today · adjusts to your capacity" : rest ? "Rest & rebuild" : "Scheduled"}</div>
+                </div>
+                {isToday && <button onClick={() => setTrainView("home")} style={{ padding: "7px 13px", borderRadius: 999, border: "none", cursor: "pointer", background: "#A87BD1", color: "#fff", fontSize: 11.5, fontWeight: 700 }}>Go</button>}
+              </div>
+            )
+          })}
+          <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", lineHeight: 1.6, margin: "16px 0 0" }}>The structure stays the same every week. Only today's version changes with your capacity — you never fall behind.</div>
+          <div style={{ height: 18 }} />
         </div>
       )
     }
