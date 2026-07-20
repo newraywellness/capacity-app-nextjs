@@ -82,10 +82,10 @@ function computeCycle(cycleLength, lastPeriodISO, when) {
 const PHASE_SUGGESTION = { menstrual: "red", follicular: "green", ovulation: "green", luteal: "yellow" }
 const WO_TYPES = [
   { key: "full", label: "Full Body", icon: "\u2728" },
-  { key: "legs", label: "Legs", icon: "\ud83e\uddb5" },
-  { key: "glutes", label: "Glutes", icon: "\ud83c\udf51" },
-  { key: "upper", label: "Upper", icon: "\ud83d\udcaa" },
-  { key: "walk", label: "Walk", icon: "\ud83d\udeb6\u200d\u2640\ufe0f" },
+  { key: "legs", label: "Legs", icon: "🦵" },
+  { key: "glutes", label: "Glutes", icon: "🍑" },
+  { key: "upper", label: "Upper", icon: "💪" },
+  { key: "walk", label: "Walk", icon: "🚶\u200d\u2640\ufe0f" },
 ]
 const WEEK_PLAN = [
   { d: "Mon", t: "full" }, { d: "Tue", t: "walk" }, { d: "Wed", t: "legs" },
@@ -98,11 +98,11 @@ const HERO_GRAD = {
 }
 const demoLink = (name) => "https://www.youtube.com/results?search_query=" + encodeURIComponent(name + " form how to")
 const GLOWUP = [
-  { key: "water", icon: "\ud83d\udca7", red: "One glass of water", yellow: "Water before coffee", green: "Water before coffee + one refill" },
-  { key: "protein", icon: "\ud83c\udf73", red: "One easy protein (yogurt, cheese stick)", yellow: "Protein at breakfast", green: "Protein anchoring every meal" },
-  { key: "move", icon: "\ud83d\udc5f", red: "Step outside or stretch for 2 minutes", yellow: "A 10-minute walk", green: "Your workout (see Body)" },
-  { key: "kind", icon: "\ud83d\udc9c", red: "Catch one harsh thought, answer kindly", yellow: "Catch one harsh thought, answer kindly", green: "Catch one harsh thought, answer kindly" },
-  { key: "soft", icon: "\ud83c\udf38", red: "One soft touch \u2014 candle, pretty glass", yellow: "5-minute reset of one space", green: "Reset one space + one soft touch" },
+  { key: "water", icon: "💧", red: "One glass of water", yellow: "Water before coffee", green: "Water before coffee + one refill" },
+  { key: "protein", icon: "🍳", red: "One easy protein (yogurt, cheese stick)", yellow: "Protein at breakfast", green: "Protein anchoring every meal" },
+  { key: "move", icon: "👟", red: "Step outside or stretch for 2 minutes", yellow: "A 10-minute walk", green: "Your workout (see Body)" },
+  { key: "kind", icon: "💜", red: "Catch one harsh thought, answer kindly", yellow: "Catch one harsh thought, answer kindly", green: "Catch one harsh thought, answer kindly" },
+  { key: "soft", icon: "🌸", red: "One soft touch — candle, pretty glass", yellow: "5-minute reset of one space", green: "Reset one space + one soft touch" },
 ]
 const GLOW_THRESHOLD = { red: 1, yellow: 3, green: 4 }
 const REFRAMES = [
@@ -120,17 +120,17 @@ const BLOOM_PROMPTS = [
   "The woman I'm becoming is someone who...",
   "What would make today 1% softer?",
   "One thing I want more of, that I've felt guilty for wanting:",
-  "What did I do today that counted \u2014 even if it was tiny?",
+  "What did I do today that counted — even if it was tiny?",
   "Whose voice is my inner critic... and do I want to keep listening to it?",
   "What's one honest 'no' I need to say this week?",
   "What's one small promise I can keep to myself tomorrow?",
 ]
 const RESETS = [
-  { name: "The 5-minute space reset", icon: "\ud83c\udff5\ufe0f", how: "Pick ONE spot \u2014 the counter, your nightstand. Timer for 5 minutes. Reset only that. One calm corner does some of the calming for you." },
-  { name: "Long-exhale breathing", icon: "\ud83c\udf2c\ufe0f", how: "Two minutes: breathe in for 4, out for 8. The long exhale is the fastest lever your body has for switching off alarm mode." },
+  { name: "The 5-minute space reset", icon: "🏵\ufe0f", how: "Pick ONE spot — the counter, your nightstand. Timer for 5 minutes. Reset only that. One calm corner does some of the calming for you." },
+  { name: "Long-exhale breathing", icon: "🌬\ufe0f", how: "Two minutes: breathe in for 4, out for 8. The long exhale is the fastest lever your body has for switching off alarm mode." },
   { name: "Step outside", icon: "\u2600\ufe0f", how: "Ten minutes of daylight, ideally morning. It sets your energy rhythm and quiets the noise. No phone required." },
-  { name: "The pretty glass ritual", icon: "\ud83e\udd42", how: "Your water, but in the prettiest glass you own. Tiny sensory pleasures are how ordinary days start feeling beautiful." },
-  { name: "Phone down, lights low", icon: "\ud83c\udf19", how: "Pick one wind-down anchor tonight \u2014 phone away a little earlier, lights dimmed. Tomorrow begins tonight." },
+  { name: "The pretty glass ritual", icon: "🥂", how: "Your water, but in the prettiest glass you own. Tiny sensory pleasures are how ordinary days start feeling beautiful." },
+  { name: "Phone down, lights low", icon: "🌙", how: "Pick one wind-down anchor tonight — phone away a little earlier, lights dimmed. Tomorrow begins tonight." },
 ]
 const dayIndex = (len) => { const d = new Date(); return (d.getFullYear() * 366 + Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000)) % len }
 
@@ -343,6 +343,8 @@ export default function App() {
   const [glowLog, setGlowLog] = useState({})
   const [bloomNotes, setBloomNotes] = useState({})
   const [ctxOpen, setCtxOpen] = useState(false)
+  const [editLife, setEditLife] = useState(null)
+  const [lifeMsg, setLifeMsg] = useState("")
 
   useEffect(() => {
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
@@ -379,7 +381,17 @@ export default function App() {
         const u = s.data.session.user
         setUser(u)
         const p = await db.from("profiles").select("*").eq("id", u.id).single()
-        if (p.data) setProfile(p.data)
+        if (p.data) {
+          setProfile(p.data)
+          if (p.data.setup) {
+            const sd = p.data.setup
+            setSetupData(sd)
+            if (sd.name) { setFirstName(sd.name); try { localStorage.setItem("nr_name", sd.name) } catch (e) {} }
+            try { localStorage.setItem("nr_setup", JSON.stringify(sd)) } catch (e) {}
+          } else if (p.data.first_name) {
+            setFirstName(p.data.first_name)
+          }
+        }
         await loadHistory(u.id)
       }
     } catch (err) { console.log(err) }
@@ -570,7 +582,7 @@ export default function App() {
       <><Fonts /><GlobalStyle />
         <div style={{ background: envA.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 70, left: "50%", marginLeft: -55, width: 110, height: 110, borderRadius: "50%", background: envA.dark ? "radial-gradient(circle,#F5E6C4 30%,rgba(245,230,196,0.35) 60%,rgba(245,230,196,0) 78%)" : "radial-gradient(circle,#FFE7B8 28%,rgba(255,220,155,0.5) 58%,rgba(255,220,155,0) 76%)" }} />
-          {envA.dark && <><span style={{ position: "absolute", top: 46, left: 60, color: "#E8B84B", opacity: 0.7, fontSize: 11, animation: "twinkle 3.5s ease-in-out infinite" }}>{"\u2726"}</span><span style={{ position: "absolute", top: 110, right: 52, color: "#E8B84B", opacity: 0.6, fontSize: 9, animation: "twinkle 4.5s ease-in-out infinite" }}>{"\u2726"}</span></>}
+          {envA.dark && <><span style={{ position: "absolute", top: 46, left: 60, color: "#E8B84B", opacity: 0.7, fontSize: 11, animation: "twinkle 3.5s ease-in-out infinite" }}>{"✦"}</span><span style={{ position: "absolute", top: 110, right: 52, color: "#E8B84B", opacity: 0.6, fontSize: 9, animation: "twinkle 4.5s ease-in-out infinite" }}>{"✦"}</span></>}
           {authView === "welcome" && (
             <div className="fade-in" style={{ textAlign: "center", position: "relative" }}>
               <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 54, color: envA.dark ? "#FFF6EC" : "#4A2F45", marginBottom: 2 }}>New Ray</div>
@@ -578,7 +590,7 @@ export default function App() {
               <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: envA.dark ? "rgba(255,246,236,0.8)" : "#8E6C88", marginBottom: 34 }}>Less thinking. More living.</p>
               <button onClick={() => { setAuthView("signup"); setAuthMsg("") }} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 15, boxShadow: "0 10px 26px rgba(168,123,209,0.4)" }}>Get Started</button>
               <button onClick={() => { setAuthView("login"); setAuthMsg("") }} style={{ width: "100%", marginTop: 12, padding: 14, background: envA.dark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.6)", color: envA.dark ? "#FFF6EC" : "#4A2F45", border: `1px solid ${envA.dark ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.9)"}`, borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Already have an account? Log In</button>
-              <div onClick={() => { setGuest(true); setAuthMsg("") }} style={{ marginTop: 22, fontSize: 13, fontWeight: 600, color: envA.dark ? "#F0C879" : "#C9558E", cursor: "pointer" }}>Try a Preview {"\u2192"}</div>
+              <div onClick={() => { setGuest(true); setAuthMsg("") }} style={{ marginTop: 22, fontSize: 13, fontWeight: 600, color: envA.dark ? "#F0C879" : "#C9558E", cursor: "pointer" }}>Try a Preview {"→"}</div>
             </div>
           )}
           {authView === "login" && (
@@ -665,14 +677,14 @@ export default function App() {
     const finish = () => {
       const data = { ...draftSetup, name: firstName }
       setSetupData(data)
-      try { localStorage.setItem("nr_setup", JSON.stringify(data)) } catch (e) {}
+      try { localStorage.setItem("nr_setup", JSON.stringify(data)); localStorage.setItem("nr_name", firstName) } catch (e) {}
       try { db.from("profiles").update({ setup: data, first_name: firstName }).eq("id", user.id).then(() => {}) } catch (e) {}
     }
     return (
       <><Fonts /><GlobalStyle />
         <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 26px" }}>
           <div className="fade-in" key={setupStep}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "#C9558E", marginBottom: 8 }}>TELL US ABOUT YOU {"\u00b7"} {setupStep + 1} OF {steps.length}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "#C9558E", marginBottom: 8 }}>TELL US ABOUT YOU {"·"} {setupStep + 1} OF {steps.length}</div>
             <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, color: envS.dark ? "#FFF6EC" : "#3D2545", marginBottom: 20, lineHeight: 1.25 }}>{st.q}</h2>
             {st.opts.map((o) => {
               const on = st.multi ? val.includes(o) : val === o
@@ -684,7 +696,7 @@ export default function App() {
               {setupStep > 0 && <button onClick={() => setSetupStep(setupStep - 1)} style={{ flex: 1, padding: 14, background: "rgba(255,255,255,0.6)", color: "#4A3050", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Back</button>}
               {setupStep < steps.length - 1
                 ? <button disabled={!canNext} onClick={() => setSetupStep(setupStep + 1)} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>Continue</button>
-                : <button disabled={!canNext} onClick={finish} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>Done {"\u2192"}</button>}
+                : <button disabled={!canNext} onClick={finish} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>Done {"→"}</button>}
             </div>
             <div onClick={finish} style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: envS.dark ? "rgba(255,246,236,0.6)" : "#8E6C88", cursor: "pointer" }}>Skip for now</div>
           </div>
@@ -863,10 +875,10 @@ export default function App() {
                   <div style={{ position: "absolute", left: `${pct}%`, top: -26, transform: "translateX(-50%)", fontSize: 11, fontWeight: 700, color: env.dark ? "#2E2149" : "#C9558E", background: env.dark ? "#F0C879" : "rgba(255,255,255,0.95)", border: env.dark ? "none" : "1px solid rgba(201,85,142,0.3)", borderRadius: 999, padding: "2px 9px", transition: "left 0.1s ease" }}>{pct}%</div>
                   <input type="range" min="0" max="100" step="5" value={pct} onChange={(e) => setPct(+e.target.value)} style={{ width: "100%", background: `linear-gradient(90deg,#E08A8A 0%,#F0C879 50%,#9CC79A 100%)` }} />
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: mut, fontStyle: "italic", fontFamily: "'Cormorant Garamond', serif", marginTop: 6 }}><span>running on empty</span><span>full of energy</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: mut, fontStyle: "italic", fontFamily: "'Cormorant Garamond', serif", marginTop: 8 }}><span>running on empty</span><span>full of energy</span></div>
                 <div style={{ fontSize: 11, color: mut, marginTop: 16, lineHeight: 1.55 }}>There is no wrong answer. The whole day shapes itself around this.</div>
 
-                <div onClick={() => setCtxOpen(!ctxOpen)} style={{ marginTop: 18, fontSize: 12, fontWeight: 700, color: env.dark ? "#F0C879" : "#C9558E", cursor: "pointer" }}>{ctxOpen ? "\u2212 Hide context" : "+ Add a little context (optional)"}</div>
+                <div onClick={() => setCtxOpen(!ctxOpen)} style={{ marginTop: 18, fontSize: 12, fontWeight: 700, color: env.dark ? "#F0C879" : "#C9558E", cursor: "pointer" }}>{ctxOpen ? "− Hide context" : "+ Add a little context (optional)"}</div>
                 {ctxOpen && (
                   <div className="fade-in" style={{ marginTop: 14 }}>
                     <Label>What's affecting you?</Label>
@@ -876,17 +888,17 @@ export default function App() {
                     <Chips items={SUPPORTS} selected={supports} onToggle={(v) => toggle(supports, setSupports, v)} />
                     <div style={{ height: 14 }} />
                     <Label>Today's one thing</Label>
-                    <input type="text" value={oneThing} onChange={(e) => setOneThing(e.target.value)} placeholder="The single thing that would make today a success\u2026" style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: env.dark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.8)", border: `1px solid ${cardBd}`, color: ink, fontSize: 13.5, outline: "none" }} />
+                    <input type="text" value={oneThing} onChange={(e) => setOneThing(e.target.value)} placeholder="The single thing that would make today a success…" style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: env.dark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.8)", border: `1px solid ${cardBd}`, color: ink, fontSize: 13.5, outline: "none" }} />
                   </div>
                 )}
-                <button onClick={saveCheckin} disabled={saving} style={{ width: "100%", marginTop: 20, padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", fontSize: 14.5, fontWeight: 700, opacity: saving ? 0.6 : 1, boxShadow: "0 8px 22px rgba(168,123,209,0.35)" }}>{saving ? "Setting your day\u2026" : "Set my day"}</button>
+                <button onClick={saveCheckin} disabled={saving} style={{ width: "100%", marginTop: 20, padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", fontSize: 14.5, fontWeight: 700, opacity: saving ? 0.6 : 1, boxShadow: "0 8px 22px rgba(168,123,209,0.35)" }}>{saving ? "Setting your day…" : "Set my day"}</button>
               </>
             ) : (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 3, color: env.dark ? "#F0C879" : "#C9558E" }}>TODAY IS SET</div>
-                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, color: ink, marginTop: 6 }}>{pct}% \u00b7 {THEMES[cur].label}</div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, color: ink, marginTop: 6 }}>{pct}% · {THEMES[cur].label}</div>
                     <div style={{ fontSize: 11, color: mut, marginTop: 3 }}>Nothing else to figure out.</div>
                   </div>
                   <div onClick={() => setCheckedIn(false)} style={{ fontSize: 11, fontWeight: 700, color: mut, cursor: "pointer", textDecoration: "underline" }}>adjust</div>
@@ -901,11 +913,11 @@ export default function App() {
               <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 3, color: "rgba(255,255,255,0.85)" }}>ONE MEANINGFUL NEXT STEP</div>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 23, color: "#fff", lineHeight: 1.3, margin: "10px 0 6px", position: "relative" }}>{step.line}</div>
               <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.9)", position: "relative" }}>{step.sub}</div>
-              <div style={{ marginTop: 14, display: "inline-block", padding: "8px 15px", borderRadius: 999, background: "rgba(255,255,255,0.22)", color: "#fff", fontSize: 11, fontWeight: 600 }}>No rush \u2014 whenever it happens.</div>
+              <div style={{ marginTop: 14, display: "inline-block", padding: "8px 15px", borderRadius: 999, background: "rgba(255,255,255,0.22)", color: "#fff", fontSize: 11, fontWeight: 600 }}>No rush — whenever it happens.</div>
             </div>
           )}
 
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 19, color: ink, margin: "30px 0 12px" }}>Today might feel better with\u2026</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 19, color: ink, margin: "30px 0 12px" }}>Today might feel better with…</div>
           {suggs.map((g, i) => (
             <div key={i} className="fade-in" style={{ borderRadius: 16, background: cardBg, border: `1px solid ${cardBd}`, padding: "16px 17px", marginBottom: 10, display: "flex", alignItems: "center", boxShadow: env.dark ? "0 6px 18px rgba(0,0,0,0.25)" : "0 6px 18px rgba(120,80,130,0.08)" }}>
               <div style={{ width: 36, marginRight: 10, textAlign: "center" }}>{SICON(g.icon, env.dark ? "#F0C879" : "#C9558E")}</div>
@@ -913,7 +925,7 @@ export default function App() {
             </div>
           ))}
 
-          <div style={{ textAlign: "center", fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: mut, margin: "28px 0 0" }}>New Ray changes with you \u2014 morning to evening, full to empty.</div>
+          <div style={{ textAlign: "center", fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: mut, margin: "28px 0 0" }}>New Ray changes with you — morning to evening, full to empty.</div>
         </div>
       )
     }
@@ -955,7 +967,7 @@ export default function App() {
               return (
                 <div key={p.d} onClick={() => { if (!rest) setWoType(p.t) }} style={{ flex: 1, textAlign: "center", cursor: rest ? "default" : "pointer", padding: "8px 2px", borderRadius: 12, background: isToday ? THEMES[gymColor].tint : BASE.surface, border: `1.5px solid ${isToday ? THEMES[gymColor].accent : BASE.border}`, opacity: rest ? 0.55 : 1 }}>
                   <div style={{ fontSize: 9.5, color: BASE.taupe, fontWeight: 700, textTransform: "uppercase" }}>{p.d}</div>
-                  <div style={{ fontSize: 13, marginTop: 3 }}>{done ? "\u2713" : rest ? "\u2014" : ""}</div>
+                  <div style={{ fontSize: 13, marginTop: 3 }}>{done ? "\u2713" : rest ? "—" : ""}</div>
                   <div style={{ fontSize: 8.5, color: done ? THEMES.green.accent : BASE.taupe, fontWeight: 600, textTransform: "capitalize", marginTop: 1 }}>{rest ? "rest" : WO_TYPES.find((t) => t.key === p.t).label.split(" ")[0]}</div>
                 </div>
               )
@@ -1011,7 +1023,7 @@ export default function App() {
                     <div style={{ fontSize: 14.5, color: BASE.cream, fontWeight: 700 }}>{ex.name}</div>
                     <div style={{ fontSize: 12, color: THEMES[gymColor].accent, fontWeight: 700, whiteSpace: "nowrap" }}>{ex.sets > 1 ? ex.sets + " x " + ex.reps : ex.reps}</div>
                   </div>
-                  <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.45 }}>{ex.cue} <span style={{ color: BASE.terracotta, fontWeight: 700 }}>{open ? "\u2212 close" : "+ how to"}</span></div>
+                  <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.45 }}>{ex.cue} <span style={{ color: BASE.terracotta, fontWeight: 700 }}>{open ? "− close" : "+ how to"}</span></div>
                 </div>
                 {open && (
                   <div className="fade-in" style={{ marginTop: 10, padding: "11px 13px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}` }}>
@@ -1039,7 +1051,7 @@ export default function App() {
           {!loggedToday ? (
             <button onClick={finishWorkout} style={{ width: "100%", marginTop: 8, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[gymColor].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 800 }}>Finish workout {"\u2713"}</button>
           ) : (
-            <div className="fade-in" style={{ marginTop: 8, padding: 14, borderRadius: 14, background: THEMES[gymColor].tint, border: `1px solid rgba(${THEMES[gymColor].glow},0.4)`, textAlign: "center", color: THEMES[gymColor].accent, fontSize: 14, fontWeight: 800 }}>Logged for today {"\u2713"} {"\u2014"} that fully counted</div>
+            <div className="fade-in" style={{ marginTop: 8, padding: 14, borderRadius: 14, background: THEMES[gymColor].tint, border: `1px solid rgba(${THEMES[gymColor].glow},0.4)`, textAlign: "center", color: THEMES[gymColor].accent, fontSize: 14, fontWeight: 800 }}>Logged for today {"\u2713"} {"—"} that fully counted</div>
           )}
 
           <p style={{ fontSize: 10.5, color: BASE.taupe, textAlign: "center", margin: "16px 0 0", lineHeight: 1.5 }}>General fitness guidance, not medical advice. Especially if you're postpartum, healing, or managing a condition - move within your provider's guidance.</p>
@@ -1060,7 +1072,7 @@ export default function App() {
       return (
         <div className="fade-in" style={{ padding: "8px 18px 0" }}>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, margin: "12px 0 4px" }}>Bloom</h2>
-          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 18 }}>The mental glow up {"\u2014"} one gentle shift at a time.</p>
+          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 18 }}>The mental glow up {"—"} one gentle shift at a time.</p>
 
           <div style={{ padding: "24px 20px", borderRadius: 22, background: "linear-gradient(135deg, #D9749B 0%, #B44E7C 100%)", marginBottom: 16, boxShadow: "0 10px 26px rgba(217,116,155,0.35)", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", right: -30, top: -30, width: 140, height: 140, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
@@ -1091,7 +1103,7 @@ export default function App() {
       return (
         <div className="fade-in" style={{ padding: "8px 18px 0" }}>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, margin: "12px 0 6px" }}>Your workouts</h2>
-          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>{woLog.length} logged {"\u00b7"} every one counted.</p>
+          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>{woLog.length} logged {"·"} every one counted.</p>
           {!sorted.length ? (
             <div style={{ padding: 24, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.taupe, fontSize: 14, lineHeight: 1.6, textAlign: "center" }}>Finish a workout in the Body tab and it will show up here.</div>
           ) : (
@@ -1174,7 +1186,7 @@ export default function App() {
       const Row = ({ label, onClick, chevron = true }) => (
         <div onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 16px", cursor: "pointer", borderBottom: `1px solid ${BASE.border}` }}>
           <span style={{ fontSize: 14, color: BASE.cream, fontWeight: 500 }}>{label}</span>
-          {chevron && <span style={{ color: BASE.taupe, fontSize: 16 }}>{"\u203a"}</span>}
+          {chevron && <span style={{ color: BASE.taupe, fontSize: 16 }}>{"›"}</span>}
         </div>
       )
       const Group = ({ title, children }) => (
@@ -1186,13 +1198,13 @@ export default function App() {
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div onClick={() => setMoreView("mylife")} style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, borderRadius: 20, background: "linear-gradient(135deg,#E984B4,#A87BD1)", cursor: "pointer", marginBottom: 22, boxShadow: "0 10px 26px rgba(168,123,209,0.3)" }}>
-            <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: "#fff" }}>{nm[0] ? nm[0].toUpperCase() : "\ud83c\udf38"}</div>
+            <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: "#fff" }}>{nm[0] ? nm[0].toUpperCase() : "🌸"}</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.85)", textTransform: "uppercase" }}>{"\ud83c\udf38"} My Life</div>
+              <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.85)", textTransform: "uppercase" }}>{"🌸"} My Life</div>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: "#fff", marginTop: 2 }}>{nm}</div>
               <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.9)" }}>{season}</div>
             </div>
-            <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 20 }}>{"\u203a"}</span>
+            <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 20 }}>{"›"}</span>
           </div>
 
           <Group title="Wellness">
@@ -1220,29 +1232,69 @@ export default function App() {
     }
 
     if (tab === "more" && moreView === "mylife") {
-      const d = setupData || {}
-      const Field = ({ label, value }) => (
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 16px", borderBottom: `1px solid ${BASE.border}` }}>
-          <span style={{ fontSize: 13.5, color: BASE.taupe }}>{label}</span>
-          <span style={{ fontSize: 13.5, color: BASE.cream, fontWeight: 600 }}>{value || "\u2014"}</span>
-        </div>
-      )
+      const d = editLife || setupData || {}
+      const setField = (k, v) => setEditLife({ ...(editLife || setupData || {}), [k]: v })
+      const toggleHope = (h) => {
+        const cur2 = (editLife || setupData || {}).hopes || []
+        const arr = cur2.includes(h) ? cur2.filter((x) => x !== h) : [...cur2, h]
+        setField("hopes", arr)
+      }
+      const saveLife = () => {
+        const data = { ...(setupData || {}), ...(editLife || {}) }
+        setSetupData(data)
+        if (data.name) setFirstName(data.name)
+        try { localStorage.setItem("nr_setup", JSON.stringify(data)); if (data.name) localStorage.setItem("nr_name", data.name) } catch (e) {}
+        try { if (user) db.from("profiles").update({ setup: data, first_name: data.name }).eq("id", user.id).then(() => {}) } catch (e) {}
+        setLifeMsg("Saved \u2713")
+        setTimeout(() => setLifeMsg(""), 1800)
+      }
       const Sec = ({ title, children }) => (
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, margin: "0 4px 8px" }}>{title}</div>
-          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, overflow: "hidden" }}>{children}</div>
+          <div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "14px 15px" }}>{children}</div>
         </div>
       )
+      const Pick = ({ options, value, onPick }) => (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {options.map((o) => (
+            <div key={o} onClick={() => onPick(o)} style={{ padding: "8px 14px", borderRadius: 999, cursor: "pointer", fontSize: 12.5, fontWeight: 600, background: value === o ? T.accent : "transparent", color: value === o ? "#FFFFFF" : BASE.creamDim, border: "1px solid " + (value === o ? T.accent : BASE.border) }}>{o}</div>
+          ))}
+        </div>
+      )
+      const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.bg2, border: "1px solid " + BASE.border, color: BASE.cream, fontSize: 14, outline: "none" }
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
-          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039"} Back</div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 2 }}>{"\ud83c\udf38"} My Life</div>
-          <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 22 }}>Everything here centers on your life, not your stats.</div>
-          <Sec title="About Me"><Field label="Name" value={d.name} /><Field label="My season" value={d.season} /></Sec>
-          <Sec title="My Goals">{(d.hopes && d.hopes.length ? d.hopes : ["\u2014"]).map((h, i) => (<Field key={i} label={i === 0 ? "Hoping for" : ""} value={h} />))}</Sec>
-          <Sec title="My Gym"><Field label="Experience" value={d.level} /><Field label="Equipment" value={d.equip} /></Sec>
-          <Sec title="My Preferences"><Field label="Cycle tracking" value={d.cyclePref} /><Field label="Morning greeting" value="On" /></Sec>
-          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", margin: "6px 0 4px", lineHeight: 1.6 }}>Editing your life details is coming soon. For now, these come from your welcome setup.</div>
+          <div onClick={() => { setMoreView("menu"); setEditLife(null) }} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 2 }}>{"\ud83c\udf38 My Life"}</div>
+          <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 22 }}>Everything here centers on your life, not your stats. Edit anytime.</div>
+
+          <Sec title="About Me">
+            <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 6 }}>Name</div>
+            <input value={d.name || ""} onChange={(e) => setField("name", e.target.value)} placeholder="Your name" style={{ ...inputStyle, marginBottom: 14 }} />
+            <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 8 }}>My season</div>
+            <Pick options={SEASONS} value={d.season} onPick={(o) => setField("season", o)} />
+          </Sec>
+          <Sec title="My Goals">
+            <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 8 }}>What you're hoping for (choose any)</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {HOPES.map((h) => { const on = (d.hopes || []).includes(h); return (
+                <div key={h} onClick={() => toggleHope(h)} style={{ padding: "8px 14px", borderRadius: 999, cursor: "pointer", fontSize: 12.5, fontWeight: 600, background: on ? T.accent : "transparent", color: on ? "#FFFFFF" : BASE.creamDim, border: "1px solid " + (on ? T.accent : BASE.border) }}>{h}</div>
+              )})}
+            </div>
+          </Sec>
+          <Sec title="My Gym">
+            <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 8 }}>Experience</div>
+            <Pick options={LEVELS} value={d.level} onPick={(o) => setField("level", o)} />
+            <div style={{ fontSize: 11.5, color: BASE.taupe, margin: "14px 0 8px" }}>Equipment</div>
+            <Pick options={EQUIP} value={d.equip} onPick={(o) => setField("equip", o)} />
+          </Sec>
+          <Sec title="My Preferences">
+            <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 8 }}>Cycle tracking</div>
+            <Pick options={CYCLEPREF} value={d.cyclePref} onPick={(o) => setField("cyclePref", o)} />
+          </Sec>
+
+          <button onClick={saveLife} style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", fontSize: 14.5, fontWeight: 700, boxShadow: "0 8px 22px rgba(168,123,209,0.3)" }}>Save my life details</button>
+          {lifeMsg && <div className="fade-in" style={{ textAlign: "center", color: T.accent, fontSize: 13, fontWeight: 700, marginTop: 12 }}>{lifeMsg}</div>}
         </div>
       )
     }
@@ -1369,9 +1421,9 @@ export default function App() {
             {envRoot.mode === "evening" && (
               <>
                 <svg style={{ position: "absolute", top: 58, right: 54 }} width="40" height="40" viewBox="0 0 40 40"><path d="M28 4 A 16 16 0 1 0 36 22 A 12.5 12.5 0 0 1 28 4 Z" fill="#F0E3B8" opacity="0.9" /></svg>
-                <div style={{ position: "absolute", top: 40, left: 60, color: "#F0C879", fontSize: 9, animation: "twinkle 3s ease-in-out infinite" }}>{"\u2726"}</div>
-                <div style={{ position: "absolute", top: 110, left: 150, color: "#F0C879", fontSize: 7, animation: "twinkle 4.4s ease-in-out infinite" }}>{"\u2726"}</div>
-                <div style={{ position: "absolute", top: 84, right: 130, color: "#F0C879", fontSize: 8, animation: "twinkle 3.7s ease-in-out infinite" }}>{"\u2726"}</div>
+                <div style={{ position: "absolute", top: 40, left: 60, color: "#F0C879", fontSize: 9, animation: "twinkle 3s ease-in-out infinite" }}>{"✦"}</div>
+                <div style={{ position: "absolute", top: 110, left: 150, color: "#F0C879", fontSize: 7, animation: "twinkle 4.4s ease-in-out infinite" }}>{"✦"}</div>
+                <div style={{ position: "absolute", top: 84, right: 130, color: "#F0C879", fontSize: 8, animation: "twinkle 3.7s ease-in-out infinite" }}>{"✦"}</div>
                 <div style={{ position: "absolute", top: 210, left: 36, width: 6, height: 6, borderRadius: "50%", background: "#F0C879", boxShadow: "0 0 10px 4px rgba(240,200,121,0.5)", animation: "flicker 3.2s ease-in-out infinite" }} />
                 <div style={{ position: "absolute", top: 300, right: 44, width: 5, height: 5, borderRadius: "50%", background: "#F0C879", boxShadow: "0 0 9px 3px rgba(240,200,121,0.45)", animation: "flicker 4.6s ease-in-out infinite" }} />
               </>
@@ -1398,7 +1450,7 @@ export default function App() {
         </div>
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60 }}>
           <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", background: tab === "today" && envRoot.dark ? "rgba(40,28,64,0.92)" : "rgba(255,255,255,0.93)", borderTop: `1px solid ${tab === "today" && envRoot.dark ? "rgba(255,255,255,0.12)" : BASE.border}`, padding: "8px 6px 14px", boxShadow: "0 -6px 24px rgba(60,35,70,0.10)" }}>
-            {[["today", "Today", "\u2600\ufe0f"], ["body", "Body", "\ud83d\udcaa"], ["bloom", "Bloom", "\ud83c\udf38"], ["progress", "Progress", "\ud83d\udcc8"], ["more", "More", "\ud83e\udd0d"]].map(([k, lbl, ic]) => {
+            {[["today", "Today", "\u2600\ufe0f"], ["body", "Body", "💪"], ["bloom", "Bloom", "🌸"], ["progress", "Progress", "📈"], ["more", "More", "🤍"]].map(([k, lbl, ic]) => {
               const active = tab === k
               const darkbar = tab === "today" && envRoot.dark
               return (
