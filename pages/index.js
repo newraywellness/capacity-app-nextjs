@@ -97,6 +97,199 @@ const HERO_GRAD = {
   green: "linear-gradient(135deg, #93B061 0%, #66883E 100%)",
 }
 const demoLink = (name) => "https://www.youtube.com/results?search_query=" + encodeURIComponent(name + " form how to")
+// ============ MOVEMENT LIBRARY ARCHITECTURE ============
+// Workouts are composed from: Movement Patterns -> Exercise options (by level) -> Program rules -> Capacity adaptation.
+// All five programs draw from this one library; they differ by which patterns/levels/cues they select.
+// This phase seeds the STRUCTURE with representative examples, not full content.
+const CAPACITY_RULES = {
+  green: { label: "Green", note: "Normal programmed sets, reps, and intensity.", color: "#7FA054" },
+  yellow: { label: "Yellow", note: "Reduce volume, maintain the movement and your progress.", color: "#D08F2E" },
+  red: { label: "Red", note: "Simplify the movement, fewer sets, prioritize confidence.", color: "#D65C4E" },
+  recovery: { label: "Recovery", note: "Mobility, walking, breathing, gentle movement only.", color: "#A87BD1" },
+}
+const ALL_PROGRAMS = ["foundations", "strength", "mama", "move", "balanced"]
+// Movement pattern = the reusable unit. Each holds level-tiered exercise options with equipment + subs + cues.
+const MOVEMENTS = [
+  { id: "squat", group: "Lower Body Strength", pattern: "Squat", purpose: "Leg strength, glute development, everyday movement ability.",
+    programs: ["foundations", "strength", "balanced", "mama"],
+    levels: {
+      beginner: [
+        { name: "Goblet squat", equip: ["Dumbbell", "Kettlebell"], home: "Hold any weighted object (jug, backpack)", gym: "Dumbbell or kettlebell", cue: "Chest tall, sit between your hips, drive through your heels." },
+        { name: "Box squat", equip: ["Bodyweight", "Bench"], home: "Squat to a sturdy chair", gym: "Squat to a box/bench", cue: "Touch the box lightly, don't crash down." },
+        { name: "Leg press", equip: ["Machine"], home: "Sub goblet squat", gym: "Leg press machine", cue: "Feet mid-platform, lower to about 90 degrees." },
+      ],
+      intermediate: [
+        { name: "Front squat", equip: ["Barbell", "Dumbbells"], home: "Dumbbell front-racked squat", gym: "Barbell front squat", cue: "Elbows high, brace hard, stay upright." },
+        { name: "Hack squat", equip: ["Machine"], home: "Sub goblet squat", gym: "Hack squat machine", cue: "Control the descent, full range you own." },
+      ],
+      advanced: [
+        { name: "Barbell back squat", equip: ["Barbell"], home: "Sub heavy goblet squat", gym: "Barbell + rack", cue: "Brace, sit, drive. Bar path straight over midfoot." },
+      ],
+    },
+    capacity: { green: "Full sets at programmed load.", yellow: "Drop 1 set, keep the load.", red: "Bodyweight or light goblet, 2 easy sets.", recovery: "Skip loading; do slow bodyweight sit-to-stands if any." },
+  },
+  { id: "hinge", group: "Lower Body Strength", pattern: "Hinge", purpose: "Hamstrings, glutes, and posterior-chain strength.",
+    programs: ["foundations", "strength", "balanced"],
+    levels: {
+      beginner: [
+        { name: "Dumbbell Romanian deadlift", equip: ["Dumbbells"], home: "Dumbbells or a loaded backpack", gym: "Dumbbells", cue: "Push hips back, soft knees, feel the hamstrings." },
+        { name: "Hip hinge drill", equip: ["Bodyweight", "Dowel"], home: "Broomstick along your back", gym: "Dowel hinge drill", cue: "Hips move back, spine stays long." },
+      ],
+      intermediate: [
+        { name: "Barbell Romanian deadlift", equip: ["Barbell"], home: "Heavy dumbbell RDL", gym: "Barbell RDL", cue: "Bar stays close, hips hinge, squeeze to stand." },
+        { name: "Trap bar deadlift", equip: ["Trap bar"], home: "Dumbbell deadlift", gym: "Trap bar", cue: "Push the floor away, proud chest." },
+      ],
+      advanced: [
+        { name: "Conventional deadlift", equip: ["Barbell"], home: "Sub heavy dumbbell RDL", gym: "Barbell", cue: "Brace, wedge, push through the whole foot." },
+      ],
+    },
+    capacity: { green: "Full sets at programmed load.", yellow: "Reduce load ~20%, keep form crisp.", red: "Light dumbbell hinge, 2 sets for the pattern.", recovery: "Hip-hinge mobility only." },
+  },
+  { id: "glute", group: "Lower Body Strength", pattern: "Glute", purpose: "Hip strength and glute development.",
+    programs: ["foundations", "strength", "mama", "balanced"],
+    levels: {
+      beginner: [
+        { name: "Glute bridge", equip: ["Bodyweight"], home: "Floor glute bridge", gym: "Bridge or booty-builder machine", cue: "Squeeze at the top for a full second." },
+        { name: "Hip thrust machine", equip: ["Machine"], home: "Shoulders-on-couch hip thrust", gym: "Hip thrust machine", cue: "Chin tucked, ribs down, drive hips up." },
+      ],
+      intermediate: [
+        { name: "Barbell hip thrust", equip: ["Barbell", "Bench"], home: "Single-leg hip thrust", gym: "Barbell + bench", cue: "Full lockout, one-second squeeze." },
+        { name: "Cable kickback", equip: ["Cable"], home: "Band kickback", gym: "Cable + ankle strap", cue: "Strict, no swinging \u2014 the glute does the work." },
+      ],
+      advanced: [
+        { name: "Heavy hip thrust", equip: ["Barbell"], home: "Sub single-leg variations", gym: "Barbell + pad", cue: "Load it, but never lose the squeeze." },
+      ],
+    },
+    capacity: { green: "Full programmed sets.", yellow: "Keep the main lift, drop accessory volume.", red: "Bodyweight bridges, 2 sets.", recovery: "Gentle glute activation, no load." },
+  },
+  { id: "hipstab", group: "Lower Body Strength", pattern: "Hip Stability", purpose: "Hip health, stability, and confidence.",
+    programs: ["foundations", "mama", "move", "balanced"],
+    levels: {
+      beginner: [
+        { name: "Hip abduction machine", equip: ["Machine"], home: "Band abduction", gym: "Abduction machine", cue: "Push out, pause, resist on the way back." },
+        { name: "Band walks", equip: ["Band"], home: "Mini-band walks", gym: "Mini-band walks", cue: "Stay low, tension the whole time." },
+      ],
+      intermediate: [
+        { name: "Step ups", equip: ["Bench", "Dumbbells"], home: "Stair step-ups", gym: "Box + dumbbells", cue: "Drive through the top foot, control down." },
+        { name: "Lateral lunges", equip: ["Bodyweight", "Dumbbell"], home: "Bodyweight lateral lunge", gym: "Dumbbell lateral lunge", cue: "Sit into the working hip, chest tall." },
+      ],
+      advanced: [
+        { name: "Loaded step-up variations", equip: ["Dumbbells", "Barbell"], home: "Weighted stair step-ups", gym: "Loaded step-ups", cue: "Own each rep, no bounce." },
+      ],
+    },
+    capacity: { green: "Full sets.", yellow: "Keep it, lighten the load.", red: "Bodyweight band work, 2 sets.", recovery: "Gentle band activation." },
+  },
+  { id: "legiso", group: "Lower Body Strength", pattern: "Knee/Leg Isolation", purpose: "Targeted lower-body strength.",
+    programs: ["foundations", "strength", "balanced"],
+    levels: {
+      beginner: [
+        { name: "Leg extension", equip: ["Machine"], home: "Seated knee extensions (band)", gym: "Leg extension machine", cue: "Squeeze the quad at the top, lower slow." },
+        { name: "Hamstring curl", equip: ["Machine"], home: "Band hamstring curl", gym: "Lying/seated curl", cue: "Control both directions." },
+        { name: "Calf raise", equip: ["Bodyweight", "Machine"], home: "Stair calf raise", gym: "Calf machine", cue: "Full range, pause at the top." },
+      ],
+      intermediate: [], advanced: [],
+    },
+    capacity: { green: "Full sets.", yellow: "Drop 1 set.", red: "Skip isolation, keep the main lift.", recovery: "Skip." },
+  },
+  { id: "push", group: "Upper Body Strength", pattern: "Push", purpose: "Chest, shoulders, and pressing strength.",
+    programs: ["foundations", "strength", "mama", "balanced"],
+    levels: {
+      beginner: [
+        { name: "Chest press machine", equip: ["Machine"], home: "Incline pushup", gym: "Chest press machine", cue: "Handles at mid-chest, no hard lockout." },
+        { name: "Incline pushup", equip: ["Bodyweight"], home: "Hands on couch/counter", gym: "Smith bar incline pushup", cue: "Body in one line, lower with control." },
+      ],
+      intermediate: [
+        { name: "Dumbbell press", equip: ["Dumbbells", "Bench"], home: "Floor dumbbell press", gym: "Bench + dumbbells", cue: "Wrists stacked, smooth tempo." },
+      ],
+      advanced: [
+        { name: "Bench press", equip: ["Barbell", "Bench"], home: "Sub heavy dumbbell press", gym: "Barbell bench", cue: "Control down, drive up, shoulder blades pinned." },
+      ],
+    },
+    capacity: { green: "Full sets at load.", yellow: "Drop 1 set.", red: "Incline/wall pushups, 2 sets.", recovery: "Skip pressing." },
+  },
+  { id: "pull", group: "Upper Body Strength", pattern: "Pull", purpose: "Back strength, posture, and upper-body confidence.",
+    programs: ["foundations", "strength", "mama", "balanced"],
+    levels: {
+      beginner: [
+        { name: "Lat pulldown", equip: ["Machine", "Cable"], home: "Band pulldown", gym: "Lat pulldown", cue: "Pull to your collarbone, elbows lead." },
+        { name: "Seated row", equip: ["Machine", "Cable"], home: "Band row", gym: "Seated cable row", cue: "Pull to your ribs, squeeze the mid-back." },
+      ],
+      intermediate: [
+        { name: "Dumbbell row", equip: ["Dumbbells", "Bench"], home: "Single-arm dumbbell row", gym: "Bench + dumbbell", cue: "Flat back, drive the elbow up." },
+      ],
+      advanced: [
+        { name: "Pull-ups", equip: ["Bar"], home: "Band-assisted or door-frame rows", gym: "Assisted pull-up machine", cue: "Full hang to chin over bar, no swing." },
+      ],
+    },
+    capacity: { green: "Full sets.", yellow: "Drop 1 set.", red: "Band rows, 2 sets.", recovery: "Gentle band pull-aparts." },
+  },
+  { id: "shoulder", group: "Upper Body Strength", pattern: "Shoulder", purpose: "Shoulder strength and healthy overhead movement.",
+    programs: ["foundations", "strength", "balanced"],
+    levels: {
+      beginner: [
+        { name: "Shoulder press", equip: ["Dumbbells", "Machine"], home: "Seated dumbbell press", gym: "Machine or dumbbells", cue: "Ribs down, press up and slightly back." },
+        { name: "Lateral raise", equip: ["Dumbbells"], home: "Light dumbbells or water bottles", gym: "Dumbbells or cable", cue: "Lead with the elbows, no swing." },
+      ],
+      intermediate: [
+        { name: "Rear delt movements", equip: ["Dumbbells", "Cable"], home: "Band rear-delt pull", gym: "Reverse pec deck", cue: "Squeeze the shoulder blades." },
+      ],
+      advanced: [],
+    },
+    capacity: { green: "Full sets.", yellow: "Drop 1 set.", red: "Light laterals, 2 sets.", recovery: "Skip." },
+  },
+  { id: "deepcore", group: "Core & Stability", pattern: "Deep Core / Postpartum", purpose: "Strength, stability, breathing, and confidence \u2014 not just abs.",
+    programs: ["mama", "foundations", "move", "balanced"],
+    levels: {
+      beginner: [
+        { name: "360 breathing", equip: ["Bodyweight"], home: "Lying or seated", gym: "Any quiet spot", cue: "Breathe wide into your ribs, gentle exhale draws the core in." },
+        { name: "Heel slides", equip: ["Bodyweight"], home: "On the floor", gym: "On a mat", cue: "Ribs down, slide the heel while the core stays quiet." },
+        { name: "Dead bug", equip: ["Bodyweight"], home: "On the floor", gym: "On a mat", cue: "Low back stays down the whole time." },
+        { name: "Bird dog", equip: ["Bodyweight"], home: "On hands and knees", gym: "On a mat", cue: "Reach long, don't let the hips rock." },
+      ],
+      intermediate: [], advanced: [],
+    },
+    capacity: { green: "Full programmed rounds.", yellow: "Fewer rounds, same quality.", red: "Just 360 breathing.", recovery: "Breathing only \u2014 this is perfect recovery work." },
+  },
+  { id: "corestab", group: "Core & Stability", pattern: "Core Stability", purpose: "Anti-movement strength: bracing, carrying, staying solid.",
+    programs: ["foundations", "strength", "balanced"],
+    levels: {
+      beginner: [
+        { name: "Plank variations", equip: ["Bodyweight"], home: "Knee or full plank", gym: "On a mat", cue: "One straight line, squeeze glutes, quality over seconds." },
+      ],
+      intermediate: [
+        { name: "Pallof press", equip: ["Cable", "Band"], home: "Band Pallof press", gym: "Cable Pallof", cue: "Resist the twist, press straight out." },
+        { name: "Carries", equip: ["Dumbbells", "Kettlebell"], home: "Loaded backpack carry", gym: "Farmer carry", cue: "Tall and braced, walk with control." },
+      ],
+      advanced: [],
+    },
+    capacity: { green: "Full sets.", yellow: "Drop 1 set.", red: "Short plank holds, 2 sets.", recovery: "Skip or gentle breathing." },
+  },
+  { id: "walk", group: "Conditioning & Movement", pattern: "Walking", purpose: "Low-impact conditioning anyone can do, any day.",
+    programs: ALL_PROGRAMS,
+    levels: {
+      beginner: [
+        { name: "Easy walk", equip: ["None"], home: "Outside or in place", gym: "Treadmill", cue: "Conversational pace \u2014 you could chat the whole time." },
+        { name: "Incline walk", equip: ["Treadmill"], home: "Find a hill", gym: "Treadmill incline", cue: "Tall posture, let the incline do the work." },
+      ],
+      intermediate: [], advanced: [],
+    },
+    capacity: { green: "Longer or brisk intervals.", yellow: "Steady moderate walk.", red: "Short, easy walk.", recovery: "A gentle stroll counts fully." },
+  },
+  { id: "mobility", group: "Conditioning & Movement", pattern: "Mobility & Recovery", purpose: "Move gently, restore range, calm the system.",
+    programs: ALL_PROGRAMS,
+    levels: {
+      beginner: [
+        { name: "Mobility flow", equip: ["Bodyweight"], home: "Open floor space", gym: "Stretch area", cue: "Move only where it feels good \u2014 nothing forced." },
+        { name: "Recovery stretch", equip: ["Bodyweight"], home: "On a mat", gym: "Stretch area", cue: "Hold 30 seconds, ease deeper on each exhale." },
+      ],
+      intermediate: [], advanced: [],
+    },
+    capacity: { green: "Optional add-on.", yellow: "A short flow to finish.", red: "This becomes the session.", recovery: "This is the whole point today." },
+  },
+]
+const MOVE_GROUPS = ["Lower Body Strength", "Upper Body Strength", "Core & Stability", "Conditioning & Movement"]
+const LEVEL_LABEL = { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" }
+
 const PROGRAMS = [
   { id: "foundations", emoji: "🌱", name: "Strong Foundations", tag: "Build consistency & confidence",
     promise: "Start where you are. Build strength and confidence.",
@@ -428,6 +621,8 @@ export default function App() {
   const [trainView, setTrainView] = useState("home")
   const [whyOpen, setWhyOpen] = useState(false)
   const [detailProgram, setDetailProgram] = useState(null)
+  const [libOpen, setLibOpen] = useState(null)
+  const [libLevel, setLibLevel] = useState("beginner")
   const [recoveryOpen, setRecoveryOpen] = useState(null)
   const [recoveryDone, setRecoveryDone] = useState(false)
   const [woMode, setWoMode] = useState("overview")
@@ -1221,10 +1416,88 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { setWoColor(cur); setWoType(isRest ? "full" : woType2); setTrainView("workout") }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Exercise Library</button>
+            <button onClick={() => setTrainView("library")} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Exercise Library</button>
             <button onClick={() => { setTab("progress"); setProgressView("workouts") }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>History</button>
             <button onClick={() => { if (confirm("Change your program? Your progress in the current one is kept, but a new program starts today.")) { setProgramId(null); try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {} } }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Change Program</button>
           </div>
+        </div>
+      )
+    }
+
+    if (tab === "body" && bodyView === "gym" && programId && trainView === "library") {
+      const prog = PROG_BY_ID(programId)
+      const openMove = libOpen ? MOVEMENTS.find((m) => m.id === libOpen) : null
+      if (openMove) {
+        const opts = openMove.levels[libLevel] || []
+        return (
+          <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+            <div onClick={() => setLibOpen(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 12 }}>{"\u2039 Movement library"}</div>
+            <div style={{ fontSize: 11, letterSpacing: 1.5, color: BASE.taupe, textTransform: "uppercase" }}>{openMove.group}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginTop: 2 }}>{openMove.pattern} Pattern</div>
+            <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, margin: "8px 0 18px" }}>{openMove.purpose}</div>
+
+            <div style={{ fontSize: 11, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 8 }}>In these programs</div>
+            <div style={{ marginBottom: 20 }}>{openMove.programs.map((pid) => { const pp = PROG_BY_ID(pid); return (<span key={pid} style={{ display: "inline-block", padding: "5px 11px", borderRadius: 999, background: pid === programId ? "rgba(168,123,209,0.18)" : BASE.surface, border: "1px solid " + (pid === programId ? "#A87BD1" : BASE.border), color: BASE.creamDim, fontSize: 11.5, fontWeight: 600, margin: "0 6px 6px 0" }}>{pp.emoji} {pp.name}</span>)})}</div>
+
+            <div style={{ display: "flex", gap: 6, background: BASE.surface2, borderRadius: 999, padding: 4, marginBottom: 16 }}>
+              {["beginner", "intermediate", "advanced"].map((lv) => (
+                <button key={lv} onClick={() => setLibLevel(lv)} style={{ flex: 1, padding: "8px 4px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: libLevel === lv ? "#fff" : "transparent", color: libLevel === lv ? "#C9558E" : BASE.taupe }}>{LEVEL_LABEL[lv]}</button>
+              ))}
+            </div>
+
+            {opts.length === 0 ? (
+              <div style={{ padding: 22, borderRadius: 14, background: BASE.surface, border: "1px dashed " + BASE.border, textAlign: "center", color: BASE.taupe, fontSize: 13, lineHeight: 1.6 }}>No {LEVEL_LABEL[libLevel].toLowerCase()} options seeded for this pattern yet. The structure is ready — exercises get added in the next phase.</div>
+            ) : opts.map((ex, i) => (
+              <div key={i} style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 17px", marginBottom: 12 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: BASE.cream }}>{ex.name}</div>
+                <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(233,132,180,0.08)", margin: "10px 0" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#C9558E", marginBottom: 3 }}>COACH CUE</div>
+                  <div style={{ fontSize: 12.5, color: BASE.cream, lineHeight: 1.5 }}>{ex.cue}</div>
+                </div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.creamDim }}>Equipment:</b> {ex.equip.join(", ")}</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.creamDim }}>At home:</b> {ex.home}</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe }}><b style={{ color: BASE.creamDim }}>At the gym:</b> {ex.gym}</div>
+                <div style={{ marginTop: 12, height: 90, borderRadius: 10, background: "linear-gradient(135deg,rgba(233,132,180,0.15),rgba(168,123,209,0.15))", display: "flex", alignItems: "center", justifyContent: "center", color: BASE.taupe, fontSize: 11, fontStyle: "italic" }}>Coach demonstration coming soon</div>
+              </div>
+            ))}
+
+            <div style={{ borderRadius: 14, background: BASE.surface, border: "1px solid " + BASE.border, padding: "14px 16px", margin: "18px 0" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 10 }}>How it adapts to your capacity</div>
+              {["green", "yellow", "red", "recovery"].map((k) => (
+                <div key={k} style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+                  <span style={{ minWidth: 66, fontSize: 12, fontWeight: 800, color: CAPACITY_RULES[k].color }}>{CAPACITY_RULES[k].label}</span>
+                  <span style={{ fontSize: 12, color: BASE.creamDim, lineHeight: 1.45 }}>{openMove.capacity[k]}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", marginBottom: 18 }}>The movement never disappears when capacity changes — only the version does.</div>
+          </div>
+        )
+      }
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setTrainView("home")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 12 }}>{"\u2039 Today's plan"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Movement library</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Every workout in New Ray is built from these patterns. One library, five programs — they differ by which movements, levels, and cues they choose.</div>
+          {MOVE_GROUPS.map((g) => (
+            <div key={g} style={{ marginBottom: 22 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: "#C9558E", textTransform: "uppercase", marginBottom: 10 }}>{g}</div>
+              {MOVEMENTS.filter((m) => m.group === g).map((m) => {
+                const inProg = m.programs.includes(programId)
+                return (
+                  <div key={m.id} onClick={() => { setLibOpen(m.id); setLibLevel("beginner") }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 8, cursor: "pointer" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: BASE.cream }}>{m.pattern}</div>
+                      <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2, lineHeight: 1.4 }}>{m.purpose}</div>
+                    </div>
+                    {inProg && <span style={{ fontSize: 9.5, fontWeight: 700, color: "#7FA054", background: "rgba(127,160,84,0.12)", padding: "3px 8px", borderRadius: 999, whiteSpace: "nowrap" }}>in {prog.name.split(" ")[prog.name.split(" ").length - 1]}</span>}
+                    <span style={{ color: BASE.taupe, fontSize: 18 }}>{"\u203a"}</span>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+          <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", marginBottom: 18 }}>Architecture ready. Individual exercises and full workouts come in the next phase.</div>
         </div>
       )
     }
