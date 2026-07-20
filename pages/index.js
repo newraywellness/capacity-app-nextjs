@@ -98,25 +98,50 @@ const HERO_GRAD = {
 }
 const demoLink = (name) => "https://www.youtube.com/results?search_query=" + encodeURIComponent(name + " form how to")
 const PROGRAMS = [
-  { id: "foundations", emoji: "\ud83c\udf31", name: "Strong Foundations", tag: "Build consistency & confidence",
+  { id: "foundations", emoji: "🌱", name: "Strong Foundations", tag: "Build consistency & confidence",
+    promise: "Start where you are. Build strength and confidence.",
     desc: "Learn strength training and build lifelong habits. For beginners or anyone returning after time away.",
-    style: "Compound moves, machines, dumbbells, walking", equip: "Home or Gym", weeks: 8,
+    purpose: "Teach strength training fundamentals, build consistency, and remove the intimidation of the gym.",
+    bestFor: ["Beginners", "Returning after time away", "New to the gym", "Anyone wanting a strong foundation"],
+    builds: ["Strength", "Confidence", "Consistency", "Movement skills"],
+    style: "Compound moves, machines, dumbbells, walking", equip: "Home or Gym", weeks: 8, difficulty: "Beginner",
+    goal: "Feel confident and capable.", next: "strength",
     split: ["full", "walk", "legs", "upper", "walk", "glutes", "rest"], grad: "linear-gradient(135deg,#9CC79A,#6E9E6B)" },
-  { id: "strength", emoji: "\ud83d\udcaa", name: "Build Strength", tag: "Get stronger every week",
+  { id: "strength", emoji: "💪", name: "Build Strength", tag: "Get stronger every week",
+    promise: "Get stronger every week.",
     desc: "Increase strength and build muscle with progressive overload. For women with basic lifting experience.",
-    style: "Barbells, machines, dumbbells, heavier lifting", equip: "Gym", weeks: 12,
+    purpose: "Progressive strength training focused on building muscle and measurably increasing strength.",
+    bestFor: ["Women with lifting experience", "Graduates of Strong Foundations", "Anyone wanting structured progression"],
+    builds: ["Measurable strength", "Muscle", "Progression", "Gym confidence"],
+    style: "Barbells, machines, dumbbells, progressive overload", equip: "Gym", weeks: 12, difficulty: "Intermediate",
+    goal: "Build measurable strength.", next: "balanced",
     split: ["legs", "upper", "walk", "glutes", "full", "upper", "rest"], grad: "linear-gradient(135deg,#E984B4,#A54E86)" },
-  { id: "mama", emoji: "\ud83e\udd31", name: "Strong Mama Rebuild", tag: "Rebuild gently, respect healing",
+  { id: "mama", emoji: "🤱", name: "Strong Mama Rebuild", tag: "Rebuild gently, respect healing",
+    promise: "Rebuild gently. Respect healing.",
     desc: "Postpartum recovery that reconnects the core and rebuilds strength gradually. Includes pelvic-floor awareness. Never rushed.",
-    style: "Core, gentle strength, walking, mobility", equip: "Home or Gym", weeks: 10,
+    purpose: "Help postpartum women reconnect with their bodies and rebuild strength safely, at their own pace.",
+    bestFor: ["Postpartum women cleared for exercise", "Returning after pregnancy", "Rebuilding core & pelvic floor"],
+    builds: ["Core connection", "Pelvic-floor awareness", "Gentle strength", "Mobility", "Confidence in your body"],
+    style: "Core connection, pelvic floor awareness, mobility, gentle strength, walking", equip: "Home or Gym", weeks: 10, difficulty: "Gentle · postpartum",
+    goal: "Feel strong and confident in your body again.", next: "foundations",
     split: ["walk", "full", "walk", "glutes", "walk", "upper", "rest"], grad: "linear-gradient(135deg,#F0B7D4,#C97BA8)" },
-  { id: "move", emoji: "\ud83d\udeb6", name: "Just Move", tag: "Momentum without pressure",
+  { id: "move", emoji: "🚶", name: "Just Move", tag: "Momentum without pressure",
+    promise: "Momentum without pressure.",
     desc: "Walking, light resistance, simple sessions. Built for overwhelmed seasons and anyone who struggles with consistency.",
-    style: "Walking + light full-body movement", equip: "Home", weeks: 6,
+    purpose: "Make movement possible during overwhelming seasons. Consistency always comes before intensity here.",
+    bestFor: ["Busy women", "Moms", "Beginners", "Anyone struggling with consistency"],
+    builds: ["A sustainable habit", "Energy", "Momentum", "A gentle relationship with movement"],
+    style: "Walking, light resistance, simple full-body movement (never over ~20 min)", equip: "Home", weeks: 6, difficulty: "Low-pressure",
+    goal: "Create a sustainable movement habit.", next: "foundations",
     split: ["walk", "full", "walk", "walk", "legs", "walk", "rest"], grad: "linear-gradient(135deg,#7FB3E8,#4E85C2)" },
-  { id: "balanced", emoji: "\u2696\ufe0f", name: "Balanced Strength", tag: "Feel healthy & capable",
+  { id: "balanced", emoji: "⚖️", name: "Balanced Strength", tag: "Feel healthy & capable",
+    promise: "Feel healthy, capable, and strong.",
     desc: "A blend of strength, mobility, conditioning, and recovery. For women who want longevity and to feel good, not chase aesthetics.",
-    style: "Strength, mobility, conditioning, recovery", equip: "Home or Gym", weeks: 8,
+    purpose: "Create a sustainable fitness lifestyle that combines strength, mobility, conditioning, and recovery.",
+    bestFor: ["Women wanting overall wellness", "Longevity over aesthetics", "A balanced, forever routine"],
+    builds: ["Strength", "Mobility", "Conditioning", "Energy", "A body that feels good to live in"],
+    style: "Strength, mobility, conditioning, recovery", equip: "Home or Gym", weeks: 8, difficulty: "All levels",
+    goal: "Build a body that feels good to live in.", next: "balanced",
     split: ["full", "walk", "upper", "legs", "walk", "glutes", "rest"], grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)" },
 ]
 const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
@@ -402,6 +427,7 @@ export default function App() {
   const [programStart, setProgramStart] = useState(null)
   const [trainView, setTrainView] = useState("home")
   const [whyOpen, setWhyOpen] = useState(false)
+  const [detailProgram, setDetailProgram] = useState(null)
   const [recoveryOpen, setRecoveryOpen] = useState(null)
   const [recoveryDone, setRecoveryDone] = useState(false)
   const [woMode, setWoMode] = useState("overview")
@@ -1001,25 +1027,93 @@ export default function App() {
       )
     }
 
+    if (tab === "body" && bodyView === "gym" && !programId && detailProgram) {
+      const p = PROG_BY_ID(detailProgram)
+      const DAYNAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      const chooseIt = () => { const iso = new Date().toISOString().slice(0,10); setProgramId(p.id); setProgramStart(iso); setDetailProgram(null); try { localStorage.setItem("nr_program", p.id); localStorage.setItem("nr_program_start", iso) } catch (e) {} }
+      const Chip = ({ children }) => (<span style={{ display: "inline-block", padding: "6px 12px", borderRadius: 999, background: "rgba(168,123,209,0.1)", color: BASE.creamDim, fontSize: 12, fontWeight: 600, margin: "0 6px 6px 0" }}>{children}</span>)
+      const Stat = ({ label, value }) => (<div style={{ flex: "1 0 45%", marginBottom: 12 }}><div style={{ fontSize: 10, letterSpacing: 1.5, color: BASE.taupe, textTransform: "uppercase" }}>{label}</div><div style={{ fontSize: 13.5, color: BASE.cream, fontWeight: 600, marginTop: 2 }}>{value}</div></div>)
+      const capRows = [["Green", "Full programmed workout.", "#7FA054"], ["Yellow", "Reduced volume while keeping your progress.", "#D08F2E"], ["Red", "Simplified movement to keep consistency.", "#D65C4E"], ["Recovery", "Intentional rest, still connected to the program.", "#A87BD1"]]
+      return (
+        <div className="fade-in" style={{ padding: "0 0 20px" }}>
+          <div style={{ background: p.grad, padding: "20px 20px 26px", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", right: -30, top: -30, width: 130, height: 130, borderRadius: "50%", background: "rgba(255,255,255,0.13)" }} />
+            <div onClick={() => setDetailProgram(null)} style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.9)", cursor: "pointer", marginBottom: 14 }}>{"\u2039 All programs"}</div>
+            <div style={{ fontSize: 40, position: "relative" }}>{p.emoji}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: "#fff", marginTop: 4, position: "relative" }}>{p.name}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 17, color: "rgba(255,255,255,0.95)", marginTop: 4, position: "relative" }}>{p.promise}</div>
+          </div>
+          <div style={{ padding: "20px 18px 0" }}>
+            <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.65, marginBottom: 22 }}>{p.purpose}</div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 10 }}>Who this is for</div>
+            <div style={{ marginBottom: 22 }}>{p.bestFor.map((b, i) => <Chip key={i}>{b}</Chip>)}</div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 10 }}>What you will build</div>
+            <div style={{ marginBottom: 24 }}>{p.builds.map((b, i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}><span style={{ width: 18, height: 18, borderRadius: "50%", background: p.grad, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 800 }}>{"\u2713"}</span><span style={{ fontSize: 14, color: BASE.cream }}>{b}</span></div>))}</div>
+
+            <div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 18px", marginBottom: 24 }}>
+              <div style={{ display: "flex", flexWrap: "wrap" }}>
+                <Stat label="Length" value={p.weeks + " weeks"} />
+                <Stat label="Experience" value={p.difficulty} />
+                <Stat label="Equipment" value={p.equip} />
+                <Stat label="Style" value={p.style} />
+              </div>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 12 }}>Weekly rhythm</div>
+            <div style={{ marginBottom: 24 }}>
+              {p.split.map((t, i) => { const rest = t === "rest"; const label = rest ? "Recovery" : (WO_TYPES.find((x) => x.key === t) || { label: t }).label; return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: BASE.taupe, width: 30, textTransform: "uppercase" }}>{DAYNAMES[i]}</span>
+                  <span style={{ fontSize: 16 }}>{rest ? "🌙" : (WO_TYPES.find((x) => x.key === t) || {}).icon}</span>
+                  <span style={{ fontSize: 13.5, color: BASE.cream, fontWeight: 600 }}>{label}</span>
+                </div>
+              )})}
+              <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", marginTop: 8, textAlign: "center" }}>The pattern repeats each week. The individual workouts come next.</div>
+            </div>
+
+            <div style={{ borderRadius: 16, background: "rgba(168,123,209,0.08)", border: "1px solid rgba(168,123,209,0.25)", padding: "18px 18px", marginBottom: 24 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 17, color: BASE.cream, lineHeight: 1.5, marginBottom: 14, textAlign: "center" }}>The program stays the same. Today's workout adapts.</div>
+              {capRows.map(([k, v, c], i) => (
+                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                  <span style={{ minWidth: 68, fontSize: 12, fontWeight: 800, color: c }}>{k}</span>
+                  <span style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.45 }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", marginTop: 6 }}>You never fall behind because life happens.</div>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 10 }}>When you finish</div>
+            <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 24 }}>Repeat the program stronger, move on to {PROG_BY_ID(p.next).name}, or choose another path. Your progress is always yours.</div>
+
+            <button onClick={chooseIt} style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: p.grad, color: "#fff", fontSize: 15.5, fontWeight: 800, boxShadow: "0 10px 26px rgba(120,80,130,0.28)" }}>Choose {p.name}</button>
+          </div>
+        </div>
+      )
+    }
+
     if (tab === "body" && bodyView === "gym" && !programId) {
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Choose your program</div>
           <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Pick the journey that feels right for this season of your life. From there, New Ray handles the daily decisions — you choose the destination, we choose today's route.</div>
           {PROGRAMS.map((p) => (
-            <div key={p.id} style={{ borderRadius: 20, overflow: "hidden", marginBottom: 16, boxShadow: "0 8px 22px rgba(120,80,130,0.12)", border: `1px solid ${BASE.border}` }}>
+            <div key={p.id} style={{ borderRadius: 20, overflow: "hidden", marginBottom: 16, boxShadow: "0 8px 22px rgba(120,80,130,0.12)", border: "1px solid " + BASE.border }}>
               <div style={{ background: p.grad, padding: "20px 20px 18px", position: "relative" }}>
                 <div style={{ position: "absolute", right: -24, top: -24, width: 96, height: 96, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
                 <div style={{ fontSize: 30, position: "relative" }}>{p.emoji}</div>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, color: "#fff", marginTop: 6, position: "relative" }}>{p.name}</div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.92)", fontStyle: "italic", position: "relative" }}>{p.tag}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13.5, color: "rgba(255,255,255,0.95)", position: "relative", marginTop: 2 }}>{p.promise}</div>
               </div>
               <div style={{ padding: "16px 18px", background: BASE.surface }}>
-                <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 12 }}>{p.desc}</div>
-                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.cream }}>Style:</b> {p.style}</div>
-                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.cream }}>Equipment:</b> {p.equip}</div>
-                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 14 }}><b style={{ color: BASE.cream }}>Length:</b> {p.weeks} weeks</div>
-                <button onClick={() => { const iso = new Date().toISOString().slice(0,10); setProgramId(p.id); setProgramStart(iso); try { localStorage.setItem("nr_program", p.id); localStorage.setItem("nr_program_start", iso) } catch (e) {} }} style={{ width: "100%", padding: 13, borderRadius: 12, border: "none", cursor: "pointer", background: p.grad, color: "#fff", fontSize: 14, fontWeight: 700 }}>Choose {p.name}</button>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.cream }}>For:</b> {p.bestFor.slice(0, 2).join(", ")}</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.cream }}>Length:</b> {p.weeks} weeks · {p.difficulty}</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 14 }}><b style={{ color: BASE.cream }}>Equipment:</b> {p.equip}</div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setDetailProgram(p.id)} style={{ flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + BASE.border, background: "transparent", color: BASE.creamDim, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Learn More</button>
+                  <button onClick={() => { const iso = new Date().toISOString().slice(0,10); setProgramId(p.id); setProgramStart(iso); try { localStorage.setItem("nr_program", p.id); localStorage.setItem("nr_program_start", iso) } catch (e) {} }} style={{ flex: 1, padding: 12, borderRadius: 12, border: "none", cursor: "pointer", background: p.grad, color: "#fff", fontSize: 13, fontWeight: 700 }}>Choose</button>
+                </div>
               </div>
             </div>
           ))}
