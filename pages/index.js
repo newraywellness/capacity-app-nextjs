@@ -290,6 +290,117 @@ const MOVEMENTS = [
 const MOVE_GROUPS = ["Lower Body Strength", "Upper Body Strength", "Core & Stability", "Conditioning & Movement"]
 const LEVEL_LABEL = { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" }
 
+// ============ PROGRAM TEMPLATE ENGINE ============
+// A workout = a list of movement-pattern SLOTS (not exercises). The Exercise Selection Engine
+// (next phase) fills each slot from MOVEMENTS by the program's level + equipment. The Capacity
+// Engine adds/removes slots. Programs feel different by requesting different pattern combinations.
+// slot: { pattern: <MOVEMENTS.id>, role: "primary"|"accessory"|"optional"|"core"|"finisher" }
+const WORKOUT_TEMPLATES = {
+  // ---- STRONG FOUNDATIONS ----
+  "foundations:full": { title: "Full Body Strength", focus: "Learning full-body strength", slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "hinge", role: "primary" },
+    { pattern: "push", role: "primary" }, { pattern: "pull", role: "primary" },
+    { pattern: "corestab", role: "core" }, { pattern: "glute", role: "optional" } ] },
+  "foundations:legs": { title: "Lower Body Strength", focus: "Building leg and glute strength", slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "hinge", role: "primary" },
+    { pattern: "glute", role: "primary" }, { pattern: "legiso", role: "accessory" },
+    { pattern: "corestab", role: "core" } ] },
+  "foundations:upper": { title: "Upper Body Strength", focus: "Building upper-body confidence", slots: [
+    { pattern: "push", role: "primary" }, { pattern: "pull", role: "primary" },
+    { pattern: "shoulder", role: "primary" }, { pattern: "corestab", role: "core" } ] },
+  "foundations:glutes": { title: "Glutes + Core", focus: "Glute strength and a solid core", slots: [
+    { pattern: "glute", role: "primary" }, { pattern: "squat", role: "primary" },
+    { pattern: "hipstab", role: "accessory" }, { pattern: "deepcore", role: "core" }, { pattern: "corestab", role: "core" } ] },
+  // ---- BUILD STRENGTH ----
+  "strength:lowerA": { title: "Lower Strength A", focus: "Heavy squat + hinge", slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "hinge", role: "primary" },
+    { pattern: "glute", role: "primary" }, { pattern: "legiso", role: "accessory" }, { pattern: "corestab", role: "core" } ] },
+  "strength:upperA": { title: "Upper Strength A", focus: "Heavy push + pull", slots: [
+    { pattern: "push", role: "primary" }, { pattern: "pull", role: "primary" },
+    { pattern: "shoulder", role: "primary" }, { pattern: "corestab", role: "accessory" }, { pattern: "corestab", role: "core" } ] },
+  "strength:lowerB": { title: "Lower Strength B", focus: "Hinge-led strength", slots: [
+    { pattern: "hinge", role: "primary" }, { pattern: "squat", role: "primary" },
+    { pattern: "glute", role: "primary" }, { pattern: "hipstab", role: "accessory" }, { pattern: "corestab", role: "core" } ] },
+  "strength:upperB": { title: "Upper Strength B", focus: "Push-led strength", slots: [
+    { pattern: "push", role: "primary" }, { pattern: "pull", role: "primary" },
+    { pattern: "shoulder", role: "primary" }, { pattern: "corestab", role: "core" } ] },
+  // ---- STRONG MAMA REBUILD ----
+  "mama:full": { title: "Full Body Rebuild", focus: "Controlled, connected full-body strength", slots: [
+    { pattern: "deepcore", role: "primary" }, { pattern: "squat", role: "primary" }, { pattern: "hinge", role: "primary" },
+    { pattern: "push", role: "accessory" }, { pattern: "glute", role: "accessory" }, { pattern: "mobility", role: "finisher" } ] },
+  "mama:core": { title: "Core + Stability", focus: "Deep core, breathing, pelvic floor", slots: [
+    { pattern: "deepcore", role: "primary" }, { pattern: "deepcore", role: "primary" },
+    { pattern: "hipstab", role: "accessory" }, { pattern: "mobility", role: "finisher" } ] },
+  "mama:upper": { title: "Upper Body Strength", focus: "Gentle pressing and pulling", slots: [
+    { pattern: "pull", role: "primary" }, { pattern: "push", role: "primary" },
+    { pattern: "shoulder", role: "accessory" }, { pattern: "deepcore", role: "core" } ] },
+  "mama:legs": { title: "Lower Body Strength", focus: "Controlled lower-body strength", slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "glute", role: "primary" },
+    { pattern: "hipstab", role: "accessory" }, { pattern: "deepcore", role: "core" } ] },
+  // ---- JUST MOVE (<= ~20 min, low decisions) ----
+  "move:simple": { title: "Simple Strength", focus: "One full-body move + a couple easy exercises", cap: 20, slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "push", role: "accessory" }, { pattern: "glute", role: "accessory" } ] },
+  "move:walk": { title: "Walk + Move", focus: "Walking with a little gentle movement", cap: 20, slots: [
+    { pattern: "walk", role: "primary" }, { pattern: "mobility", role: "finisher" } ] },
+  "move:legs": { title: "Easy Lower Body", focus: "Simple leg movement", cap: 20, slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "glute", role: "accessory" }, { pattern: "walk", role: "finisher" } ] },
+  // ---- BALANCED STRENGTH ----
+  "balanced:full": { title: "Full Body Strength", focus: "Balanced full-body session", slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "hinge", role: "primary" },
+    { pattern: "push", role: "primary" }, { pattern: "pull", role: "primary" },
+    { pattern: "corestab", role: "core" }, { pattern: "mobility", role: "optional" } ] },
+  "balanced:upper": { title: "Upper Body", focus: "Push, pull, and shoulders", slots: [
+    { pattern: "push", role: "primary" }, { pattern: "pull", role: "primary" },
+    { pattern: "shoulder", role: "primary" }, { pattern: "corestab", role: "core" } ] },
+  "balanced:legs": { title: "Lower Body", focus: "Squat, hinge, glutes", slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "hinge", role: "primary" },
+    { pattern: "glute", role: "primary" }, { pattern: "corestab", role: "core" } ] },
+  "balanced:conditioning": { title: "Conditioning + Core", focus: "Low-impact conditioning and stability", slots: [
+    { pattern: "walk", role: "primary" }, { pattern: "corestab", role: "core" }, { pattern: "mobility", role: "finisher" } ] },
+  "balanced:flow": { title: "Full Body Flow", focus: "Flowing full-body movement", slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "push", role: "primary" },
+    { pattern: "pull", role: "accessory" }, { pattern: "mobility", role: "finisher" } ] },
+}
+// Weekly schedule maps each weekday (0=Mon..6=Sun) to a template key or "recovery".
+// This REPLACES the loose split[] for programs that define a schedule; split stays as fallback.
+const PROGRAM_SCHEDULE = {
+  foundations: ["foundations:full", "walk+mobility", "foundations:legs", "foundations:upper", "walk+recovery", "foundations:glutes", "recovery"],
+  strength: ["strength:lowerA", "strength:upperA", "recovery", "strength:lowerB", "strength:upperB", "conditioning", "recovery"],
+  mama: ["mama:full", "walk", "mama:core", "mama:upper", "mobility+recovery", "mama:legs", "recovery"],
+  move: ["move:simple", "move:walk", "move:legs", "move:walk", "move:simple", "move:walk", "recovery"],
+  balanced: ["balanced:full", "mobility", "balanced:upper", "balanced:conditioning", "balanced:legs", "balanced:flow", "recovery"],
+}
+// Progression philosophy per program (shown to user; drives future load/rep logic).
+const PROGRESSION = {
+  foundations: [{ wk: "Weeks 1-2", note: "Learn the movements. Light and controlled." }, { wk: "Weeks 3-5", note: "Build confidence and volume." }, { wk: "Weeks 6-8", note: "Add strength and consistency." }],
+  strength: [{ wk: "Ongoing", note: "Progressive overload: increase load, then reps, always protecting technique. Advanced options bring in barbells and heavier resistance." }],
+  mama: [{ wk: "Throughout", note: "Never rush intensity. Quality over difficulty, always. Deep core and breathing lead every week." }],
+  move: [{ wk: "6 weeks", note: "Consistency over intensity. Sessions stay around 20 minutes. Momentum is the whole goal." }],
+  balanced: [{ wk: "8 weeks", note: "Rotate strength, mobility, and conditioning so the body stays capable and the routine stays sustainable." }],
+}
+// Capacity approach: how many slots survive at each capacity level (optional/finisher drop first).
+const CAPACITY_SLOT_RULE = {
+  green: { keep: "all", note: "Full planned workout \u2014 normal sets, reps, and progression." },
+  yellow: { drop: ["optional", "finisher"], note: "Reduce volume. Keep the important patterns, remove the optional work." },
+  red: { keep: ["primary"], addRecovery: false, note: "Maintain the habit. Primary patterns only, simpler variations, fewer sets." },
+  recovery: { replaceWith: ["mobility", "walk", "deepcore"], note: "Recovery-focused movement: walking, mobility, breathing, gentle core." },
+}
+// THE ENGINE: given a program + weekday + capacity, return today's slot list (patterns only).
+const buildSession = (progId, weekday, capKey) => {
+  const schedule = PROGRAM_SCHEDULE[progId] || []
+  const key = schedule[weekday] || "recovery"
+  // Non-strength scheduled days
+  const simpleDays = { recovery: ["mobility", "walk", "deepcore"], walk: ["walk", "mobility"], "walk+mobility": ["walk", "mobility"], "walk+recovery": ["walk", "mobility"], "mobility+recovery": ["mobility", "deepcore"], mobility: ["mobility", "walk"], conditioning: ["walk", "corestab", "mobility"] }
+  if (capKey === "recovery") return { title: "Recovery", focus: "Gentle, restorative movement", slots: CAPACITY_SLOT_RULE.recovery.replaceWith.map((p) => ({ pattern: p, role: "primary" })) }
+  if (simpleDays[key]) return { title: key.split("+").map((w) => w[0].toUpperCase() + w.slice(1)).join(" + "), focus: "Movement & recovery", slots: simpleDays[key].map((p) => ({ pattern: p, role: "primary" })) }
+  const tmpl = WORKOUT_TEMPLATES[key]
+  if (!tmpl) return { title: "Recovery", focus: "Gentle movement", slots: simpleDays.recovery.map((p) => ({ pattern: p, role: "primary" })) }
+  let slots = tmpl.slots.slice()
+  if (capKey === "yellow") slots = slots.filter((s) => !["optional", "finisher"].includes(s.role))
+  if (capKey === "red") slots = slots.filter((s) => s.role === "primary" || s.role === "core").slice(0, 3)
+  return { title: tmpl.title, focus: tmpl.focus, slots, cap: tmpl.cap }
+}
+
 const PROGRAMS = [
   { id: "foundations", emoji: "🌱", name: "Strong Foundations", tag: "Build consistency & confidence",
     promise: "Start where you are. Build strength and confidence.",
@@ -1320,11 +1431,13 @@ export default function App() {
       const prog = PROG_BY_ID(programId)
       const sched = progSchedule(prog, programStart)
       const recovery = pct < 10
-      const capKey = recovery ? "red" : cur
-      const version = CAP_VERSION[capKey]
-      const woType2 = recovery ? "walk" : sched.type
-      const isRest = woType2 === "rest"
-      const typeLabel = isRest ? "Rest & recover" : (WO_TYPES.find((t) => t.key === woType2) || { label: woType2 }).label
+      const capKey = recovery ? "recovery" : cur
+      const session = buildSession(programId, sched.weekday, capKey)
+      const version = CAP_VERSION[recovery ? "red" : cur]
+      const scheduleKey = (PROGRAM_SCHEDULE[programId] || [])[sched.weekday] || "recovery"
+      const isRest = scheduleKey === "recovery"
+      const woType2 = session.slots[0] ? session.slots[0].pattern : "walk"
+      const typeLabel = session.title
       const mins = version.mins
       const heroGrad = recovery ? "linear-gradient(135deg,#8A6FA8,#5E4578)" : HERO_GRAD[cur]
       const pctThroughWeeks = Math.round((sched.week / prog.weeks) * 100)
@@ -1386,6 +1499,19 @@ export default function App() {
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "rgba(255,255,255,0.8)", marginTop: 16 }}>TODAY'S VERSION WORKOUT</div>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 700, margin: "4px 0 2px", position: "relative" }}>{typeLabel}</div>
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", position: "relative" }}>{mins[0]}–{mins[1]} minutes · built for your {pct}% today</div>
+              </div>
+
+              <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "16px 18px", marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 3 }}>Today's session</div>
+                <div style={{ fontSize: 12.5, color: BASE.creamDim, fontStyle: "italic", marginBottom: 12 }}>{session.focus}</div>
+                {session.slots.map((sl, i) => { const m = MOVEMENTS.find((x) => x.id === sl.pattern) || { pattern: sl.pattern, group: "" }; return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < session.slots.length - 1 ? `1px solid ${BASE.border}` : "none" }}>
+                    <span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(168,123,209,0.15)", color: "#A87BD1", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                    <span style={{ flex: 1, fontSize: 13.5, color: BASE.cream, fontWeight: 600 }}>{m.pattern}</span>
+                    <span style={{ fontSize: 10, color: BASE.taupe, textTransform: "capitalize" }}>{sl.role}</span>
+                  </div>
+                )})}
+                <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 10, fontStyle: "italic" }}>Your coach picks the exact exercise for each slot from the movement library.</div>
               </div>
 
               <button onClick={() => { setWoColor(cur); setWoType(woType2); setTrainView("workout") }} style={{ width: "100%", padding: 18, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.4)", marginBottom: 14 }}>Start Workout</button>
@@ -1517,24 +1643,35 @@ export default function App() {
           </div>
 
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "0 2px 12px" }}>This week</div>
-          {prog.split.map((t, i) => {
+          {(PROGRAM_SCHEDULE[programId] || prog.split).map((key, i) => {
             const isToday = i === sched.weekday
-            const rest = t === "rest"
-            const label = rest ? "Recovery" : (WO_TYPES.find((x) => x.key === t) || { label: t }).label
+            const tmpl = WORKOUT_TEMPLATES[key]
+            const rest = key === "recovery"
+            const simpleNames = { walk: "Walking", "walk+mobility": "Walk + Mobility", "walk+recovery": "Walk + Recovery", "mobility+recovery": "Mobility + Recovery", mobility: "Mobility", conditioning: "Conditioning", recovery: "Recovery" }
+            const label = tmpl ? tmpl.title : (simpleNames[key] || "Movement")
+            const catIcon = tmpl ? "\ud83c\udfcb\ufe0f" : rest ? "\ud83c\udf19" : key.includes("walk") ? "\ud83d\udeb6" : "\ud83e\uddd8"
             return (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, background: isToday ? "rgba(168,123,209,0.1)" : BASE.surface, border: `1.5px solid ${isToday ? "#A87BD1" : BASE.border}`, marginBottom: 8 }}>
                 <div style={{ width: 38, textAlign: "center" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: BASE.taupe, textTransform: "uppercase" }}>{DAYNAMES[i]}</div>
-                  <div style={{ fontSize: 18, marginTop: 2 }}>{rest ? "🌙" : (WO_TYPES.find((x) => x.key === t) || {}).icon}</div>
+                  <div style={{ fontSize: 18, marginTop: 2 }}>{catIcon}</div>
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{label}</div>
-                  <div style={{ fontSize: 11, color: BASE.taupe }}>{isToday ? "Today · adjusts to your capacity" : rest ? "Rest & rebuild" : "Scheduled"}</div>
+                  <div style={{ fontSize: 11, color: BASE.taupe }}>{isToday ? "Today · adjusts to your capacity" : rest ? "Rest & rebuild" : tmpl ? tmpl.focus : "Movement & recovery"}</div>
                 </div>
                 {isToday && <button onClick={() => setTrainView("home")} style={{ padding: "7px 13px", borderRadius: 999, border: "none", cursor: "pointer", background: "#A87BD1", color: "#fff", fontSize: 11.5, fontWeight: 700 }}>Go</button>}
               </div>
             )
           })}
+
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "22px 2px 12px" }}>How this program grows</div>
+          {(PROGRESSION[programId] || []).map((ph, i) => (
+            <div key={i} style={{ display: "flex", gap: 12, padding: "12px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#C9558E", minWidth: 74 }}>{ph.wk}</div>
+              <div style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.5 }}>{ph.note}</div>
+            </div>
+          ))}
           <div style={{ borderRadius: 14, background: "rgba(168,123,209,0.08)", border: "1px solid rgba(168,123,209,0.25)", padding: "16px 18px", margin: "18px 0 0", textAlign: "center" }}>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16.5, color: BASE.cream, lineHeight: 1.5 }}>The program is fixed. The daily path inside each program changes with your everyday capacity.</div>
             <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 8 }}>You never fall behind — you only meet today where it is.</div>
