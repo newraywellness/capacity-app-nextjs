@@ -1123,6 +1123,7 @@ export default function App() {
               <div style={{ height: "100%", width: `${pctThroughWeeks}%`, background: prog.grad, borderRadius: 999 }} />
             </div>
             <button onClick={() => setTrainView("week")} style={{ width: "100%", marginTop: 14, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>View Program</button>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14, color: BASE.taupe, textAlign: "center", lineHeight: 1.5, marginTop: 16 }}>The program is fixed. The daily path inside each program changes with your everyday capacity.</div>
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
@@ -1167,7 +1168,10 @@ export default function App() {
               </div>
             )
           })}
-          <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", lineHeight: 1.6, margin: "16px 0 0" }}>The structure stays the same every week. Only today's version changes with your capacity — you never fall behind.</div>
+          <div style={{ borderRadius: 14, background: "rgba(168,123,209,0.08)", border: "1px solid rgba(168,123,209,0.25)", padding: "16px 18px", margin: "18px 0 0", textAlign: "center" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16.5, color: BASE.cream, lineHeight: 1.5 }}>The program is fixed. The daily path inside each program changes with your everyday capacity.</div>
+            <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 8 }}>You never fall behind — you only meet today where it is.</div>
+          </div>
           <div style={{ height: 18 }} />
         </div>
       )
@@ -1267,7 +1271,7 @@ export default function App() {
                     </div>
                     <details style={{ marginBottom: 8 }}>
                       <summary style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, cursor: "pointer" }}>Modifications & equipment</summary>
-                      <div style={{ fontSize: 12, color: BASE.taupe, lineHeight: 1.6, marginTop: 8 }}>Too much today? Do fewer reps or an easier range \u2014 the movement still counts. No equipment? Swap for a bodyweight or household version. Your coach will demo full options here soon.</div>
+                      <div style={{ fontSize: 12, color: BASE.taupe, lineHeight: 1.6, marginTop: 8 }}>Too much today? Do fewer reps or an easier range — the movement still counts. No equipment? Swap for a bodyweight or household version. Your coach will demo full options here soon.</div>
                     </details>
                     {ex.how && (
                       <details><summary style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, cursor: "pointer" }}>How to</summary>
