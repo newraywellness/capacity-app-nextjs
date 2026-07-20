@@ -401,6 +401,210 @@ const buildSession = (progId, weekday, capKey) => {
   return { title: tmpl.title, focus: tmpl.focus, slots, cap: tmpl.cap }
 }
 
+// ============ EXERCISE BANK (populated: Strong Foundations patterns) ============
+// EXERCISES[patternId] = { homeBeginner:[], homeEquip:[], gym:[] }. Each exercise:
+// { name, sets, reps, cue, how:[steps], ai:true? (AI-coach priority) }
+// Reusable across programs; the selection engine picks by environment + level + capacity.
+const EXERCISES = {
+  squat: {
+    homeBeginner: [
+      { name: "Sit-to-stand squat", sets: 3, reps: "8-10", ai: true, cue: "Stand up from a chair without using your hands.", how: ["Sit tall at the edge of a sturdy chair.", "Press through your heels to stand all the way up.", "Lower slowly back down with control."] },
+      { name: "Chair squat", sets: 3, reps: "10", ai: true, cue: "Tap the chair, don't sit and rest.", how: ["Stand in front of a chair, feet shoulder-width.", "Sit back until you lightly touch the seat.", "Drive up through your heels, chest tall."] },
+      { name: "Bodyweight squat", sets: 3, reps: "10-12", ai: true, cue: "Sit between your hips, chest proud.", how: ["Feet shoulder-width, toes slightly out.", "Sit back and down as far as is comfortable.", "Push the floor away to stand tall."] },
+    ],
+    homeEquip: [
+      { name: "Goblet squat", sets: 3, reps: "10", cue: "Hold the weight at your chest, elbows inside knees.", how: ["Hold a dumbbell vertically against your chest.", "Squat down, chest tall, until elbows brush your knees.", "Drive up through your heels."] },
+      { name: "Dumbbell squat", sets: 3, reps: "10", cue: "Weights at your sides, controlled.", how: ["Hold a dumbbell in each hand at your sides.", "Squat to a depth you control.", "Stand tall, squeezing your glutes."] },
+    ],
+    gym: [
+      { name: "Leg press", sets: 3, reps: "12", ai: true, cue: "Feet mid-platform, lower to about 90 degrees.", how: ["Sit with feet hip-width on the platform.", "Lower until knees reach about 90 degrees.", "Press out smooth, no hard lockout."] },
+      { name: "Goblet squat", sets: 3, reps: "10", cue: "Chest tall, controlled depth.", how: ["Hold a dumbbell at your chest.", "Squat to a depth you control.", "Drive up through the heels."] },
+      { name: "Hack squat machine", sets: 3, reps: "10", cue: "Control the descent, own the range.", how: ["Shoulders under the pads, feet mid-platform.", "Lower with control.", "Press up without locking hard."] },
+    ],
+  },
+  hinge: {
+    homeBeginner: [
+      { name: "Hip hinge drill", sets: 3, reps: "10", cue: "Hips move back, spine stays long.", how: ["Stand with soft knees, hands on your hips.", "Push your hips straight back, chest leading.", "Squeeze your glutes to stand tall."] },
+      { name: "Bodyweight good morning", sets: 3, reps: "10", cue: "Feel the hamstrings, not the low back.", how: ["Hands crossed on your chest, soft knees.", "Hinge forward pushing hips back.", "Rise by squeezing your glutes."] },
+      { name: "Glute bridge", sets: 3, reps: "12", ai: true, cue: "Squeeze at the top for a full second.", how: ["Lie on your back, knees bent, feet flat.", "Drive hips up through your heels.", "Squeeze, then lower slowly."] },
+    ],
+    homeEquip: [
+      { name: "Dumbbell Romanian deadlift", sets: 3, reps: "10", ai: true, cue: "Push hips back, weights close to your legs.", how: ["Hold dumbbells in front of your thighs.", "Push hips back, weights sliding down your legs.", "When hamstrings pull, squeeze glutes to stand."] },
+    ],
+    gym: [
+      { name: "Dumbbell Romanian deadlift", sets: 3, reps: "10", ai: true, cue: "Hamstrings load, back stays flat.", how: ["Dumbbells in front, soft knees.", "Hinge hips back until you feel the stretch.", "Stand tall by squeezing your glutes."] },
+      { name: "Cable pull-through", sets: 3, reps: "12", cue: "Hips do the work, not your arms.", how: ["Face away from a low cable, rope between legs.", "Hinge hips back, then drive them forward.", "Squeeze glutes at the top."] },
+    ],
+  },
+  glute: {
+    homeBeginner: [
+      { name: "Glute bridge", sets: 3, reps: "12", ai: true, cue: "Drive through your heels, full squeeze.", how: ["Knees bent, feet flat and close to your hips.", "Lift hips until your body forms a line.", "Squeeze hard, lower slow."] },
+      { name: "Single-leg glute bridge", sets: 3, reps: "8/side", cue: "Hips stay level the whole time.", how: ["From a bridge, extend one leg.", "Drive up through the planted heel.", "Keep both hips even. Switch sides."] },
+      { name: "Frog pumps", sets: 3, reps: "15", cue: "Soles together, pump from the glutes.", how: ["Soles of feet together, knees wide.", "Drive hips up squeezing your glutes.", "Short, controlled pumps."] },
+    ],
+    homeEquip: [
+      { name: "Dumbbell hip thrust", sets: 3, reps: "10", ai: true, cue: "Chin tucked, ribs down, full lockout.", how: ["Upper back on a couch, dumbbell over hips.", "Drive hips up until level.", "Squeeze one second at the top."] },
+      { name: "Banded glute bridge", sets: 3, reps: "15", cue: "Push knees out against the band.", how: ["Band above your knees, bridge position.", "Lift hips while pressing knees outward.", "Squeeze and lower slow."] },
+    ],
+    gym: [
+      { name: "Hip thrust machine", sets: 3, reps: "12", ai: true, cue: "Ribs down, drive to full lockout.", how: ["Set the pad across your hips.", "Drive up until your body is level.", "One-second squeeze at the top."] },
+      { name: "Booty builder machine", sets: 3, reps: "12", cue: "Controlled, glute-led reps.", how: ["Position hips against the pad.", "Press up through the glutes.", "Lower with control."] },
+      { name: "Cable kickback", sets: 3, reps: "12/side", cue: "Strict, no swinging.", how: ["Ankle strap on the low cable.", "Kick straight back with a glute squeeze.", "Return slowly."] },
+    ],
+  },
+  hipstab: {
+    homeBeginner: [
+      { name: "Side-lying leg raise", sets: 3, reps: "12/side", cue: "Lift from the hip, don't roll back.", how: ["Lie on your side, legs stacked.", "Raise the top leg with control.", "Lower slowly. Switch sides."] },
+      { name: "Standing hip abduction", sets: 3, reps: "12/side", cue: "Stand tall, lift to the side.", how: ["Hold a wall for balance.", "Lift one leg out to the side.", "Control it back down."] },
+      { name: "Lateral steps", sets: 3, reps: "10/side", cue: "Stay low, push through the side.", how: ["Half-squat position.", "Step wide to one side, then follow.", "Keep tension the whole time."] },
+    ],
+    homeEquip: [
+      { name: "Band lateral walks", sets: 3, reps: "10/side", cue: "Stay low, tension the whole time.", how: ["Band above your knees, half-squat.", "Step sideways keeping the band tight.", "Don't let your feet snap together."] },
+    ],
+    gym: [
+      { name: "Hip abduction machine", sets: 3, reps: "15", cue: "Push out, pause, resist back.", how: ["Sit tall, pads outside your knees.", "Push out as far as comfortable, pause.", "Resist on the way back in."] },
+    ],
+  },
+  legiso: {
+    homeBeginner: [
+      { name: "Wall sit", sets: 3, reps: "20-40 sec", cue: "Thighs parallel, breathe.", how: ["Back against a wall, slide to a sit.", "Hold with thighs about parallel.", "Breathe steadily through the hold."] },
+      { name: "Standing calf raise", sets: 3, reps: "15", cue: "Full range, pause at the top.", how: ["Rise onto the balls of your feet.", "Pause at the top.", "Lower slowly."] },
+      { name: "Hamstring bridge walkout", sets: 3, reps: "10", cue: "Heels walk out, hips stay up.", how: ["From a glute bridge, walk heels out.", "Keep hips lifted as legs extend.", "Walk back in and lower."] },
+    ],
+    homeEquip: [
+      { name: "Slider hamstring curl", sets: 3, reps: "10", cue: "Hips up, curl the heels in.", how: ["Bridge with heels on sliders/towels.", "Curl heels toward you, hips high.", "Extend slowly."] },
+    ],
+    gym: [
+      { name: "Leg extension", sets: 3, reps: "12", cue: "Squeeze the quad at the top.", how: ["Pad on your lower shins.", "Extend to straight, squeeze.", "Lower slow."] },
+      { name: "Seated hamstring curl", sets: 3, reps: "12", cue: "Control both directions.", how: ["Pad behind your lower calves.", "Curl down with control.", "Return slowly."] },
+      { name: "Seated calf machine", sets: 3, reps: "15", cue: "Full stretch, full squeeze.", how: ["Pads on your thighs, balls of feet on platform.", "Press up to full height.", "Lower for a full stretch."] },
+    ],
+  },
+}
+
+const EXERCISES_UPPER = {
+  push: {
+    homeBeginner: [
+      { name: "Wall pushup", sets: 3, reps: "10-12", ai: true, cue: "Body in one line, control down.", how: ["Hands on the wall, slightly wider than shoulders.", "Lower your chest toward the wall.", "Press back without sagging your hips."] },
+      { name: "Incline pushup", sets: 3, reps: "8-10", cue: "Hands on a couch or counter.", how: ["Hands on a raised surface, body straight.", "Lower your chest with control.", "Press back up in one line."] },
+      { name: "Knee pushup", sets: 3, reps: "8", cue: "Straight line from knees to head.", how: ["On your knees, hands under shoulders.", "Lower your chest toward the floor.", "Press up, hips level."] },
+    ],
+    homeEquip: [
+      { name: "Dumbbell chest press", sets: 3, reps: "10", cue: "Wrists stacked, smooth tempo.", how: ["Lie on the floor or a bench, dumbbells up.", "Lower until your elbows touch down.", "Press up without locking hard."] },
+    ],
+    gym: [
+      { name: "Chest press machine", sets: 3, reps: "10", ai: true, cue: "Handles at mid-chest, smooth press.", how: ["Adjust the seat so handles sit at mid-chest.", "Press out with control.", "Return over 2-3 seconds."] },
+      { name: "Dumbbell bench press", sets: 3, reps: "10", cue: "Control down, drive up.", how: ["Lie on a bench, dumbbells over your chest.", "Lower with control to chest level.", "Press up, shoulder blades pinned."] },
+    ],
+  },
+  pull: {
+    homeBeginner: [
+      { name: "Towel row", sets: 3, reps: "12", cue: "Squeeze the shoulder blades.", how: ["Loop a towel around a sturdy post.", "Lean back, arms straight.", "Pull your chest to your hands, squeezing your back."] },
+      { name: "Prone Y-T-W raises", sets: 3, reps: "8 each", cue: "Lift from the upper back.", how: ["Lie face down, arms out in a Y.", "Lift the arms, then move to T, then W.", "Small, controlled lifts."] },
+    ],
+    homeEquip: [
+      { name: "Band row", sets: 3, reps: "12", cue: "Pull to your ribs, squeeze.", how: ["Anchor a band at chest height.", "Pull the handles to your ribs.", "Squeeze your mid-back, release slow."] },
+      { name: "Dumbbell row", sets: 3, reps: "10/side", cue: "Flat back, drive the elbow up.", how: ["One hand on a chair, hinge forward.", "Row the dumbbell to your hip.", "Lower with control. Switch sides."] },
+    ],
+    gym: [
+      { name: "Lat pulldown", sets: 3, reps: "10", ai: true, cue: "Pull to your collarbone, elbows lead.", how: ["Grip slightly wider than shoulders.", "Pull the bar to your collarbone.", "Release slowly all the way up."] },
+      { name: "Seated row machine", sets: 3, reps: "10", ai: true, cue: "Pull to your ribs, squeeze the mid-back.", how: ["Sit tall, feet braced.", "Pull the handle to your lower ribs.", "Let it back out slowly."] },
+    ],
+  },
+  shoulder: {
+    homeBeginner: [
+      { name: "Arm circles", sets: 3, reps: "20", cue: "Small, controlled circles.", how: ["Arms out to your sides.", "Make small circles forward, then back.", "Keep your shoulders relaxed."] },
+      { name: "Pike progression", sets: 3, reps: "8", cue: "Hips high, gentle head dip.", how: ["Hands and feet down, hips high (upside-down V).", "Bend your elbows to lower your head gently.", "Press back up."] },
+      { name: "Wall shoulder taps", sets: 3, reps: "10/side", cue: "Core tight, no rocking.", how: ["Plank position facing the floor.", "Tap one hand to the opposite shoulder.", "Keep your hips still. Alternate."] },
+    ],
+    homeEquip: [
+      { name: "Dumbbell lateral raise", sets: 3, reps: "12", cue: "Lead with the elbows, no swing.", how: ["Light dumbbells at your sides.", "Raise out to shoulder height.", "Lower slowly."] },
+    ],
+    gym: [
+      { name: "Shoulder press machine", sets: 3, reps: "10", cue: "Ribs down, press up and slightly back.", how: ["Adjust the seat, handles at shoulder height.", "Press up without arching your back.", "Lower to ear height with control."] },
+    ],
+  },
+  deepcore: {
+    homeBeginner: [
+      { name: "360 breathing", sets: 2, reps: "8 breaths", ai: true, cue: "Breathe wide into your ribs.", how: ["Sit or lie comfortably, hands on your ribs.", "Breathe in wide, feeling your ribs expand all around.", "Exhale slowly, gently drawing your core in."] },
+      { name: "Dead bug", sets: 3, reps: "8/side", ai: true, cue: "Low back stays down the whole time.", how: ["On your back, arms up, knees bent up.", "Lower one arm and the opposite leg.", "Return and switch, keeping your back flat."] },
+      { name: "Bird dog", sets: 3, reps: "8/side", ai: true, cue: "Reach long, don't let your hips rock.", how: ["On hands and knees.", "Reach one arm and the opposite leg out.", "Keep your hips level. Switch sides."] },
+      { name: "Heel slides", sets: 3, reps: "10/side", cue: "Ribs down, core quiet.", how: ["On your back, knees bent.", "Slide one heel out along the floor.", "Draw it back without your back arching."] },
+    ],
+    homeEquip: [], gym: [],
+  },
+  corestab: {
+    homeBeginner: [
+      { name: "Modified plank", sets: 3, reps: "20-30 sec", ai: true, cue: "One straight line from knees to head.", how: ["Forearms down, knees on the floor.", "Squeeze glutes, pull your ribs down.", "Hold, breathing steadily."] },
+      { name: "Full plank", sets: 3, reps: "20-40 sec", ai: true, cue: "Quality over seconds.", how: ["Forearms down, body in one line.", "Squeeze glutes, brace your core.", "Stop when your hips start to sag."] },
+    ],
+    homeEquip: [
+      { name: "Band Pallof press", sets: 3, reps: "10/side", cue: "Resist the twist, press straight out.", how: ["Band anchored at chest height, at your side.", "Press it straight out from your chest.", "Resist the pull to rotate. Switch sides."] },
+    ],
+    gym: [
+      { name: "Cable Pallof press", sets: 3, reps: "10/side", cue: "Brace, press, resist rotation.", how: ["Cable at chest height, stand side-on.", "Press the handle straight out.", "Hold, resisting the twist. Switch sides."] },
+      { name: "Farmer carry", sets: 3, reps: "30 sec", cue: "Tall and braced, walk with control.", how: ["Hold a heavy dumbbell in each hand.", "Stand tall, shoulders back.", "Walk with control, core tight."] },
+    ],
+  },
+  walk: {
+    homeBeginner: [
+      { name: "Outdoor walk", sets: 1, reps: "15-30 min", cue: "Conversational pace, enjoy it.", how: ["Head outside if you can.", "Walk at a pace where you could chat.", "No pace goal - movement is the point."] },
+      { name: "Indoor walking intervals", sets: 1, reps: "15 min", cue: "March, mix in faster bursts.", how: ["March in place or around your home.", "Add a faster minute now and then.", "Keep it light and steady."] },
+    ],
+    homeEquip: [], gym: [
+      { name: "Incline treadmill walk", sets: 1, reps: "20-30 min", cue: "Tall posture, let the incline work.", how: ["Set a gentle incline.", "Walk at a comfortable, purposeful pace.", "Stand tall, relaxed shoulders."] },
+      { name: "Bike or elliptical", sets: 1, reps: "20 min", cue: "Steady, easy effort.", how: ["Set an easy resistance.", "Keep a steady rhythm.", "Breathe comfortably throughout."] },
+    ],
+  },
+  mobility: {
+    homeBeginner: [
+      { name: "Mobility flow", sets: 1, reps: "5-10 min", cue: "Move only where it feels good.", how: ["Slow neck and shoulder circles.", "Cat-cow, hip circles, gentle lunges.", "Nothing forced - just open the body."] },
+      { name: "Recovery stretch", sets: 1, reps: "5-8 min", cue: "Hold 30 seconds, breathe.", how: ["Stretch hamstrings, hips, chest, back.", "Hold each for 30 seconds.", "Ease deeper on each exhale."] },
+    ],
+    homeEquip: [], gym: [],
+  },
+}
+
+// Merge upper-body patterns into the exercise bank
+Object.assign(EXERCISES, EXERCISES_UPPER)
+// Program -> which environments/levels it prefers (Strong Foundations = beginner-first, all 3 environments)
+const PROGRAM_ENV_DEFAULT = "gym" // user can toggle; Foundations supports homeBeginner/homeEquip/gym
+// THE SELECTION ENGINE: Program -> Template -> Pattern -> Equipment -> Level -> Capacity -> Exercise
+// Given a pattern id + environment + an index (for variety), return a concrete exercise.
+const pickExercise = (patternId, env, idx) => {
+  const bank = EXERCISES[patternId]
+  if (!bank) return null
+  // environment fallback chain so every slot always resolves to something
+  const chain = env === "homeBeginner" ? ["homeBeginner", "homeEquip", "gym"]
+    : env === "homeEquip" ? ["homeEquip", "homeBeginner", "gym"]
+    : ["gym", "homeEquip", "homeBeginner"]
+  for (const e of chain) {
+    if (bank[e] && bank[e].length) { const list = bank[e]; return list[idx % list.length] }
+  }
+  return null
+}
+// Build the full exercise list for today's session (slots -> concrete exercises), capacity-aware sets.
+const resolveSession = (session, env, capKey, phase) => {
+  const seen = {}
+  const repBias = phase && phase.repBias ? phase.repBias : 0
+  return session.slots.map((sl) => {
+    const i = (seen[sl.pattern] = (seen[sl.pattern] || 0)) // 0,1,2 for repeated patterns
+    seen[sl.pattern]++
+    const ex = pickExercise(sl.pattern, env, i)
+    if (!ex) return null
+    let sets = ex.sets
+    if (capKey === "yellow") sets = Math.max(2, sets - 1)
+    if (capKey === "red") sets = 2
+    // Phase rep bias: gently nudge rep targets up in the confidence phase (display only, non-destructive)
+    let reps = ex.reps
+    if (repBias && capKey !== "red" && /^\d+/.test(String(reps))) {
+      const m = String(reps).match(/^(\d+)(?:-(\d+))?(.*)$/)
+      if (m) { const lo = +m[1] + repBias; const hi = m[2] ? +m[2] + repBias : null; reps = hi ? `${lo}-${hi}${m[3]}` : `${lo}${m[3]}` }
+    }
+    return { ...ex, sets, reps, role: sl.role, pattern: sl.pattern }
+  }).filter(Boolean)
+}
+
 const PROGRAMS = [
   { id: "foundations", emoji: "🌱", name: "Strong Foundations", tag: "Build consistency & confidence",
     promise: "Start where you are. Build strength and confidence.",
@@ -448,6 +652,27 @@ const PROGRAMS = [
     goal: "Build a body that feels good to live in.", next: "balanced",
     split: ["full", "walk", "upper", "legs", "walk", "glutes", "rest"], grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)" },
 ]
+// ============ PROGRAM PHASES (8-week progression) ============
+// Phases drive difficulty over time: which experience level the selector favors, and set/rep emphasis.
+const PROGRAM_PHASES = {
+  foundations: [
+    { name: "Learn Your Body", weeks: [1, 2], level: "beginner", goal: "Create confidence and learn the movement patterns.", emphasis: "Proper form, controlled reps, building the routine.", repBias: 0, coach: "This week is about learning the movements. Slow and controlled beats heavy every time." },
+    { name: "Build Confidence", weeks: [3, 5], level: "beginner", goal: "Increase strength and comfort.", emphasis: "A little more volume and resistance. Increase reps first, then weight.", repBias: 2, coach: "You know these movements now. Add a rep or a little weight when it feels good \u2014 no rush." },
+    { name: "Build Strength", weeks: [6, 8], level: "intermediate", goal: "Feel stronger and more capable.", emphasis: "Progressive overload and cleaner technique. Advanced-beginner options appear.", repBias: 0, coach: "You've built a real foundation. Trust it \u2014 you're stronger than week one, and it shows." },
+  ],
+}
+const phaseFor = (progId, week) => {
+  const phases = PROGRAM_PHASES[progId]
+  if (!phases) return null
+  return phases.find((ph) => week >= ph.weeks[0] && week <= ph.weeks[1]) || phases[phases.length - 1]
+}
+// Coaching voice bank \u2014 calm, encouraging, never intimidating.
+const COACH_LINES = {
+  green: ["You're building strength one controlled movement at a time.", "Strong, steady, and in control. This is your day.", "Quality before speed \u2014 every rep counts."],
+  yellow: ["We've trimmed today so you can still show up well.", "Protecting your energy is part of getting stronger.", "Enough is enough today. You're still moving forward."],
+  red: ["Showing up differently still counts.", "The simplest version today keeps your streak of caring for yourself alive.", "This is exactly what a strong week looks like on a hard day."],
+  recovery: ["Rest is part of progress, not a break from it.", "Your body rebuilds on days like today.", "Gentle movement today makes tomorrow's stronger."],
+}
 const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
 // Deterministic schedule: days since program start -> week + weekday -> workout type
 const progSchedule = (prog, startISO) => {
@@ -734,6 +959,7 @@ export default function App() {
   const [detailProgram, setDetailProgram] = useState(null)
   const [libOpen, setLibOpen] = useState(null)
   const [libLevel, setLibLevel] = useState("beginner")
+  const [woEnv, setWoEnv] = useState("gym")
   const [recoveryOpen, setRecoveryOpen] = useState(null)
   const [recoveryDone, setRecoveryDone] = useState(false)
   const [woMode, setWoMode] = useState("overview")
@@ -1433,6 +1659,8 @@ export default function App() {
       const recovery = pct < 10
       const capKey = recovery ? "recovery" : cur
       const session = buildSession(programId, sched.weekday, capKey)
+      const phase = phaseFor(programId, sched.week)
+      const coachLine = (COACH_LINES[recovery ? "recovery" : cur] || [])[sched.week % 3] || ""
       const version = CAP_VERSION[recovery ? "red" : cur]
       const scheduleKey = (PROGRAM_SCHEDULE[programId] || [])[sched.weekday] || "recovery"
       const isRest = scheduleKey === "recovery"
@@ -1441,12 +1669,41 @@ export default function App() {
       const mins = version.mins
       const heroGrad = recovery ? "linear-gradient(135deg,#8A6FA8,#5E4578)" : HERO_GRAD[cur]
       const pctThroughWeeks = Math.round((sched.week / prog.weeks) * 100)
+      const programComplete = sched.week > prog.weeks
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 24, lineHeight: 1.3, marginBottom: 2 }}>Your body needs today's version of you.</div>
-          <div style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>Let's honor it.</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, marginBottom: 16 }}>Let's honor it.</div>
 
-          {(recovery || isRest) ? (
+          {phase && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderRadius: 14, background: "rgba(127,160,84,0.08)", border: "1px solid rgba(127,160,84,0.25)", marginBottom: 14 }}>
+              <div style={{ fontSize: 22 }}>{PROG_BY_ID(programId).emoji}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, letterSpacing: 1.5, color: "#6E9E6B", textTransform: "uppercase", fontWeight: 700 }}>Phase {PROGRAM_PHASES[programId] ? PROGRAM_PHASES[programId].indexOf(phase) + 1 : 1} · Week {sched.week}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 700, color: BASE.cream }}>{phase.name}</div>
+              </div>
+            </div>
+          )}
+          {coachLine && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.creamDim, lineHeight: 1.5, marginBottom: 18, paddingLeft: 12, borderLeft: "2px solid #A87BD1" }}>{coachLine}</div>}
+
+          {programComplete ? (
+            <div className="fade-in">
+              <div style={{ borderRadius: 22, padding: "30px 24px", background: prog.grad, color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.3)", marginBottom: 20, textAlign: "center", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: -30, top: -30, width: 130, height: 130, borderRadius: "50%", background: "rgba(255,255,255,0.13)" }} />
+                <div style={{ fontSize: 44, position: "relative" }}>{prog.emoji}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, marginTop: 8, position: "relative" }}>You built your foundation.</div>
+                <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.94)", lineHeight: 1.6, marginTop: 8, position: "relative" }}>Eight weeks of showing up for yourself. You learned the movements, built the habit, and got stronger. That's yours to keep.</div>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 12 }}>Where to next</div>
+              {[["Repeat, a little stronger", "Run Strong Foundations again with more confidence and resistance.", programId], ["Move into Build Strength", "Progressive lifting for your next chapter.", "strength"], ["Try Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]].map(([t, d, target], i) => (
+                <div key={i} onClick={() => { if (target) { const iso = new Date().toISOString().slice(0,10); setProgramId(target); setProgramStart(iso); try { localStorage.setItem("nr_program", target); localStorage.setItem("nr_program_start", iso) } catch (e) {} } else { setProgramId(null); try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {} } }} style={{ padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, cursor: "pointer" }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{t}</div>
+                  <div style={{ fontSize: 12, color: BASE.taupe, marginTop: 2, lineHeight: 1.4 }}>{d}</div>
+                </div>
+              ))}
+              <div style={{ height: 20 }} />
+            </div>
+          ) : (recovery || isRest) ? (
             <>
               <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#B9A0CE,#7E5E9E)", color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.3)", marginBottom: 16, position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", right: -28, top: -28, width: 110, height: 110, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
@@ -1700,7 +1957,15 @@ export default function App() {
 
     if (tab === "body" && bodyView === "gym" && programId && trainView === "workout") {
       const gymColor = woColor || cur
-      const wo = WORKOUTS[woType][gymColor]
+      const _prog = PROG_BY_ID(programId)
+      const _sched = progSchedule(_prog, programStart)
+      const _capKey = pct < 10 ? "recovery" : gymColor
+      const _phase = phaseFor(programId, _sched.week)
+      const _session = buildSession(programId, _sched.weekday, _capKey)
+      const _resolved = resolveSession(_session, woEnv, _capKey, _phase)
+      const wo = (_resolved && _resolved.length)
+        ? { title: _session.title, note: _session.focus, exercises: _resolved }
+        : WORKOUTS[woType][gymColor]
       const suggestion = cycleNow ? PHASE_SUGGESTION[cycleNow.phase] : null
       const setKey = (i, sx) => woType + "|" + gymColor + "|" + i + "|" + sx
       const toggleSet = (i, sx) => setWoDone((prev) => ({ ...prev, [setKey(i, sx)]: !prev[setKey(i, sx)] }))
@@ -1728,9 +1993,15 @@ export default function App() {
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, textAlign: "center", margin: "6px 0 2px" }}>{(WO_TYPES.find((t) => t.key === woType) || {label: "Workout"}).label}</h2>
           <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 12, margin: "0 0 12px" }}>{thisWeek.length} workout{thisWeek.length === 1 ? "" : "s"} this week</p>
 
-          <div style={{ display: "flex", gap: 6, background: BASE.surface2, borderRadius: 999, padding: 4, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 6, background: BASE.surface2, borderRadius: 999, padding: 4, marginBottom: 10 }}>
             {[["overview", "Overview"], ["guided", "Guided"]].map(([k, lbl]) => (
               <button key={k} onClick={() => { setWoMode(k); setGuidedIdx(0) }} style={{ flex: 1, padding: "9px 4px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: woMode === k ? "#fff" : "transparent", color: woMode === k ? "#C9558E" : BASE.taupe, boxShadow: woMode === k ? "0 2px 8px rgba(120,80,130,0.12)" : "none" }}>{lbl === "Guided" ? "\ud83c\udfac Guided" : lbl}</button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+            {[["homeBeginner", "Home"], ["homeEquip", "Home + weights"], ["gym", "Gym"]].map(([k, lbl]) => (
+              <button key={k} onClick={() => setWoEnv(k)} style={{ flex: 1, padding: "8px 4px", borderRadius: 10, cursor: "pointer", fontSize: 11.5, fontWeight: 700, background: woEnv === k ? "rgba(168,123,209,0.15)" : BASE.surface, color: woEnv === k ? "#A87BD1" : BASE.taupe, border: `1px solid ${woEnv === k ? "#A87BD1" : BASE.border}` }}>{lbl}</button>
             ))}
           </div>
 
