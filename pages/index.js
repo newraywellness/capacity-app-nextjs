@@ -327,12 +327,15 @@ const WORKOUT_TEMPLATES = {
   "mama:core": { title: "Core + Stability", focus: "Deep core, breathing, pelvic floor", slots: [
     { pattern: "deepcore", role: "primary" }, { pattern: "deepcore", role: "primary" },
     { pattern: "hipstab", role: "accessory" }, { pattern: "mobility", role: "finisher" } ] },
-  "mama:upper": { title: "Upper Body Strength", focus: "Gentle pressing and pulling", slots: [
+  "mama:upper": { title: "Upper Body + Posture", focus: "Gentle pressing, pulling, and posture", slots: [
     { pattern: "pull", role: "primary" }, { pattern: "push", role: "primary" },
     { pattern: "shoulder", role: "accessory" }, { pattern: "deepcore", role: "core" } ] },
-  "mama:legs": { title: "Lower Body Strength", focus: "Controlled lower-body strength", slots: [
+  "mama:legs": { title: "Lower Body + Core", focus: "Controlled lower-body strength with deep core", slots: [
     { pattern: "squat", role: "primary" }, { pattern: "glute", role: "primary" },
-    { pattern: "hipstab", role: "accessory" }, { pattern: "deepcore", role: "core" } ] },
+    { pattern: "hipstab", role: "accessory" }, { pattern: "deepcore", role: "core" }, { pattern: "deepcore", role: "core" } ] },
+  "mama:glutes": { title: "Glutes + Core", focus: "Hip strength, stability, and deep core", slots: [
+    { pattern: "glute", role: "primary" }, { pattern: "squat", role: "accessory" },
+    { pattern: "hipstab", role: "accessory" }, { pattern: "deepcore", role: "core" }, { pattern: "corestab", role: "core" } ] },
   // ---- JUST MOVE (<= ~20 min, low decisions) ----
   "move:simple": { title: "Simple Strength", focus: "One full-body move + a couple easy exercises", cap: 20, slots: [
     { pattern: "squat", role: "primary" }, { pattern: "push", role: "accessory" }, { pattern: "glute", role: "accessory" } ] },
@@ -362,7 +365,7 @@ const WORKOUT_TEMPLATES = {
 const PROGRAM_SCHEDULE = {
   foundations: ["foundations:full", "walk+mobility", "foundations:legs", "foundations:upper", "walk+recovery", "foundations:glutes", "recovery"],
   strength: ["strength:lowerA", "strength:upperA", "recovery", "strength:lowerB", "strength:upperB", "conditioning", "recovery"],
-  mama: ["mama:full", "walk", "mama:core", "mama:upper", "mobility+recovery", "mama:legs", "recovery"],
+  mama: ["mama:full", "walk+mobility", "mama:legs", "mama:upper", "walk", "mama:glutes", "recovery"],
   move: ["move:simple", "move:walk", "move:legs", "move:walk", "move:simple", "move:walk", "recovery"],
   balanced: ["balanced:full", "mobility", "balanced:upper", "balanced:conditioning", "balanced:legs", "balanced:flow", "recovery"],
 }
@@ -567,7 +570,11 @@ Object.assign(EXERCISES, EXERCISES_UPPER)
 const PROGRAM_ENV_DEFAULT = "gym" // user can toggle; Foundations supports homeBeginner/homeEquip/gym
 // THE SELECTION ENGINE: Program -> Template -> Pattern -> Equipment -> Level -> Capacity -> Exercise
 // Given a pattern id + environment + an index (for variety), return a concrete exercise.
-const pickExercise = (patternId, env, idx) => {
+// Program-specific exercise preferences: when a pattern offers multiple options, favor these by name.
+const PROGRAM_EXERCISE_PREF = {
+  mama: ["360 breathing", "Dead bug", "Bird dog", "Heel slides", "Glute bridge", "Sit-to-stand squat", "Bodyweight squat", "Step ups", "Seated row machine", "Chest press machine", "Lat pulldown", "Farmer carry", "Side-lying leg raise", "Hip abduction machine", "Band row", "Modified plank", "Dumbbell hip thrust"],
+}
+const pickExercise = (patternId, env, idx, progId) => {
   const bank = EXERCISES[patternId]
   if (!bank) return null
   // environment fallback chain so every slot always resolves to something
@@ -575,18 +582,27 @@ const pickExercise = (patternId, env, idx) => {
     : env === "homeEquip" ? ["homeEquip", "homeBeginner", "gym"]
     : ["gym", "homeEquip", "homeBeginner"]
   for (const e of chain) {
-    if (bank[e] && bank[e].length) { const list = bank[e]; return list[idx % list.length] }
+    if (bank[e] && bank[e].length) {
+      const list = bank[e]
+      const prefs = PROGRAM_EXERCISE_PREF[progId]
+      if (prefs) {
+        // favor a preferred exercise in this list; keep idx variety among preferred if several match
+        const preferred = list.filter((x) => prefs.includes(x.name))
+        if (preferred.length) return preferred[idx % preferred.length]
+      }
+      return list[idx % list.length]
+    }
   }
   return null
 }
 // Build the full exercise list for today's session (slots -> concrete exercises), capacity-aware sets.
-const resolveSession = (session, env, capKey, phase) => {
+const resolveSession = (session, env, capKey, phase, progId) => {
   const seen = {}
   const repBias = phase && phase.repBias ? phase.repBias : 0
   return session.slots.map((sl) => {
     const i = (seen[sl.pattern] = (seen[sl.pattern] || 0)) // 0,1,2 for repeated patterns
     seen[sl.pattern]++
-    const ex = pickExercise(sl.pattern, env, i)
+    const ex = pickExercise(sl.pattern, env, i, progId)
     if (!ex) return null
     let sets = ex.sets
     if (capKey === "yellow") sets = Math.max(2, sets - 1)
@@ -655,12 +671,31 @@ const PROGRAMS = [
 ]
 // ============ PROGRAM PHASES (8-week progression) ============
 // Phases drive difficulty over time: which experience level the selector favors, and set/rep emphasis.
+// Program completion screens (title, message, next paths).
+const COMPLETION = {
+  foundations: { title: "You built your foundation.", weeksWord: "Eight weeks", message: "Eight weeks of showing up for yourself. You learned the movements, built the habit, and got stronger. That's yours to keep.", paths: [["Repeat, a little stronger", "Run Strong Foundations again with more confidence and resistance.", "self"], ["Move into Build Strength", "Progressive lifting for your next chapter.", "strength"], ["Try Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]] },
+  mama: { title: "You're ready for your next chapter.", weeksWord: "Ten weeks", message: "Ten weeks of honoring your body while it rebuilt. You reconnected, grew stronger, and did it with patience. That strength is yours.", paths: [["Repeat Strong Mama Rebuild", "Move through the rebuild again, meeting your body where it is now.", "self"], ["Begin Strong Foundations", "Step into structured strength training with confidence.", "foundations"], ["Begin Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]] },
+}
 const PROGRAM_PHASES = {
   foundations: [
     { name: "Learn Your Body", weeks: [1, 2], level: "beginner", goal: "Create confidence and learn the movement patterns.", emphasis: "Proper form, controlled reps, building the routine.", repBias: 0, coach: "This week is about learning the movements. Slow and controlled beats heavy every time." },
     { name: "Build Confidence", weeks: [3, 5], level: "beginner", goal: "Increase strength and comfort.", emphasis: "A little more volume and resistance. Increase reps first, then weight.", repBias: 2, coach: "You know these movements now. Add a rep or a little weight when it feels good \u2014 no rush." },
     { name: "Build Strength", weeks: [6, 8], level: "intermediate", goal: "Feel stronger and more capable.", emphasis: "Progressive overload and cleaner technique. Advanced-beginner options appear.", repBias: 1, addWeight: true, coach: "You've built a real foundation. Trust it \u2014 you're stronger than week one, and it shows." },
   ],
+  mama: [
+    { name: "Reconnect", weeks: [1, 3], level: "beginner", goal: "Reconnect with your body \u2014 breathing, deep core, and pelvic floor.", emphasis: "Breathing, deep core activation, pelvic floor awareness, walking, mobility, and gentle strength.", repBias: 0, coach: "You are rebuilding something incredible. Slow is not falling behind." },
+    { name: "Rebuild", weeks: [4, 7], level: "beginner", goal: "Rebuild full-body strength and stability with confidence.", emphasis: "Full-body strength, hip stability, balance, and core endurance. Volume increases gradually.", repBias: 1, coach: "Your strength is returning one movement at a time. Your body deserves this patience." },
+    { name: "Strength Again", weeks: [8, 10], level: "intermediate", goal: "Move into functional, compound strength \u2014 never rushed.", emphasis: "Compound movements and functional strength, preparing you for Strong Foundations or Balanced Strength.", repBias: 1, addWeight: true, coach: "Look how far you've come. This strength is yours, and you earned it gently." },
+  ],
+}
+// Per-program coaching overlays (gentler for Mama). Falls back to COACH_LINES.
+const PROGRAM_COACH_LINES = {
+  mama: {
+    green: ["Your strength is returning one movement at a time.", "You are rebuilding something incredible.", "Strong and connected \u2014 your body remembers this."],
+    yellow: ["Slow is not falling behind.", "We've gentled today so you can honor where you are.", "Meeting your body where it is today is wisdom, not weakness."],
+    red: ["Your body deserves patience, especially today.", "Showing up softly still counts, mama.", "Rest and rebuild \u2014 that is the whole point of this work."],
+    recovery: ["Breathing and walking are real rebuilding.", "Today's gentleness is tomorrow's strength.", "Your body is healing, and that is the work."],
+  },
 }
 const phaseFor = (progId, week) => {
   const phases = PROGRAM_PHASES[progId]
@@ -1593,7 +1628,8 @@ export default function App() {
       const capKey = recovery ? "recovery" : cur
       const session = buildSession(programId, sched.weekday, capKey)
       const phase = phaseFor(programId, sched.week)
-      const coachLine = (COACH_LINES[recovery ? "recovery" : cur] || [])[sched.week % 3] || ""
+      const _coachBank = (PROGRAM_COACH_LINES[programId] && PROGRAM_COACH_LINES[programId][recovery ? "recovery" : cur]) || COACH_LINES[recovery ? "recovery" : cur] || []
+      const coachLine = _coachBank[sched.week % _coachBank.length] || ""
       const version = CAP_VERSION[recovery ? "red" : cur]
       const scheduleKey = (PROGRAM_SCHEDULE[programId] || [])[sched.weekday] || "recovery"
       const isRest = scheduleKey === "recovery"
@@ -1619,24 +1655,27 @@ export default function App() {
           )}
           {coachLine && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.creamDim, lineHeight: 1.5, marginBottom: 18, paddingLeft: 12, borderLeft: "2px solid #A87BD1" }}>{coachLine}</div>}
 
-          {programComplete ? (
+          {programComplete ? (() => {
+            const done = COMPLETION[programId] || COMPLETION.foundations
+            return (
             <div className="fade-in">
               <div style={{ borderRadius: 22, padding: "30px 24px", background: prog.grad, color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.3)", marginBottom: 20, textAlign: "center", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", right: -30, top: -30, width: 130, height: 130, borderRadius: "50%", background: "rgba(255,255,255,0.13)" }} />
                 <div style={{ fontSize: 44, position: "relative" }}>{prog.emoji}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, marginTop: 8, position: "relative" }}>You built your foundation.</div>
-                <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.94)", lineHeight: 1.6, marginTop: 8, position: "relative" }}>Eight weeks of showing up for yourself. You learned the movements, built the habit, and got stronger. That's yours to keep.</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, marginTop: 8, position: "relative" }}>{done.title}</div>
+                <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.94)", lineHeight: 1.6, marginTop: 8, position: "relative" }}>{done.message}</div>
               </div>
               <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 12 }}>Where to next</div>
-              {[["Repeat, a little stronger", "Run Strong Foundations again with more confidence and resistance.", programId], ["Move into Build Strength", "Progressive lifting for your next chapter.", "strength"], ["Try Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]].map(([t, d, target], i) => (
-                <div key={i} onClick={() => { if (target) { const iso = new Date().toISOString().slice(0,10); setProgramId(target); setProgramStart(iso); try { localStorage.setItem("nr_program", target); localStorage.setItem("nr_program_start", iso) } catch (e) {} } else { setProgramId(null); try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {} } }} style={{ padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, cursor: "pointer" }}>
+              {done.paths.map(([t, d, target], i) => (
+                <div key={i} onClick={() => { const tgt = target === "self" ? programId : target; if (tgt) { const iso = new Date().toISOString().slice(0,10); setProgramId(tgt); setProgramStart(iso); try { localStorage.setItem("nr_program", tgt); localStorage.setItem("nr_program_start", iso) } catch (e) {} } else { setProgramId(null); try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {} } }} style={{ padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, cursor: "pointer" }}>
                   <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{t}</div>
                   <div style={{ fontSize: 12, color: BASE.taupe, marginTop: 2, lineHeight: 1.4 }}>{d}</div>
                 </div>
               ))}
               <div style={{ height: 20 }} />
             </div>
-          ) : (recovery || isRest) ? (
+            )
+          })() : (recovery || isRest) ? (
             <>
               <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#B9A0CE,#7E5E9E)", color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.3)", marginBottom: 16, position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", right: -28, top: -28, width: 110, height: 110, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
@@ -1895,7 +1934,7 @@ export default function App() {
       const _capKey = pct < 10 ? "recovery" : gymColor
       const _phase = phaseFor(programId, _sched.week)
       const _session = buildSession(programId, _sched.weekday, _capKey)
-      const _resolved = resolveSession(_session, woEnv, _capKey, _phase)
+      const _resolved = resolveSession(_session, woEnv, _capKey, _phase, programId)
       const _fallback = { title: _session.title || "Workout", note: _session.focus || "", exercises: [] }
       const wo = (_resolved && _resolved.length)
         ? { title: _session.title, note: _session.focus, exercises: _resolved }
@@ -2054,7 +2093,7 @@ export default function App() {
                         <span style={{ fontSize: 12, color: BASE.creamDim, lineHeight: 1.5 }}>{step}</span>
                       </div>
                     ))}
-                    <a href={demoLink(ex.name)} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 11.5, fontWeight: 800, color: BASE.terracotta }}>Watch a demo \u2197</a>
+                    <a href={demoLink(ex.name)} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 11.5, fontWeight: 800, color: BASE.terracotta }}>Watch a demo ↗</a>
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
