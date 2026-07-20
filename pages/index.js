@@ -277,15 +277,22 @@ const WORKOUTS = {
 
 // ---- Atmosphere engine: environment = f(hour, capacity) ----
 const ENV = (hour, color) => {
-  let mode = hour >= 5 && hour < 11 ? "morning" : hour >= 11 && hour < 17 ? "afternoon" : "evening"
-  if (color === "red") mode = "evening"
+  const mode = hour >= 5 && hour < 11 ? "morning" : hour >= 11 && hour < 17 ? "afternoon" : "evening"
   const bright = color === "green"
+  const quiet = color === "red"
   const bgs = {
     morning: "linear-gradient(180deg,#FFEDD8 0%,#FFE0E4 28%,#F7D8EE 56%,#E6D5F6 100%)",
     afternoon: "linear-gradient(180deg,#FFE3C4 0%,#FFD9D2 30%,#F5D3E8 62%,#E4D0F2 100%)",
     evening: "linear-gradient(180deg,#2E2149 0%,#4A2E5E 40%,#6E3F6E 72%,#8A4E70 100%)",
   }
-  return { mode, bright, bg: bgs[mode], dark: mode === "evening" }
+  // Red softens the current time of day (calmer, more muted) but never forces night while it's daytime.
+  const quietBgs = {
+    morning: "linear-gradient(180deg,#F6E9E4 0%,#F3E2E8 34%,#EBE0EE 66%,#E2DCEE 100%)",
+    afternoon: "linear-gradient(180deg,#F1E4DA 0%,#EEDFE2 34%,#E9DEEC 66%,#E1DAEC 100%)",
+    evening: "linear-gradient(180deg,#2E2149 0%,#4A2E5E 40%,#6E3F6E 72%,#8A4E70 100%)",
+  }
+  const bg = quiet ? quietBgs[mode] : bgs[mode]
+  return { mode, bright, quiet, bg, dark: mode === "evening" }
 }
 const SUGGEST = {
   none: [
@@ -397,6 +404,9 @@ export default function App() {
   const [whyOpen, setWhyOpen] = useState(false)
   const [recoveryOpen, setRecoveryOpen] = useState(null)
   const [recoveryDone, setRecoveryDone] = useState(false)
+  const [woMode, setWoMode] = useState("overview")
+  const [guidedIdx, setGuidedIdx] = useState(0)
+  const [restLeft, setRestLeft] = useState(0)
   const [lifeMsg, setLifeMsg] = useState("")
 
   useEffect(() => {
@@ -410,6 +420,12 @@ export default function App() {
   }, [])
 
   useEffect(() => { checkAuth() }, [])
+
+  useEffect(() => {
+    if (restLeft <= 0) return
+    const t = setTimeout(() => setRestLeft((n) => n - 1), 1000)
+    return () => clearTimeout(t)
+  }, [restLeft])
 
   useEffect(() => {
     const { data: sub } = db.auth.onAuthStateChange((event) => {
@@ -1162,7 +1178,7 @@ export default function App() {
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#F0B77E,#D98A6A)", color: "#fff", boxShadow: "0 14px 32px rgba(200,130,90,0.3)", marginBottom: 18, position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", right: -24, top: -24, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
-            <div style={{ fontSize: 30 }}>\ud83c\udf7d\ufe0f</div>
+            <div style={{ fontSize: 30 }}>🍽️</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, marginTop: 6 }}>Nourish</div>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.5, marginTop: 4 }}>Simple, realistic food support that flexes with your capacity — not another diet to fail.</div>
           </div>
@@ -1202,8 +1218,89 @@ export default function App() {
         <div style={{ padding: "8px 18px 0" }}>
           <div onClick={() => setTrainView("home")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 8 }}>{"\u2039 Today's plan"}</div>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, textAlign: "center", margin: "6px 0 2px" }}>{(WO_TYPES.find((t) => t.key === woType) || {label: "Workout"}).label}</h2>
-          <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 12, margin: "0 0 14px" }}>{thisWeek.length} workout{thisWeek.length === 1 ? "" : "s"} this week</p>
+          <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 12, margin: "0 0 12px" }}>{thisWeek.length} workout{thisWeek.length === 1 ? "" : "s"} this week</p>
 
+          <div style={{ display: "flex", gap: 6, background: BASE.surface2, borderRadius: 999, padding: 4, marginBottom: 16 }}>
+            {[["overview", "Overview"], ["guided", "Guided"]].map(([k, lbl]) => (
+              <button key={k} onClick={() => { setWoMode(k); setGuidedIdx(0) }} style={{ flex: 1, padding: "9px 4px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: woMode === k ? "#fff" : "transparent", color: woMode === k ? "#C9558E" : BASE.taupe, boxShadow: woMode === k ? "0 2px 8px rgba(120,80,130,0.12)" : "none" }}>{lbl === "Guided" ? "\ud83c\udfac Guided" : lbl}</button>
+            ))}
+          </div>
+
+          {woMode === "guided" ? (() => {
+            const ex = wo.exercises[guidedIdx]
+            const total = wo.exercises.length
+            const exDone = Array.from({ length: ex.sets }).filter((_, sx) => woDone[setKey(guidedIdx, sx)]).length
+            const allSetsDone = exDone >= ex.sets
+            const completeSet = () => {
+              const nextSx = Array.from({ length: ex.sets }).findIndex((_, sx) => !woDone[setKey(guidedIdx, sx)])
+              if (nextSx >= 0) { toggleSet(guidedIdx, nextSx); setRestLeft(60) }
+            }
+            const fmt = (n) => Math.floor(n / 60) + ":" + String(n % 60).padStart(2, "0")
+            return (
+              <div className="fade-in">
+                <div style={{ display: "flex", gap: 5, marginBottom: 16 }}>
+                  {wo.exercises.map((_, i) => (
+                    <div key={i} style={{ flex: 1, height: 4, borderRadius: 999, background: i < guidedIdx ? "#A87BD1" : i === guidedIdx ? "#E984B4" : BASE.surface2 }} />
+                  ))}
+                </div>
+                <div style={{ textAlign: "center", fontSize: 11, color: BASE.taupe, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>EXERCISE {guidedIdx + 1} OF {total}</div>
+
+                <div style={{ borderRadius: 22, overflow: "hidden", boxShadow: "0 12px 30px rgba(120,80,130,0.16)", marginBottom: 16 }}>
+                  <div style={{ height: 200, background: "linear-gradient(135deg,#E984B4,#A87BD1)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ textAlign: "center", color: "rgba(255,255,255,0.9)" }}>
+                      <svg width="60" height="60" viewBox="0 0 24 24" fill="none" style={{ margin: "0 auto 8px" }}><circle cx="12" cy="7" r="3.2" fill="rgba(255,255,255,0.9)"/><path d="M5 21 C 5 16, 8 14, 12 14 C 16 14, 19 16, 19 21 Z" fill="rgba(255,255,255,0.9)"/></svg>
+                      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1 }}>YOUR COACH</div>
+                      <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 2 }}>Video demonstration coming soon</div>
+                    </div>
+                    <div style={{ position: "absolute", bottom: 10, right: 12, fontSize: 10, color: "rgba(255,255,255,0.75)", fontStyle: "italic" }}>Quality before speed.</div>
+                  </div>
+                  <div style={{ padding: "20px 20px", background: BASE.surface }}>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, color: BASE.cream }}>{ex.name}</div>
+                    <div style={{ display: "flex", gap: 20, margin: "12px 0 14px" }}>
+                      <div><div style={{ fontSize: 22, fontWeight: 800, color: "#C9558E" }}>{ex.sets}</div><div style={{ fontSize: 10.5, color: BASE.taupe, letterSpacing: 1 }}>SETS</div></div>
+                      <div><div style={{ fontSize: 22, fontWeight: 800, color: "#C9558E" }}>{ex.reps}</div><div style={{ fontSize: 10.5, color: BASE.taupe, letterSpacing: 1 }}>REPS</div></div>
+                      <div><div style={{ fontSize: 22, fontWeight: 800, color: "#7FA054" }}>{exDone}/{ex.sets}</div><div style={{ fontSize: 10.5, color: BASE.taupe, letterSpacing: 1 }}>DONE</div></div>
+                    </div>
+                    <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(233,132,180,0.1)", marginBottom: 12 }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, color: "#C9558E", letterSpacing: 1, marginBottom: 3 }}>COACH CUE</div>
+                      <div style={{ fontSize: 13, color: BASE.cream, lineHeight: 1.5 }}>{ex.cue}</div>
+                    </div>
+                    <details style={{ marginBottom: 8 }}>
+                      <summary style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, cursor: "pointer" }}>Modifications & equipment</summary>
+                      <div style={{ fontSize: 12, color: BASE.taupe, lineHeight: 1.6, marginTop: 8 }}>Too much today? Do fewer reps or an easier range \u2014 the movement still counts. No equipment? Swap for a bodyweight or household version. Your coach will demo full options here soon.</div>
+                    </details>
+                    {ex.how && (
+                      <details><summary style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, cursor: "pointer" }}>How to</summary>
+                        <div style={{ marginTop: 8 }}>{ex.how.map((st, hi) => (<div key={hi} style={{ display: "flex", gap: 8, marginBottom: 5 }}><span style={{ minWidth: 16, height: 16, borderRadius: "50%", background: "rgba(201,85,142,0.15)", color: "#C9558E", fontSize: 9.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{hi + 1}</span><span style={{ fontSize: 12, color: BASE.creamDim, lineHeight: 1.5 }}>{st}</span></div>))}</div>
+                      </details>
+                    )}
+                  </div>
+                </div>
+
+                {restLeft > 0 ? (
+                  <div className="fade-in" style={{ textAlign: "center", padding: "18px", borderRadius: 16, background: "rgba(168,123,209,0.1)", border: "1px solid rgba(168,123,209,0.3)", marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: "#A87BD1", fontWeight: 700, letterSpacing: 1 }}>REST</div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 42, fontWeight: 700, color: "#8A6FA8", margin: "2px 0" }}>{fmt(restLeft)}</div>
+                    <div style={{ fontSize: 12, color: BASE.taupe }}>One more set, then you've earned your rest. <span onClick={() => setRestLeft(0)} style={{ color: "#C9558E", fontWeight: 700, cursor: "pointer" }}>Skip</span></div>
+                  </div>
+                ) : (
+                  <button onClick={completeSet} disabled={allSetsDone} style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", cursor: allSetsDone ? "default" : "pointer", background: allSetsDone ? "rgba(127,160,84,0.15)" : "linear-gradient(135deg,#E984B4,#A87BD1)", color: allSetsDone ? "#7FA054" : "#fff", fontSize: 15, fontWeight: 800, boxShadow: allSetsDone ? "none" : "0 8px 22px rgba(168,123,209,0.35)", marginBottom: 14 }}>{allSetsDone ? "All sets complete \u2713" : `Complete set ${exDone + 1} of ${ex.sets}`}</button>
+                )}
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => { setGuidedIdx(Math.max(0, guidedIdx - 1)); setRestLeft(0) }} disabled={guidedIdx === 0} style={{ flex: 1, padding: 13, borderRadius: 12, border: `1px solid ${BASE.border}`, background: "transparent", color: guidedIdx === 0 ? BASE.taupe : BASE.creamDim, cursor: guidedIdx === 0 ? "default" : "pointer", fontSize: 13, fontWeight: 700, opacity: guidedIdx === 0 ? 0.4 : 1 }}>{"\u2039 Previous"}</button>
+                  {guidedIdx < total - 1 ? (
+                    <button onClick={() => { setGuidedIdx(guidedIdx + 1); setRestLeft(0) }} style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: "#A87BD1", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>{"Next \u203a"}</button>
+                  ) : (
+                    <button onClick={finishWorkout} style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: "linear-gradient(135deg,#93B061,#66883E)", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Finish {"\u2713"}</button>
+                  )}
+                </div>
+                <div style={{ height: 20 }} />
+              </div>
+            )
+          })() : (
+          <>
+          
           <div style={{ display: "flex", gap: 5, marginBottom: 16 }}>
             {WEEK_PLAN.map((p, idx) => {
               const isToday = idx === weekday
@@ -1300,6 +1397,8 @@ export default function App() {
           )}
 
           <p style={{ fontSize: 10.5, color: BASE.taupe, textAlign: "center", margin: "16px 0 0", lineHeight: 1.5 }}>General fitness guidance, not medical advice. Especially if you're postpartum, healing, or managing a condition - move within your provider's guidance.</p>
+          </>
+          )}
         </div>
       )
     }
