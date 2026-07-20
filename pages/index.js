@@ -673,6 +673,37 @@ const COACH_LINES = {
   red: ["Showing up differently still counts.", "The simplest version today keeps your streak of caring for yourself alive.", "This is exactly what a strong week looks like on a hard day."],
   recovery: ["Rest is part of progress, not a break from it.", "Your body rebuilds on days like today.", "Gentle movement today makes tomorrow's stronger."],
 }
+// ============ AI COACH FOUNDATION LAYER ============
+// Reusable coach data per exercise. Specific exercises can override; everything else gets
+// sensible defaults built from the exercise's own cue + how steps. Future video plugs into `demo`.
+const COACH_OVERRIDES = {
+  "Chair squat": { intro: "Let's start with the chair squat \u2014 the safest way to learn to squat well.", mistakes: ["Collapsing straight down instead of sitting back", "Letting the knees cave inward", "Using momentum to bounce off the chair"], encourage: ["That's it \u2014 controlled and strong.", "Beautiful. Sit back, drive up.", "You're learning the pattern that changes everything."] },
+  "Bodyweight squat": { intro: "The bodyweight squat is your foundation. Master this and everything else follows.", mistakes: ["Heels lifting off the floor", "Rounding the lower back", "Not reaching a comfortable depth"], encourage: ["Strong and steady.", "Push the floor away \u2014 there you go.", "Every rep is teaching your body."] },
+  "Leg press": { intro: "The leg press lets you build real leg strength with full support.", mistakes: ["Locking the knees hard at the top", "Letting the knees cave in", "Going so deep your hips tuck under"], encourage: ["Smooth and controlled.", "Strong legs are being built right now.", "Press through the whole foot \u2014 lovely."] },
+  "Dumbbell Romanian deadlift": { intro: "The Romanian deadlift teaches the hinge \u2014 one of the most useful movements you'll ever learn.", mistakes: ["Rounding the back instead of hinging", "Bending the knees too much (that's a squat)", "Letting the weights drift away from the legs"], encourage: ["Feel those hamstrings \u2014 that's the work.", "Hips back, chest proud. Perfect.", "This is the move that protects your back for life."] },
+  "Glute bridge": { intro: "The glute bridge wakes up the muscles that support your whole body.", mistakes: ["Pushing through the toes instead of the heels", "Arching the lower back to get higher", "Rushing the reps"], encourage: ["Squeeze at the top \u2014 hold it.", "Those glutes are switching on beautifully.", "Slow and strong beats fast every time."] },
+  "Hip thrust machine": { intro: "The hip thrust is the single best move for building glute strength.", mistakes: ["Overextending the lower back at the top", "Chin lifting up instead of tucked", "Short, partial range of motion"], encourage: ["Full lockout, ribs down \u2014 gorgeous.", "This is where strength gets built.", "One second squeeze. You've got it."] },
+  "Chest press machine": { intro: "The chest press builds upper-body strength with full support and control.", mistakes: ["Locking the elbows hard", "Flaring the elbows too wide", "Pressing too fast"], encourage: ["Control down, drive up.", "Strong press \u2014 that's it.", "Your upper body is getting stronger every set."] },
+  "Lat pulldown": { intro: "The lat pulldown builds the back strength that gives you posture and confidence.", mistakes: ["Leaning back too far", "Pulling with the arms instead of the back", "Bringing the bar behind the neck"], encourage: ["Lead with the elbows \u2014 feel your back work.", "Tall and strong.", "Beautiful pull. Squeeze and release slow."] },
+  "Seated row machine": { intro: "The seated row builds a strong back and healthy shoulders.", mistakes: ["Hunching the shoulders up", "Using momentum to yank the weight", "Pulling to the wrong spot"], encourage: ["Pull to your ribs, squeeze.", "Mid-back doing the work \u2014 perfect.", "Posture strength, right here."] },
+  "Dead bug": { intro: "The dead bug teaches your deep core to stay stable \u2014 the foundation of all strength.", mistakes: ["Letting the lower back arch off the floor", "Holding the breath", "Moving too fast"], encourage: ["Low back stays down \u2014 there you go.", "Slow and controlled is the whole point.", "This quiet work builds real strength."] },
+  "Bird dog": { intro: "The bird dog builds the stability that protects your back and steadies your whole body.", mistakes: ["Letting the hips rock side to side", "Arching the back", "Rushing the reach"], encourage: ["Reach long, stay level.", "Beautiful control.", "This is strength you'll feel in everything."] },
+  "Modified plank": { intro: "The plank teaches your whole core to brace and hold \u2014 quality over seconds.", mistakes: ["Letting the hips sag", "Lifting the hips too high", "Holding the breath"], encourage: ["One straight line \u2014 perfect.", "Breathe and brace.", "Stop while it still feels strong."] },
+  "Full plank": { intro: "The full plank is total-core strength. Every second counts when the form is right.", mistakes: ["Hips sagging toward the floor", "Shoulders creeping up to the ears", "Holding past good form"], encourage: ["Squeeze everything \u2014 strong line.", "Quality over seconds, always.", "You're stronger than last week."] },
+}
+// Dynamic coach data for ANY exercise. The Guided player calls this.
+const coachData = (ex) => {
+  const o = COACH_OVERRIDES[ex.name] || {}
+  return {
+    intro: o.intro || `Here's ${ex.name.toLowerCase()}. ${ex.cue}`,
+    setup: ex.how || [],
+    cue: ex.cue,
+    mistakes: o.mistakes || ["Rushing the reps instead of controlling them", "Holding your breath \u2014 keep it steady", "Losing your form to add weight too soon"],
+    encourage: o.encourage || ["You're building strength one controlled movement at a time.", "Strong and steady \u2014 that's the work.", "Quality before speed. You've got this."],
+    demo: null, // future: { videoUrl, poster } plugs in here per exercise
+    hasVideo: false,
+  }
+}
 const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
 // Deterministic schedule: days since program start -> week + weekday -> workout type
 const progSchedule = (prog, startISO) => {
@@ -1963,9 +1994,10 @@ export default function App() {
       const _phase = phaseFor(programId, _sched.week)
       const _session = buildSession(programId, _sched.weekday, _capKey)
       const _resolved = resolveSession(_session, woEnv, _capKey, _phase)
+      const _fallback = (WORKOUTS[woType] && WORKOUTS[woType][gymColor]) || { title: _session.title || "Workout", note: _session.focus || "", exercises: [] }
       const wo = (_resolved && _resolved.length)
         ? { title: _session.title, note: _session.focus, exercises: _resolved }
-        : WORKOUTS[woType][gymColor]
+        : _fallback
       const suggestion = cycleNow ? PHASE_SUGGESTION[cycleNow.phase] : null
       const setKey = (i, sx) => woType + "|" + gymColor + "|" + i + "|" + sx
       const toggleSet = (i, sx) => setWoDone((prev) => ({ ...prev, [setKey(i, sx)]: !prev[setKey(i, sx)] }))
@@ -2007,6 +2039,8 @@ export default function App() {
 
           {woMode === "guided" ? (() => {
             const ex = wo.exercises[guidedIdx]
+            const coach = coachData(ex)
+            const encourageLine = coach.encourage[guidedIdx % coach.encourage.length]
             const total = wo.exercises.length
             const exDone = Array.from({ length: ex.sets }).filter((_, sx) => woDone[setKey(guidedIdx, sx)]).length
             const allSetsDone = exDone >= ex.sets
@@ -2031,10 +2065,11 @@ export default function App() {
                       <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1 }}>YOUR COACH</div>
                       <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 2 }}>Video demonstration coming soon</div>
                     </div>
-                    <div style={{ position: "absolute", bottom: 10, right: 12, fontSize: 10, color: "rgba(255,255,255,0.75)", fontStyle: "italic" }}>Quality before speed.</div>
+                    <div style={{ position: "absolute", bottom: 10, right: 12, fontSize: 10, color: "rgba(255,255,255,0.75)", fontStyle: "italic" }}>{encourageLine}</div>
                   </div>
                   <div style={{ padding: "20px 20px", background: BASE.surface }}>
                     <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, color: BASE.cream }}>{ex.name}</div>
+                    <div style={{ fontSize: 12.5, color: BASE.creamDim, fontStyle: "italic", lineHeight: 1.5, marginTop: 6 }}>{coach.intro}</div>
                     <div style={{ display: "flex", gap: 20, margin: "12px 0 14px" }}>
                       <div><div style={{ fontSize: 22, fontWeight: 800, color: "#C9558E" }}>{ex.sets}</div><div style={{ fontSize: 10.5, color: BASE.taupe, letterSpacing: 1 }}>SETS</div></div>
                       <div><div style={{ fontSize: 22, fontWeight: 800, color: "#C9558E" }}>{ex.reps}</div><div style={{ fontSize: 10.5, color: BASE.taupe, letterSpacing: 1 }}>REPS</div></div>
@@ -2042,11 +2077,15 @@ export default function App() {
                     </div>
                     <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(233,132,180,0.1)", marginBottom: 12 }}>
                       <div style={{ fontSize: 10.5, fontWeight: 700, color: "#C9558E", letterSpacing: 1, marginBottom: 3 }}>COACH CUE</div>
-                      <div style={{ fontSize: 13, color: BASE.cream, lineHeight: 1.5 }}>{ex.cue}</div>
+                      <div style={{ fontSize: 13, color: BASE.cream, lineHeight: 1.5 }}>{coach.cue}</div>
                     </div>
                     <details style={{ marginBottom: 8 }}>
+                      <summary style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, cursor: "pointer" }}>Common mistakes</summary>
+                      <div style={{ marginTop: 8 }}>{coach.mistakes.map((mk, mi) => (<div key={mi} style={{ display: "flex", gap: 8, marginBottom: 5 }}><span style={{ color: "#D65C4E", fontSize: 12 }}>{"\u2022"}</span><span style={{ fontSize: 12, color: BASE.taupe, lineHeight: 1.5 }}>{mk}</span></div>))}</div>
+                    </details>
+                    <details style={{ marginBottom: 8 }}>
                       <summary style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, cursor: "pointer" }}>Modifications & equipment</summary>
-                      <div style={{ fontSize: 12, color: BASE.taupe, lineHeight: 1.6, marginTop: 8 }}>Too much today? Do fewer reps or an easier range — the movement still counts. No equipment? Swap for a bodyweight or household version. Your coach will demo full options here soon.</div>
+                      <div style={{ fontSize: 12, color: BASE.taupe, lineHeight: 1.6, marginTop: 8 }}>Too much today? Do fewer reps or an easier range — the movement still counts. No equipment? Swap for a bodyweight or household version. Use the Home / Gym toggle to switch the whole workout.</div>
                     </details>
                     {ex.how && (
                       <details><summary style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, cursor: "pointer" }}>How to</summary>
@@ -2079,55 +2118,13 @@ export default function App() {
             )
           })() : (
           <>
-          
-          <div style={{ display: "flex", gap: 5, marginBottom: 16 }}>
-            {WEEK_PLAN.map((p, idx) => {
-              const isToday = idx === weekday
-              const done = dayDone(idx)
-              const rest = p.t === "rest"
-              return (
-                <div key={p.d} onClick={() => { if (!rest) setWoType(p.t) }} style={{ flex: 1, textAlign: "center", cursor: rest ? "default" : "pointer", padding: "8px 2px", borderRadius: 12, background: isToday ? THEMES[gymColor].tint : BASE.surface, border: `1.5px solid ${isToday ? THEMES[gymColor].accent : BASE.border}`, opacity: rest ? 0.55 : 1 }}>
-                  <div style={{ fontSize: 9.5, color: BASE.taupe, fontWeight: 700, textTransform: "uppercase" }}>{p.d}</div>
-                  <div style={{ fontSize: 13, marginTop: 3 }}>{done ? "\u2713" : rest ? "—" : ""}</div>
-                  <div style={{ fontSize: 8.5, color: done ? THEMES.green.accent : BASE.taupe, fontWeight: 600, textTransform: "capitalize", marginTop: 1 }}>{rest ? "rest" : WO_TYPES.find((t) => t.key === p.t).label.split(" ")[0]}</div>
-                </div>
-              )
-            })}
-          </div>
-
-          {suggestion && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderRadius: 12, background: THEMES[suggestion].tint, border: `1px solid rgba(${THEMES[suggestion].glow},0.35)`, marginBottom: 12 }}>
-              <span style={{ fontSize: 12, color: BASE.creamDim }}>Cycle hint: <b style={{ color: THEMES[suggestion].accent }}>{cycleNow.phase}</b> (day {cycleNow.day}) often feels like a {THEMES[suggestion].label}</span>
-              <button onClick={() => setWoColor(suggestion)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: THEMES[suggestion].accent, color: "#FFFFFF", fontSize: 11, fontWeight: 700 }}>Use it</button>
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            {["red", "yellow", "green"].map((k) => {
-              const active = gymColor === k
-              return (
-                <div key={k} onClick={() => setWoColor(k)} style={{ flex: 1, cursor: "pointer", textAlign: "center", padding: "11px 6px", borderRadius: 14, background: active ? THEMES[k].tint : BASE.surface, border: `1.5px solid ${active ? THEMES[k].accent : BASE.border}` }}>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 600, color: THEMES[k].accent }}>{THEMES[k].label.split(" ")[0]}</div>
-                </div>
-              )
-            })}
-          </div>
-          {!woColor && <p style={{ textAlign: "center", color: BASE.taupe, fontSize: 11, margin: "0 0 10px" }}>Following today's check-in ({THEMES[cur].label}). Tap a color to override.</p>}
-
-          <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-            {WO_TYPES.map((t) => (
-              <button key={t.key} onClick={() => setWoType(t.key)} style={{ flex: 1, minWidth: 62, padding: "10px 4px", background: woType === t.key ? HERO_GRAD[gymColor] : BASE.surface, color: woType === t.key ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${woType === t.key ? "transparent" : BASE.border}`, borderRadius: 14, cursor: "pointer", fontSize: 11.5, fontWeight: 800, boxShadow: woType === t.key ? `0 4px 12px rgba(${THEMES[gymColor].glow},0.35)` : "none" }}><span style={{ fontSize: 16, display: "block", marginBottom: 2 }}>{t.icon}</span>{t.label}</button>
-            ))}
-          </div>
-
-          <div style={{ padding: "22px 20px", borderRadius: 22, background: HERO_GRAD[gymColor], marginBottom: 14, boxShadow: `0 10px 26px rgba(${THEMES[gymColor].glow},0.35)`, position: "relative", overflow: "hidden" }}>
+          <div style={{ padding: "20px 20px", borderRadius: 22, background: HERO_GRAD[gymColor], marginBottom: 16, boxShadow: `0 10px 26px rgba(${THEMES[gymColor].glow},0.35)`, position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", right: -30, top: -30, width: 140, height: 140, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
-            <div style={{ position: "absolute", right: 30, bottom: -50, width: 110, height: 110, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
-              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.85)" }}>{THEMES[gymColor].label} · {WO_TYPES.find((t) => t.key === woType).label}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 800, color: "#FFFFFF", background: "rgba(255,255,255,0.22)", padding: "5px 12px", borderRadius: 999 }}>{wo.time}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.85)" }}>{THEMES[gymColor].label} \u00b7 {wo.title}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: "#FFFFFF", background: "rgba(255,255,255,0.22)", padding: "5px 12px", borderRadius: 999 }}>~{Math.max(15, wo.exercises.length * 6)} min</span>
             </div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 700, color: "#FFFFFF", margin: "10px 0 4px", lineHeight: 1.05, position: "relative" }}>{wo.title}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: "#FFFFFF", margin: "10px 0 4px", lineHeight: 1.1, position: "relative" }}>{wo.title}</div>
             <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.92)", margin: "0 0 14px", lineHeight: 1.5, position: "relative" }}>{wo.note}</p>
             <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.25)", overflow: "hidden", position: "relative" }}>
               <div style={{ height: "100%", width: `${totalSets ? Math.round((doneSets / totalSets) * 100) : 0}%`, background: "#FFFFFF", borderRadius: 999, transition: "width 0.3s ease" }} />
@@ -2137,6 +2134,7 @@ export default function App() {
 
           {wo.exercises.map((ex, i) => {
             const open = woOpen === i
+            const how = ex.how || []
             return (
               <div key={i} style={{ padding: "13px 15px", borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, boxShadow: "0 2px 10px rgba(74,44,56,0.04)" }}>
                 <div onClick={() => setWoOpen(open ? null : i)} style={{ cursor: "pointer" }}>
@@ -2144,17 +2142,17 @@ export default function App() {
                     <div style={{ fontSize: 14.5, color: BASE.cream, fontWeight: 700 }}>{ex.name}</div>
                     <div style={{ fontSize: 12, color: THEMES[gymColor].accent, fontWeight: 700, whiteSpace: "nowrap" }}>{ex.sets > 1 ? ex.sets + " x " + ex.reps : ex.reps}</div>
                   </div>
-                  <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.45 }}>{ex.cue} <span style={{ color: BASE.terracotta, fontWeight: 700 }}>{open ? "− close" : "+ how to"}</span></div>
+                  <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.45 }}>{ex.cue} <span style={{ color: BASE.terracotta, fontWeight: 700 }}>{open ? "\u2212 close" : "+ how to"}</span></div>
                 </div>
                 {open && (
                   <div className="fade-in" style={{ marginTop: 10, padding: "11px 13px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}` }}>
-                    {ex.how.map((step, si) => (
-                      <div key={si} style={{ display: "flex", gap: 9, marginBottom: si === ex.how.length - 1 ? 0 : 7 }}>
+                    {how.map((step, si) => (
+                      <div key={si} style={{ display: "flex", gap: 9, marginBottom: si === how.length - 1 ? 0 : 7 }}>
                         <span style={{ minWidth: 18, height: 18, borderRadius: "50%", background: THEMES[gymColor].tint, color: THEMES[gymColor].accent, fontSize: 10.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{si + 1}</span>
                         <span style={{ fontSize: 12, color: BASE.creamDim, lineHeight: 1.5 }}>{step}</span>
                       </div>
                     ))}
-                    <a href={demoLink(ex.name)} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 11.5, fontWeight: 800, color: BASE.terracotta }}>Watch a demo ↗</a>
+                    <a href={demoLink(ex.name)} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 11.5, fontWeight: 800, color: BASE.terracotta }}>Watch a demo \u2197</a>
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
@@ -2172,7 +2170,7 @@ export default function App() {
           {!loggedToday ? (
             <button onClick={finishWorkout} style={{ width: "100%", marginTop: 8, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: THEMES[gymColor].accent, color: "#FFFFFF", fontSize: 15, fontWeight: 800 }}>Finish workout {"\u2713"}</button>
           ) : (
-            <div className="fade-in" style={{ marginTop: 8, padding: 14, borderRadius: 14, background: THEMES[gymColor].tint, border: `1px solid rgba(${THEMES[gymColor].glow},0.4)`, textAlign: "center", color: THEMES[gymColor].accent, fontSize: 14, fontWeight: 800 }}>Logged for today {"\u2713"} {"—"} that fully counted</div>
+            <div className="fade-in" style={{ marginTop: 8, padding: 14, borderRadius: 14, background: THEMES[gymColor].tint, border: `1px solid rgba(${THEMES[gymColor].glow},0.4)`, textAlign: "center", color: THEMES[gymColor].accent, fontSize: 14, fontWeight: 800 }}>Logged for today {"\u2713"} {"\u2014"} that fully counted</div>
           )}
 
           <p style={{ fontSize: 10.5, color: BASE.taupe, textAlign: "center", margin: "16px 0 0", lineHeight: 1.5 }}>General fitness guidance, not medical advice. Especially if you're postpartum, healing, or managing a condition - move within your provider's guidance.</p>
