@@ -359,6 +359,9 @@ const WORKOUT_TEMPLATES = {
   "balanced:flow": { title: "Full Body Flow", focus: "Flowing full-body movement", slots: [
     { pattern: "squat", role: "primary" }, { pattern: "push", role: "primary" },
     { pattern: "pull", role: "accessory" }, { pattern: "mobility", role: "finisher" } ] },
+  "balanced:glutes": { title: "Glutes + Core", focus: "Hip strength and a stable core", slots: [
+    { pattern: "glute", role: "primary" }, { pattern: "hipstab", role: "accessory" },
+    { pattern: "squat", role: "accessory" }, { pattern: "corestab", role: "core" } ] },
 }
 // Weekly schedule maps each weekday (0=Mon..6=Sun) to a template key or "recovery".
 // This REPLACES the loose split[] for programs that define a schedule; split stays as fallback.
@@ -367,7 +370,7 @@ const PROGRAM_SCHEDULE = {
   strength: ["strength:lowerA", "strength:upperA", "recovery", "strength:lowerB", "strength:upperB", "conditioning", "recovery"],
   mama: ["mama:full", "walk+mobility", "mama:legs", "mama:upper", "walk", "mama:glutes", "recovery"],
   move: ["move:simple", "move:walk", "move:legs", "move:walk", "move:simple", "move:walk", "recovery"],
-  balanced: ["balanced:full", "mobility", "balanced:upper", "balanced:conditioning", "balanced:legs", "balanced:flow", "recovery"],
+  balanced: ["balanced:full", "walk+mobility", "balanced:legs", "balanced:upper", "balanced:conditioning", "balanced:glutes", "recovery"],
 }
 // Progression philosophy per program (shown to user; drives future load/rep logic).
 const PROGRESSION = {
@@ -573,6 +576,7 @@ const PROGRAM_ENV_DEFAULT = "gym" // user can toggle; Foundations supports homeB
 // Program-specific exercise preferences: when a pattern offers multiple options, favor these by name.
 const PROGRAM_EXERCISE_PREF = {
   mama: ["360 breathing", "Dead bug", "Bird dog", "Heel slides", "Glute bridge", "Sit-to-stand squat", "Bodyweight squat", "Step ups", "Seated row machine", "Chest press machine", "Lat pulldown", "Farmer carry", "Side-lying leg raise", "Hip abduction machine", "Band row", "Modified plank", "Dumbbell hip thrust"],
+  balanced: ["Goblet squat", "Leg press", "Dumbbell Romanian deadlift", "Hip thrust machine", "Lateral lunges", "Step ups", "Chest press machine", "Dumbbell press", "Lat pulldown", "Seated row machine", "Shoulder press", "Farmer carry", "Band Pallof press", "Cable Pallof press", "Full plank", "Dead bug", "Bird dog", "Easy walk", "Mobility flow"],
 }
 const pickExercise = (patternId, env, idx, progId) => {
   const bank = EXERCISES[patternId]
@@ -675,6 +679,7 @@ const PROGRAMS = [
 const COMPLETION = {
   foundations: { title: "You built your foundation.", weeksWord: "Eight weeks", message: "Eight weeks of showing up for yourself. You learned the movements, built the habit, and got stronger. That's yours to keep.", paths: [["Repeat, a little stronger", "Run Strong Foundations again with more confidence and resistance.", "self"], ["Move into Build Strength", "Progressive lifting for your next chapter.", "strength"], ["Try Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]] },
   mama: { title: "You're ready for your next chapter.", weeksWord: "Ten weeks", message: "Ten weeks of honoring your body while it rebuilt. You reconnected, grew stronger, and did it with patience. That strength is yours.", paths: [["Repeat Strong Mama Rebuild", "Move through the rebuild again, meeting your body where it is now.", "self"], ["Begin Strong Foundations", "Step into structured strength training with confidence.", "foundations"], ["Begin Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]] },
+  balanced: { title: "Strength is part of your life now.", weeksWord: "Eight weeks", message: "You've built a body that supports your life. Keep growing in the direction that excites you most \u2014 this is a way of living, not a finish line.", paths: [["Repeat Balanced Strength", "Keep the sustainable rhythm going, a little stronger.", "self"], ["Begin Build Strength", "Ready for more? Step into progressive lifting.", "strength"], ["Return to Strong Foundations", "Revisit the fundamentals anytime.", "foundations"], ["Explore another path", "Browse all the New Ray programs.", null]] },
 }
 const PROGRAM_PHASES = {
   foundations: [
@@ -687,6 +692,11 @@ const PROGRAM_PHASES = {
     { name: "Rebuild", weeks: [4, 7], level: "beginner", goal: "Rebuild full-body strength and stability with confidence.", emphasis: "Full-body strength, hip stability, balance, and core endurance. Volume increases gradually.", repBias: 1, coach: "Your strength is returning one movement at a time. Your body deserves this patience." },
     { name: "Strength Again", weeks: [8, 10], level: "intermediate", goal: "Move into functional, compound strength \u2014 never rushed.", emphasis: "Compound movements and functional strength, preparing you for Strong Foundations or Balanced Strength.", repBias: 1, addWeight: true, coach: "Look how far you've come. This strength is yours, and you earned it gently." },
   ],
+  balanced: [
+    { name: "Build the Base", weeks: [1, 2], level: "beginner", goal: "Movement quality, consistency, and finding your rhythm.", emphasis: "Learn the flow of the week. Quality reps, showing up, feeling capable.", repBias: 0, coach: "We're building something sustainable. Consistency beats intensity, every time." },
+    { name: "Build Capacity", weeks: [3, 5], level: "intermediate", goal: "Grow strength, work capacity, mobility, and endurance.", emphasis: "Gradually increase the challenge while keeping every session enjoyable.", repBias: 1, coach: "Strong bodies make everyday life easier. Leave a little energy for the rest of your day." },
+    { name: "Live Strong", weeks: [6, 8], level: "intermediate", goal: "Balanced, athletic, sustainable fitness you can keep for years.", emphasis: "Finish stronger while still feeling fresh enough to enjoy life outside the gym.", repBias: 1, addWeight: true, coach: "You don't need to prove anything today. This is a body built to support your life." },
+  ],
 }
 // Per-program coaching overlays (gentler for Mama). Falls back to COACH_LINES.
 const PROGRAM_COACH_LINES = {
@@ -695,6 +705,12 @@ const PROGRAM_COACH_LINES = {
     yellow: ["Slow is not falling behind.", "We've gentled today so you can honor where you are.", "Meeting your body where it is today is wisdom, not weakness."],
     red: ["Your body deserves patience, especially today.", "Showing up softly still counts, mama.", "Rest and rebuild \u2014 that is the whole point of this work."],
     recovery: ["Breathing and walking are real rebuilding.", "Today's gentleness is tomorrow's strength.", "Your body is healing, and that is the work."],
+  },
+  balanced: {
+    green: ["Strong bodies make everyday life easier.", "We're building something sustainable.", "Consistency beats intensity \u2014 this is the long game."],
+    yellow: ["Leave a little energy for the rest of your day.", "We've trimmed today to keep you fresh and consistent.", "You don't need to prove anything today."],
+    red: ["A sustainable body knows when to ease off.", "The highest-value movements today, and nothing more.", "Protecting your energy is how this lasts for years."],
+    recovery: ["Recovery is where sustainable strength is built.", "A walk and some mobility is a complete, healthy day.", "Rest today so you can enjoy moving tomorrow."],
   },
 }
 const phaseFor = (progId, week) => {
