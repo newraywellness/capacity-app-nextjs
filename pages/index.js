@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Head from 'next/head'
 import { createClient } from '@supabase/supabase-js'
 
@@ -1109,7 +1109,7 @@ const dayIndex = (len) => { const d = new Date(); return (d.getFullYear() * 366 
 
 // ---- Atmosphere engine: environment = f(hour, capacity) ----
 const ENV = (hour, color) => {
-  const mode = hour >= 5 && hour < 11 ? "morning" : hour >= 11 && hour < 17 ? "afternoon" : "evening"
+  const mode = hour >= 5 && hour < 12 ? "morning" : hour >= 12 && hour < 18 ? "afternoon" : "evening"
   const bright = color === "green"
   const quiet = color === "red"
   const bgs = {
@@ -1231,7 +1231,6 @@ export default function App() {
   const [bloomNotes, setBloomNotes] = useState({})
   const [bloomSection, setBloomSection] = useState("appearance")
   const [bloomCard, setBloomCard] = useState(null)
-  const bloomScrollY = useRef(0)
   const [ctxOpen, setCtxOpen] = useState(false)
   const [editLife, setEditLife] = useState(null)
   const [programId, setProgramId] = useState(null)
@@ -1267,16 +1266,12 @@ export default function App() {
   useEffect(() => { checkAuth() }, [])
 
   useEffect(() => {
-    // When a Bloom card is open, lock background scroll so the panel stays in view.
+    // Lock background scroll while a full-screen panel is open, so scroll position is untouched underneath.
     if (typeof document === "undefined") return
     if (bloomCard || editCycle) {
       const prev = document.body.style.overflow
       document.body.style.overflow = "hidden"
-      return () => {
-        document.body.style.overflow = prev
-        // Return the user to exactly where they were when they opened a card.
-        if (!editCycle) { try { window.scrollTo({ top: bloomScrollY.current, behavior: "auto" }) } catch (e) {} }
-      }
+      return () => { document.body.style.overflow = prev }
     }
   }, [bloomCard, editCycle])
 
@@ -1544,6 +1539,8 @@ export default function App() {
       input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      @keyframes bloomOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes bloomSheetIn { from { opacity: 0; transform: translateY(40px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
       @keyframes breathe { 0%,100% { opacity: .9; } 50% { opacity: 1; } }
       @keyframes drift { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-16px,-12px) rotate(-5deg); } 100% { transform: translate(0,0) rotate(0deg); } }
       @keyframes flicker { 0%,100% { opacity: .35; } 50% { opacity: .95; } }
@@ -2992,7 +2989,7 @@ export default function App() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingBottom: 24 }}>
               {sec.cards.map((card, i) => (
-                <div key={i} onClick={() => { try { bloomScrollY.current = window.scrollY || 0 } catch (e) {} setBloomCard(card); try { window.scrollTo({ top: 0, behavior: "auto" }) } catch (e) {} }} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)", cursor: "pointer" }}>
+                <div key={i} onClick={() => setBloomCard(card)} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)", cursor: "pointer", transition: "transform 0.25s ease, box-shadow 0.25s ease" }} onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.97)" }} onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)" }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)" }}>
                   <div style={{ position: "absolute", top: 12, right: 13, fontSize: 26, opacity: 0.9 }}>{card.ic}</div>
                   <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,transparent 40%,rgba(0,0,0,0.12))" }} />
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: "#fff", position: "relative", textShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>{card.n}</div>
@@ -3003,16 +3000,17 @@ export default function App() {
           </div>
 
           {bloomCard && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.5)", zIndex: 60, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "12px 14px 20px", overflowY: "auto" }} onClick={() => setBloomCard(null)}>
-              <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, marginTop: 8, background: "#FFF9F5", borderRadius: 28, boxShadow: "0 20px 50px rgba(60,37,69,0.35)" }}>
-                <div style={{ position: "relative", padding: "34px 24px 26px", background: sec.grad, overflow: "hidden", borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
-                  <div style={{ position: "absolute", top: -16, right: -10, fontSize: 80, opacity: 0.16 }}>🌸</div>
-                  <div onClick={() => setBloomCard(null)} style={{ position: "absolute", top: 16, right: 18, width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 16 }}>{"\u2715"}</div>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.4)", zIndex: 60, animation: "bloomOverlayIn 0.35s ease" }} onClick={() => setBloomCard(null)}>
+              <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: 0, bottom: 0, width: "100%", maxWidth: 440, background: "#FFF9F5", overflowY: "auto", animation: "bloomSheetIn 0.42s cubic-bezier(0.22,0.61,0.36,1)", boxShadow: "0 0 60px rgba(60,37,69,0.25)", display: "flex", flexDirection: "column" }}>
+                <div style={{ position: "relative", padding: "44px 24px 30px", background: sec.grad, overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: -16, right: -10, fontSize: 90, opacity: 0.16 }}>🌸</div>
+                  <div style={{ position: "absolute", bottom: -24, left: -12, fontSize: 66, opacity: 0.12 }}>🌷</div>
+                  <div onClick={() => setBloomCard(null)} style={{ position: "absolute", top: 16, right: 18, padding: "7px 15px", borderRadius: 999, background: "rgba(255,255,255,0.25)", cursor: "pointer", color: "#fff", fontSize: 12.5, fontWeight: 700, letterSpacing: 0.3 }}>Done</div>
                   <div style={{ fontSize: 40, position: "relative" }}>{bloomCard.ic}</div>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: "#fff", marginTop: 6, position: "relative", textShadow: "0 1px 4px rgba(0,0,0,0.12)" }}>{bloomCard.n}</div>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: "rgba(255,255,255,0.95)", marginTop: 6, position: "relative", lineHeight: 1.4 }}>{bloomCard.intro}</div>
                 </div>
-                <div style={{ padding: "24px 24px 30px" }}>
+                <div style={{ padding: "24px 24px 40px", flex: 1 }}>
                   {bloomCard.blocks.map((b, bi) => (
                     <div key={bi} style={{ marginBottom: 22 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#C97BA8", marginBottom: 12 }}>{b.h}</div>
@@ -3035,6 +3033,7 @@ export default function App() {
                     <div style={{ fontSize: 11.5, color: "#A88BA0", textAlign: "center", fontStyle: "italic", lineHeight: 1.6 }}>{bloomCard.future}</div>
                   )}
                   <div style={{ fontSize: 11.5, color: "#B39BAE", textAlign: "center", fontStyle: "italic", marginTop: 18, lineHeight: 1.6 }}>Nothing here to complete. Take whatever feels good and leave the rest.</div>
+                  <button onClick={() => setBloomCard(null)} style={{ width: "100%", marginTop: 22, padding: "14px", borderRadius: 14, border: "none", cursor: "pointer", background: sec.grad, color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: 0.3 }}>Back to Bloom</button>
                 </div>
               </div>
             </div>
