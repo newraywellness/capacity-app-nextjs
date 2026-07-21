@@ -921,6 +921,42 @@ const CYCLE_PHASES = {
     edu: [["What is happening", "Progesterone rises as your body prepares for the next cycle. Energy may gradually taper."], ["Support needs", "Many notice a need for more rest, more food, and more grace. This is completely normal."], ["Training considerations", "Movement still feels good for many. Let capacity decide the intensity, not the calendar."], ["Nourishment considerations", "Consistent meals and satisfying nutrition may feel especially supportive right now."]] },
 }
 const CYCLE_PHASE_ORDER = ["menstrual", "follicular", "ovulation", "luteal"]
+// ============ BLOOM — the emotional heart (Phase 1) ============
+// Luxury = intentionally caring for yourself. One invitation. Never a checklist.
+const BLOOM_INVITATIONS = {
+  green: [
+    { emoji: "🕯️", text: "Draw yourself a slow bath and light a candle." },
+    { emoji: "💄", text: "Do your makeup today — just because it's yours to enjoy." },
+    { emoji: "🌸", text: "Buy yourself flowers and put them where you'll see them." },
+    { emoji: "✨", text: "Wear your favorite perfume and the earrings you save for later." },
+    { emoji: "🛁", text: "Give yourself the full spa night. You've earned the softness." },
+  ],
+  yellow: [
+    { emoji: "🌿", text: "Wash your face slowly, like it's a small ritual." },
+    { emoji: "📖", text: "Read one page of something beautiful." },
+    { emoji: "💅", text: "Moisturize before bed and let that be enough." },
+    { emoji: "☀️", text: "Open the windows and let some air in." },
+    { emoji: "🎧", text: "Play one song you love and do nothing else." },
+  ],
+  red: [
+    { emoji: "🫖", text: "Make a warm cup of tea and hold it for a minute." },
+    { emoji: "💋", text: "A little lip balm. That counts as care today." },
+    { emoji: "🪮", text: "Brush your hair, gently. Nothing more is needed." },
+    { emoji: "💧", text: "Splash your face with water. A small reset." },
+    { emoji: "🛌", text: "Let yourself rest. Rest is care too." },
+  ],
+}
+const BLOOM_SECTIONS = [
+  { id: "appearance", emoji: "✨", name: "Appearance", grad: "linear-gradient(135deg,#F0B7D4,#C97BA8)",
+    intro: "Not beauty perfection. Feeling cared for.",
+    cards: [["Skincare", "🌿"], ["Hair", "💇\u200d♀️"], ["Makeup", "💄"], ["Perfume", "🌸"], ["Jewelry", "💎"], ["Nails", "💅"], ["Wardrobe", "👗"], ["Spa Night", "🛁"], ["Facials", "✨"], ["Brows", "🪮"], ["Lips", "💋"], ["Body Care", "🧴"]] },
+  { id: "mind", emoji: "🧠", name: "Mind", grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)",
+    intro: "Mental restoration. Not productivity.",
+    cards: [["Reading", "📖"], ["Journaling", "🖋️"], ["Breathing", "🌬️"], ["Quiet Time", "🕊️"], ["Music", "🎧"], ["Gratitude", "🤍"], ["Visualization", "🌙"], ["Learning", "📚"], ["Creating", "🎨"], ["Reflection", "💭"]] },
+  { id: "lifestyle", emoji: "🌿", name: "Lifestyle", grad: "linear-gradient(135deg,#B9D4A8,#7FA054)",
+    intro: "Becoming someone who enjoys her life.",
+    cards: [["Flowers", "🌸"], ["Baking", "🧁"], ["Photography", "📷"], ["Violin", "🎻"], ["Gardening", "🌱"], ["Date Yourself", "🍷"], ["Coffee Shop", "☕"], ["Farmer's Market", "🧺"], ["Sunrise Walk", "🌅"], ["Creative Hobby", "🎨"]] },
+]
 const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
 // Deterministic schedule: days since program start -> week + weekday -> workout type
 const progSchedule = (prog, startISO) => {
@@ -1100,6 +1136,7 @@ export default function App() {
   const [moreView, setMoreView] = useState("menu")
   const [glowLog, setGlowLog] = useState({})
   const [bloomNotes, setBloomNotes] = useState({})
+  const [bloomSection, setBloomSection] = useState("appearance")
   const [ctxOpen, setCtxOpen] = useState(false)
   const [editLife, setEditLife] = useState(null)
   const [programId, setProgramId] = useState(null)
@@ -2781,40 +2818,51 @@ export default function App() {
     }
 
     if (tab === "bloom") {
-      const todayISO = new Date().toISOString().slice(0, 10)
-      const reframe = REFRAMES[dayIndex(REFRAMES.length)]
-      const prompt = BLOOM_PROMPTS[dayIndex(BLOOM_PROMPTS.length)]
-      const note = bloomNotes[todayISO] || ""
-      const saveNote = (v) => {
-        const next = { ...bloomNotes, [todayISO]: v }
-        setBloomNotes(next)
-        try { localStorage.setItem("nr_bloom_notes", JSON.stringify(next)) } catch (e) {}
-      }
+      const capKey = checkedIn ? (pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green") : "yellow"
+      const invites = BLOOM_INVITATIONS[capKey]
+      const invite = invites[dayIndex(invites.length)]
+      const sec = BLOOM_SECTIONS.find((x) => x.id === bloomSection) || BLOOM_SECTIONS[0]
       return (
-        <div className="fade-in" style={{ padding: "8px 18px 0" }}>
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, margin: "12px 0 4px" }}>Bloom</h2>
-          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 18 }}>The mental glow up {"—"} one gentle shift at a time.</p>
-
-          <div style={{ padding: "24px 20px", borderRadius: 22, background: "linear-gradient(135deg, #D9749B 0%, #B44E7C 100%)", marginBottom: 16, boxShadow: "0 10px 26px rgba(217,116,155,0.35)", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", right: -30, top: -30, width: 140, height: 140, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.85)", position: "relative" }}>Today's reframe</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 600, color: "#FFFFFF", marginTop: 10, lineHeight: 1.3, position: "relative" }}>{reframe}</div>
-          </div>
-
-          <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, marginBottom: 10 }}>Soft resets</div>
-          {RESETS.map((r, i) => (
-            <div key={i} style={{ padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{r.icon} {r.name}</div>
-              <div style={{ fontSize: 12, color: BASE.creamDim, marginTop: 4, lineHeight: 1.55 }}>{r.how}</div>
+        <div className="fade-in" style={{ padding: "8px 0 0" }}>
+          <div style={{ position: "relative", overflow: "hidden", padding: "40px 22px 34px", background: "linear-gradient(160deg,#FBEEF4 0%,#F3E6F2 45%,#EFE7F6 100%)" }}>
+            <div style={{ position: "absolute", top: -20, right: -10, fontSize: 90, opacity: 0.16 }}>🌸</div>
+            <div style={{ position: "absolute", bottom: -26, left: -14, fontSize: 76, opacity: 0.13 }}>🌷</div>
+            <div style={{ position: "absolute", top: 60, left: 30, fontSize: 30, opacity: 0.14 }}>🌸</div>
+            <div style={{ position: "relative", textAlign: "center" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 46, fontWeight: 600, color: "#8A5A86", letterSpacing: 0.5, lineHeight: 1.05 }}>Become Her.</div>
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#B87BA6", marginTop: 14 }}>Luxury is how you care for yourself.</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: "#9B7290", marginTop: 12, lineHeight: 1.5, maxWidth: 300, marginLeft: "auto", marginRight: "auto" }}>A beautiful life is built through small moments of care.</div>
             </div>
-          ))}
-
-          <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, margin: "18px 0 8px" }}>Tonight's prompt</div>
-          <div style={{ padding: "14px 15px", borderRadius: 14, background: THEMES.none.tint, border: `1px solid rgba(217,116,155,0.3)`, marginBottom: 10 }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 600, color: BASE.terracottaDeep, lineHeight: 1.4 }}>{prompt}</div>
           </div>
-          <textarea value={note} onChange={(e) => saveNote(e.target.value)} placeholder="Write a line or two… it saves as you type." rows={4} style={{ width: "100%", padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
-          <p style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 8, textAlign: "center" }}>Saved privately on this device.</p>
+
+          <div style={{ padding: "22px 18px 0" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C97BA8", textAlign: "center", marginBottom: 12 }}>Today's Invitation</div>
+            <div style={{ borderRadius: 24, padding: "30px 24px", background: "linear-gradient(135deg,#F6E2ED,#EDDCEF)", textAlign: "center", position: "relative", overflow: "hidden", marginBottom: 8 }}>
+              <div style={{ position: "absolute", top: -18, right: -18, fontSize: 60, opacity: 0.12 }}>🌸</div>
+              <div style={{ fontSize: 44, marginBottom: 12 }}>{invite.emoji}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 600, color: "#7E5578", lineHeight: 1.3, position: "relative" }}>{invite.text}</div>
+            </div>
+            <div style={{ fontSize: 12, color: BASE.taupe, textAlign: "center", fontStyle: "italic", marginBottom: 26, lineHeight: 1.5 }}>If you do nothing else today, this is enough.</div>
+
+            <div style={{ display: "flex", gap: 8, background: BASE.surface2, borderRadius: 999, padding: 4, marginBottom: 20 }}>
+              {BLOOM_SECTIONS.map((x) => (
+                <button key={x.id} onClick={() => setBloomSection(x.id)} style={{ flex: 1, padding: "10px 4px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: bloomSection === x.id ? "#fff" : "transparent", color: bloomSection === x.id ? "#C9558E" : BASE.taupe, boxShadow: bloomSection === x.id ? "0 2px 8px rgba(120,80,130,0.12)" : "none" }}><span style={{ fontSize: 15, display: "block", marginBottom: 2 }}>{x.emoji}</span>{x.name}</button>
+              ))}
+            </div>
+
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: "#9B7290", textAlign: "center", marginBottom: 18 }}>{sec.intro}</div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingBottom: 24 }}>
+              {sec.cards.map(([name, ic], i) => (
+                <div key={i} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)" }}>
+                  <div style={{ position: "absolute", top: 12, right: 13, fontSize: 26, opacity: 0.9 }}>{ic}</div>
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,transparent 40%,rgba(0,0,0,0.12))" }} />
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: "#fff", position: "relative", textShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>{name}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", padding: "0 20px 20px", lineHeight: 1.6 }}>Each of these will open into something beautiful over time. For now, let them be inspiration.</div>
+          </div>
         </div>
       )
     }
