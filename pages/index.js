@@ -1068,6 +1068,7 @@ export default function App() {
   const [cycleLength, setCycleLength] = useState("")
   const [lastPeriod, setLastPeriod] = useState("")
   const [editCycle, setEditCycle] = useState(false)
+  const [periodDismissed, setPeriodDismissed] = useState(false)
   const [tmpLen, setTmpLen] = useState("28")
   const [tmpStart, setTmpStart] = useState("")
   // auth UX: guest preview, password recovery, status messages
@@ -2171,6 +2172,32 @@ export default function App() {
       for (let i = 0; i < startWeekday; i++) cells.push(null)
       for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewDate.getFullYear(), viewDate.getMonth(), d))
       const cur = cycleNow ? CYCLE_PHASES[cycleNow.phase] : null
+      // Actual logged capacity by date (from check-in history) — the second overlay layer.
+      const capByDate = {}
+      history.forEach((h) => { if (h.dateISO && h.color) capByDate[h.dateISO] = h.color })
+      const CAP_DOT = { red: "#D65C4E", yellow: "#E8B84B", green: "#7FA054" }
+      // "Tracking from" line
+      const trackFrom = lastPeriod ? new Date(lastPeriod + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : null
+      // Period check-in: is a new period likely due? (cycle day rolled back near 1)
+      const periodDue = cycleNow && cycleNow.day >= (cycleNow.length - 1) && !periodDismissed
+      // Reflection foundation: tally logged capacity by cycle phase (observation, never prediction)
+      const phaseTally = { menstrual: {}, follicular: {}, ovulation: {}, luteal: {} }
+      let tallyTotal = 0
+      history.forEach((h) => {
+        if (!h.dateISO || !h.color) return
+        const cc = computeCycle(cycleLength, lastPeriod, new Date(h.dateISO + "T00:00:00"))
+        if (!cc) return
+        phaseTally[cc.phase][h.color] = (phaseTally[cc.phase][h.color] || 0) + 1
+        tallyTotal++
+      })
+      const topCapFor = (ph) => { const t = phaseTally[ph]; const keys = Object.keys(t); if (!keys.length) return null; return keys.sort((a, b) => t[b] - t[a])[0] }
+      const CAP_WORD = { green: "Green", yellow: "Yellow", red: "Red" }
+      const reflection = tallyTotal >= 8 ? (() => {
+        const lut = topCapFor("luteal"); const fol = topCapFor("follicular")
+        if (lut) return `Across your check-ins so far, you've most often logged ${CAP_WORD[lut]} days during your luteal phase. Just an observation — your capacity is always yours to choose.`
+        if (fol) return `Across your check-ins so far, you've most often logged ${CAP_WORD[fol]} days during your follicular phase. Just an observation — your capacity is always yours to choose.`
+        return null
+      })() : null
 
       if (!setup) {
         return (
@@ -2197,6 +2224,7 @@ export default function App() {
             <div style={{ fontSize: 28 }}>🌙</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginTop: 4, lineHeight: 1.2 }}>Understand your rhythm. Support your body.</div>
             <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.92)", marginTop: 6, fontStyle: "italic" }}>Your cycle is information — not a limitation.</div>
+            <button onClick={() => { setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod); setEditCycle(true); setMoreView("root"); setTab("more") }} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{"\u2699\ufe0f Edit Cycle"}</button>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -2215,20 +2243,48 @@ export default function App() {
               const c = computeCycle(cycleLength, lastPeriod, cell)
               const ph = c ? CYCLE_PHASES[c.phase] : null
               const isToday = iso === todayISOstr
+              const capColor = capByDate[iso]
+              const isPast = cell <= now
               return (
                 <div key={i} style={{ aspectRatio: "1", borderRadius: 9, background: ph ? ph.soft : "transparent", border: isToday ? "2px solid " + (ph ? ph.color : "#C9558E") : "1px solid transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative" }}>
                   <div style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: ph ? ph.color : BASE.taupe }}>{cell.getDate()}</div>
                   {c && <div style={{ fontSize: 7.5, color: ph.color, opacity: 0.8 }}>d{c.day}</div>}
+                  <div style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: "50%", background: capColor ? CAP_DOT[capColor] : "transparent", border: capColor ? "none" : (isPast ? "1px solid rgba(150,140,150,0.35)" : "none") }} />
                 </div>
               )
             })}
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18, justifyContent: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10, justifyContent: "center" }}>
             {CYCLE_PHASE_ORDER.map((k) => { const ph = CYCLE_PHASES[k]; return (
               <div key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: ph.color }} /><span style={{ fontSize: 10.5, color: BASE.taupe }}>{ph.name.replace(" Phase", "")}</span></div>
             )})}
           </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12, justifyContent: "center", alignItems: "center" }}>
+            <span style={{ fontSize: 10, color: BASE.taupe, fontWeight: 700 }}>Your capacity:</span>
+            {[["green", "Green"], ["yellow", "Yellow"], ["red", "Red"]].map(([k, lbl]) => (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: CAP_DOT[k] }} /><span style={{ fontSize: 10, color: BASE.taupe }}>{lbl}</span></div>
+            ))}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", border: "1px solid rgba(150,140,150,0.5)" }} /><span style={{ fontSize: 10, color: BASE.taupe }}>No check-in</span></div>
+          </div>
+          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", lineHeight: 1.5, marginBottom: 6 }}>Two layers: the day's color is your estimated cycle phase, the dot is the capacity you actually logged. Over time, your own patterns show themselves.</div>
+          {trackFrom && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 14 }}>
+              <div style={{ fontSize: 11.5, color: BASE.taupe }}>Tracking from: <b style={{ color: BASE.creamDim }}>{trackFrom}</b> {"\u00b7"} {cycleNow.length}-day cycle</div>
+              <button onClick={() => { setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod); setEditCycle(true); setMoreView("root"); setTab("more") }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9B6BC3", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{"\u270f\ufe0f Edit"}</button>
+            </div>
+          )}
+
+          {periodDue && (
+            <div style={{ borderRadius: 16, background: "rgba(155,107,195,0.1)", border: "1px solid rgba(155,107,195,0.35)", padding: "16px 18px", marginBottom: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream, marginBottom: 3 }}>Did your period start today?</div>
+              <div style={{ fontSize: 12, color: BASE.taupe, marginBottom: 12, lineHeight: 1.5 }}>One tap keeps your calendar accurate — no digging through settings.</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { const iso = new Date().toISOString().slice(0, 10); setLastPeriod(iso); try { window.localStorage.setItem("cap_last_period", iso) } catch (e) {}; if (user && db) { try { db.from("profiles").update({ setup: { ...(setupData || {}), lastPeriod: iso } }).eq("id", user.id).then(() => {}) } catch (e) {} } }} style={{ flex: 1, padding: 12, borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", fontSize: 13, fontWeight: 700 }}>Yes, today</button>
+                <button onClick={() => { setPeriodDismissed(true) }} style={{ flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + BASE.border, background: "transparent", color: BASE.creamDim, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Not yet</button>
+              </div>
+            </div>
+          )}
 
           <div style={{ borderRadius: 18, background: cur.soft, border: "1px solid " + cur.color, padding: "18px 20px", marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: cur.color, textTransform: "uppercase" }}>Cycle Day {cycleNow.day}</div>
@@ -2253,7 +2309,7 @@ export default function App() {
 
           <div style={{ borderRadius: 16, background: "rgba(168,123,209,0.06)", border: "1px dashed rgba(168,123,209,0.3)", padding: "16px 18px", marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#A87BD1", textTransform: "uppercase", marginBottom: 5 }}>Learning your patterns</div>
-            <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>As you check in over time, New Ray will gently notice your personal energy trends across cycles — like when you tend to feel your best, or when a little extra support helps. This is reflection, never prediction or diagnosis.</div>
+            <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>{reflection || "As you check in over time, New Ray will gently notice your personal energy trends across cycles — like when you tend to feel your best, or when a little extra support helps. This is reflection, never prediction or diagnosis."}</div>
           </div>
 
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Understand each phase</div>
