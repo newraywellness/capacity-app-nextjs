@@ -1284,28 +1284,39 @@ export default function App() {
   const handleLogin = async () => {
     try {
       const res = await db.auth.signInWithPassword({ email, password })
+      if (res.error) { setAuthMsg(res.error.message || "Login failed — check your email and password."); return }
       if (res.data.user) {
         setUser(res.data.user)
         const p = await db.from("profiles").select("*").eq("id", res.data.user.id).single()
         if (p.data) setProfile(p.data)
         await loadHistory(res.data.user.id)
-        setEmail(""); setPassword("")
+        await loadWorkouts(res.data.user.id)
+        setEmail(""); setPassword(""); setAuthMsg("")
       }
-    } catch (err) { alert("Login failed") }
+    } catch (err) { setAuthMsg("Login failed — please try again.") }
   }
 
   const handleSignUp = async () => {
     try {
       const res = await db.auth.signUp({ email, password })
+      if (res.error) { setAuthMsg(res.error.message || "Sign up failed — please try again."); return }
       if (res.data.user) {
         await db.from("profiles").insert([{ id: res.data.user.id, email, has_membership: false }])
-        setUser(res.data.user); setEmail(""); setPassword("")
+        setUser(res.data.user); setEmail(""); setPassword(""); setAuthMsg("")
       }
-    } catch (err) { alert("Signup failed") }
+    } catch (err) { setAuthMsg("Sign up failed — please try again.") }
   }
 
   const handleLogout = async () => {
-    await db.auth.signOut(); setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
+    await db.auth.signOut()
+    setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
+    setPct(50); setFactors([]); setSupports([]); setOneThing("")
+    setProgramId(null); setWoLog([]); setSetupData(null); setFirstName("")
+    setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
+    setTab("today"); setBodyView("gym")
+    try {
+      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes"].forEach((k) => localStorage.removeItem(k))
+    } catch (e) {}
   }
 
   const handleForgot = async () => {
@@ -2099,7 +2110,7 @@ export default function App() {
                 <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.creamDim }}>Equipment:</b> {ex.equip.join(", ")}</div>
                 <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 4 }}><b style={{ color: BASE.creamDim }}>At home:</b> {ex.home}</div>
                 <div style={{ fontSize: 11.5, color: BASE.taupe }}><b style={{ color: BASE.creamDim }}>At the gym:</b> {ex.gym}</div>
-                <div style={{ marginTop: 12, height: 90, borderRadius: 10, background: "linear-gradient(135deg,rgba(233,132,180,0.15),rgba(168,123,209,0.15))", display: "flex", alignItems: "center", justifyContent: "center", color: BASE.taupe, fontSize: 11, fontStyle: "italic" }}>Coach demonstration coming soon</div>
+                <div style={{ marginTop: 12, height: 90, borderRadius: 10, background: "linear-gradient(135deg,rgba(233,132,180,0.15),rgba(168,123,209,0.15))", display: "flex", alignItems: "center", justifyContent: "center", color: BASE.taupe, fontSize: 11, fontStyle: "italic" }}>🎬 Video guides are on the way</div>
               </div>
             ))}
 
@@ -2240,6 +2251,24 @@ export default function App() {
       if (!setup) {
         return (
           <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+            {editCycle && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(43,27,61,0.55)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEditCycle(false)}>
+                <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 360, background: BASE.bg2 || "#FFF9F5", borderRadius: 22, padding: "24px 22px", boxShadow: "0 20px 50px rgba(43,27,61,0.4)" }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, color: BASE.cream, marginBottom: 4 }}>Set up your cycle</div>
+                  <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.5, marginBottom: 18 }}>This stays private and is only ever context — never a limit.</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: BASE.creamDim, marginBottom: 6 }}>First day of your last period</div>
+                  <input type="date" value={tmpStart} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setTmpStart(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, color: BASE.cream, fontSize: 14, marginBottom: 16, outline: "none", boxSizing: "border-box" }} />
+                  <div style={{ fontSize: 12, fontWeight: 700, color: BASE.creamDim, marginBottom: 6 }}>Average cycle length: {tmpLen} days</div>
+                  <input type="range" min="20" max="45" value={tmpLen} onChange={(e) => setTmpLen(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: BASE.taupe, marginBottom: 20 }}><span>20</span><span>45</span></div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => setEditCycle(false)} style={{ flex: 1, padding: 13, borderRadius: 12, border: "1px solid " + BASE.border, background: "transparent", color: BASE.creamDim, cursor: "pointer", fontSize: 13.5, fontWeight: 700 }}>Cancel</button>
+                    <button onClick={saveCycle} disabled={!tmpStart} style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", cursor: tmpStart ? "pointer" : "default", background: tmpStart ? "linear-gradient(135deg,#9B6BC3,#5E7FB0)" : BASE.surface2, color: tmpStart ? "#fff" : BASE.taupe, fontSize: 13.5, fontWeight: 700 }}>Save</button>
+                  </div>
+                  <div onClick={() => { const iso = new Date().toISOString().slice(0, 10); setTmpStart(iso) }} style={{ textAlign: "center", marginTop: 14, fontSize: 12, fontWeight: 700, color: "#9B6BC3", cursor: "pointer" }}>My period started today {"\u2192"}</div>
+                </div>
+              </div>
+            )}
             <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", marginBottom: 18, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", right: -24, top: -24, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
               <div style={{ fontSize: 30 }}>🌙</div>
@@ -2249,7 +2278,7 @@ export default function App() {
             <div style={{ textAlign: "center", padding: "26px 20px", borderRadius: 18, background: BASE.surface, border: "1px dashed " + BASE.border }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: BASE.cream, marginBottom: 8 }}>Set up your cycle</div>
               <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 16 }}>Add your typical cycle length and the start date of your last period, and Cycle will map your phases. This stays private and is only ever context — never a limit.</div>
-              <button onClick={() => { setMoreView("root"); setTab("more") }} style={{ padding: "12px 20px", borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", fontSize: 13.5, fontWeight: 700 }}>Set up in Settings</button>
+              <button onClick={() => { setTmpLen("28"); setTmpStart(""); setEditCycle(true) }} style={{ padding: "12px 20px", borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", fontSize: 13.5, fontWeight: 700 }}>Set up my cycle</button>
             </div>
           </div>
         )
@@ -2700,7 +2729,7 @@ export default function App() {
                     <div style={{ textAlign: "center", color: "rgba(255,255,255,0.9)" }}>
                       <svg width="60" height="60" viewBox="0 0 24 24" fill="none" style={{ margin: "0 auto 8px" }}><circle cx="12" cy="7" r="3.2" fill="rgba(255,255,255,0.9)"/><path d="M5 21 C 5 16, 8 14, 12 14 C 16 14, 19 16, 19 21 Z" fill="rgba(255,255,255,0.9)"/></svg>
                       <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1 }}>YOUR COACH</div>
-                      <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 2 }}>Video demonstration coming soon</div>
+                      <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 2 }}>Video guide on the way</div>
                     </div>
                     <div style={{ position: "absolute", bottom: 10, right: 12, fontSize: 10, color: "rgba(255,255,255,0.75)", fontStyle: "italic" }}>{encourageLine}</div>
                   </div>
@@ -2870,7 +2899,7 @@ export default function App() {
     if (tab === "progress" && progressView === "workouts") {
       const sorted = [...woLog].sort((a, b) => (a.date < b.date ? 1 : -1))
       return (
-        <div className="fade-in" style={{ padding: "8px 18px 0" }}>
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, margin: "12px 0 6px" }}>Your workouts</h2>
           <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>{woLog.length} logged {"·"} every one counted.</p>
           {!sorted.length ? (
@@ -2979,7 +3008,7 @@ export default function App() {
           <Group title="Wellness">
             <Row label="Capacity reminders" onClick={() => setMoreView("mylife")} />
             <Row label="Workout reminders" onClick={() => setMoreView("mylife")} />
-            <Row label="Cycle settings" onClick={() => { setTab("body"); setBodyView("cycle") }} />
+            <Row label="Cycle settings" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setTab("body"); setBodyView("cycle"); setEditCycle(true) }} />
           </Group>
           <Group title="New Ray">
             <Row label="Share with a partner" onClick={() => setMoreView("share")} />
@@ -3072,7 +3101,7 @@ export default function App() {
       const SL = SHARE_LEVELS[shareLevel]
       const ST = THEMES[shareLevel]
       return (
-        <div className="fade-in" style={{ padding: "8px 18px 0" }}>
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 4px" }}>The Capacity Check-In</h2>
           <p style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.5, marginBottom: 22 }}>Share where you're at with your partner — so they can meet you, instead of guessing.</p>
 
@@ -3118,7 +3147,7 @@ export default function App() {
 
     if (tab === "more" && moreView === "shop") {
       return (
-        <div className="fade-in" style={{ padding: "8px 20px 0" }}>
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 6px" }}>The Capacity Method Shop</h2>
           <p style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.5, marginBottom: 22 }}>Wear the reminder. Soft, oversized, made for low-capacity days.</p>
           {ShopItems.map((p, i) => (
@@ -3144,7 +3173,7 @@ export default function App() {
 
     if (tab === "more" && moreView === "about") {
       return (
-        <div className="fade-in" style={{ padding: "8px 20px 0" }}>
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div style={{ textAlign: "center", margin: "16px 0 32px" }}>
             <div style={{ width: 92, height: 92, borderRadius: "50%", margin: "0 auto 16px", background: `linear-gradient(135deg, ${T.accent}, ${BASE.terracottaDeep})`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Pinyon Script', cursive", fontSize: 44, color: "#FFFFFF", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>V</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 600, marginBottom: 6 }}>Vanessa Parkin</div>
