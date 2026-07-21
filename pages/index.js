@@ -1231,6 +1231,7 @@ export default function App() {
   const [bloomNotes, setBloomNotes] = useState({})
   const [bloomSection, setBloomSection] = useState("appearance")
   const [bloomCard, setBloomCard] = useState(null)
+  const [bloomOpen, setBloomOpen] = useState(false)
   const [ctxOpen, setCtxOpen] = useState(false)
   const [editLife, setEditLife] = useState(null)
   const [programId, setProgramId] = useState(null)
@@ -1264,6 +1265,16 @@ export default function App() {
   }, [])
 
   useEffect(() => { checkAuth() }, [])
+
+  useEffect(() => {
+    // Trigger the slide-up transition on the frame after the sheet mounts.
+    if (bloomCard) {
+      const t = setTimeout(() => setBloomOpen(true), 10)
+      return () => clearTimeout(t)
+    } else {
+      setBloomOpen(false)
+    }
+  }, [bloomCard])
 
   useEffect(() => {
     // Lock background scroll while a full-screen panel is open, so scroll position is untouched underneath.
@@ -1445,6 +1456,11 @@ export default function App() {
   const toggle = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v])
 
   // Persist program selection: localStorage (instant) + profile (cross-device). Pass null to clear.
+  const closeBloom = () => {
+    setBloomOpen(false)
+    setTimeout(() => setBloomCard(null), 340)
+  }
+
   const persistProgram = (pid) => {
     const iso = new Date().toISOString().slice(0, 10)
     if (pid) {
@@ -1539,8 +1555,6 @@ export default function App() {
       input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-      @keyframes bloomOverlayIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes bloomSheetIn { from { opacity: 0; transform: translateY(40px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
       @keyframes breathe { 0%,100% { opacity: .9; } 50% { opacity: 1; } }
       @keyframes drift { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-16px,-12px) rotate(-5deg); } 100% { transform: translate(0,0) rotate(0deg); } }
       @keyframes flicker { 0%,100% { opacity: .35; } 50% { opacity: .95; } }
@@ -3000,12 +3014,12 @@ export default function App() {
           </div>
 
           {bloomCard && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.4)", zIndex: 60, animation: "bloomOverlayIn 0.35s ease" }} onClick={() => setBloomCard(null)}>
-              <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: 0, bottom: 0, width: "100%", maxWidth: 440, background: "#FFF9F5", overflowY: "auto", animation: "bloomSheetIn 0.42s cubic-bezier(0.22,0.61,0.36,1)", boxShadow: "0 0 60px rgba(60,37,69,0.25)", display: "flex", flexDirection: "column" }}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.4)", zIndex: 60, opacity: bloomOpen ? 1 : 0, transition: "opacity 0.35s ease" }} onClick={closeBloom}>
+              <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, margin: "0 auto", maxWidth: 440, background: "#FFF9F5", overflowY: "auto", boxShadow: "0 0 60px rgba(60,37,69,0.25)", display: "flex", flexDirection: "column", transform: bloomOpen ? "translateY(0)" : "translateY(100%)", transition: "transform 0.4s cubic-bezier(0.22,0.61,0.36,1)" }}>
                 <div style={{ position: "relative", padding: "44px 24px 30px", background: sec.grad, overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: -16, right: -10, fontSize: 90, opacity: 0.16 }}>🌸</div>
                   <div style={{ position: "absolute", bottom: -24, left: -12, fontSize: 66, opacity: 0.12 }}>🌷</div>
-                  <div onClick={() => setBloomCard(null)} style={{ position: "absolute", top: 16, right: 18, padding: "7px 15px", borderRadius: 999, background: "rgba(255,255,255,0.25)", cursor: "pointer", color: "#fff", fontSize: 12.5, fontWeight: 700, letterSpacing: 0.3 }}>Done</div>
+                  <div onClick={closeBloom} style={{ position: "absolute", top: 16, right: 18, padding: "7px 15px", borderRadius: 999, background: "rgba(255,255,255,0.25)", cursor: "pointer", color: "#fff", fontSize: 12.5, fontWeight: 700, letterSpacing: 0.3 }}>Done</div>
                   <div style={{ fontSize: 40, position: "relative" }}>{bloomCard.ic}</div>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: "#fff", marginTop: 6, position: "relative", textShadow: "0 1px 4px rgba(0,0,0,0.12)" }}>{bloomCard.n}</div>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: "rgba(255,255,255,0.95)", marginTop: 6, position: "relative", lineHeight: 1.4 }}>{bloomCard.intro}</div>
@@ -3033,7 +3047,7 @@ export default function App() {
                     <div style={{ fontSize: 11.5, color: "#A88BA0", textAlign: "center", fontStyle: "italic", lineHeight: 1.6 }}>{bloomCard.future}</div>
                   )}
                   <div style={{ fontSize: 11.5, color: "#B39BAE", textAlign: "center", fontStyle: "italic", marginTop: 18, lineHeight: 1.6 }}>Nothing here to complete. Take whatever feels good and leave the rest.</div>
-                  <button onClick={() => setBloomCard(null)} style={{ width: "100%", marginTop: 22, padding: "14px", borderRadius: 14, border: "none", cursor: "pointer", background: sec.grad, color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: 0.3 }}>Back to Bloom</button>
+                  <button onClick={closeBloom} style={{ width: "100%", marginTop: 22, padding: "14px", borderRadius: 14, border: "none", cursor: "pointer", background: sec.grad, color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: 0.3 }}>Back to Bloom</button>
                 </div>
               </div>
             </div>
