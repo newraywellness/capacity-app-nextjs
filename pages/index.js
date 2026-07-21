@@ -794,34 +794,86 @@ const coachData = (ex) => {
 }
 // ============ NOURISH DATA (Phase 1: structure, not deep content) ============
 const NOURISH_CAP = {
-  green: { emoji: "🟢", label: "Green Day", line: "I have time and energy to support myself.", focus: "A balanced plate with protein, color, and something you enjoy.", prep: "Full prep welcome", reminder: "Great day to cook a little extra for tomorrow." },
-  yellow: { emoji: "🟡", label: "Yellow Day", line: "I can make intentional choices, but I need simplicity.", focus: "One solid meal, protein first, keep the rest easy.", prep: "Light prep", reminder: "Simple still counts. Reach for what's already easy." },
-  red: { emoji: "🔴", label: "Red Day", line: "I need nourishment with minimal effort.", focus: "Anything with protein and water. Assembled, not cooked.", prep: "No cooking needed", reminder: "Fed is the goal today. That is enough." },
-  recovery: { emoji: "🌙", label: "Recovery Day", line: "My body needs gentle support.", focus: "Hydration, easy nourishing foods, a little extra care.", prep: "Gentle & easy", reminder: "Water, protein, and rest. Your body is rebuilding." },
+  green: { emoji: "🟢", label: "Green Day", dayTitle: "Today is a build day.", line: "I have time and energy to support myself.",
+    focusList: ["Protein with each meal", "Hydration throughout the day", "Fuel your movement", "Prepare a little for tomorrow"],
+    prep: "Full prep welcome", reminder: "Great day to cook a little extra for tomorrow.",
+    cards: [{ emoji: "🥤", title: "Hydration", body: "Aim for water with every meal and around movement." }, { emoji: "🥩", title: "Protein idea", body: "Build a plate around a palm or two of protein." }, { emoji: "🍠", title: "Easy meal", body: "Protein + a colorful carb + something green." }, { emoji: "🛒", title: "Prep ahead", body: "Cook one extra portion for tomorrow's easy day." }] },
+  yellow: { emoji: "🟡", label: "Yellow Day", dayTitle: "Today is a support day.", line: "I can make intentional choices, but I need simplicity.",
+    focusList: ["Simple balanced meals", "Enough protein", "Reduce decision fatigue", "Prepare one thing ahead"],
+    prep: "Light prep", reminder: "Simple still counts. Reach for what's already easy.",
+    cards: [{ emoji: "🥤", title: "Hydration", body: "Keep a water bottle where you'll see it." }, { emoji: "🥩", title: "Protein idea", body: "Rotisserie chicken, Greek yogurt, or eggs." }, { emoji: "🍠", title: "Easy meal", body: "One good plate is enough. Protein first." }, { emoji: "🛒", title: "Prep ahead", body: "Prep just one thing you'll be glad to have." }] },
+  red: { emoji: "🔴", label: "Red Day", dayTitle: "Today is nourish-and-survive.", line: "I need nourishment with minimal effort.",
+    focusList: ["Easiest protein option", "Hydration", "Convenient support", "Zero guilt"],
+    prep: "No cooking needed", reminder: "Fed is the goal today. That is enough.",
+    cards: [{ emoji: "🥤", title: "Hydration", body: "Water or electrolytes. Even a few sips help." }, { emoji: "🥩", title: "Protein idea", body: "Protein shake, jerky, cheese, or a yogurt cup." }, { emoji: "🍠", title: "Easy meal", body: "Assembled, not cooked. Anything counts today." }, { emoji: "🛒", title: "Support", body: "Convenience food is real food. Use it kindly." }] },
+  recovery: { emoji: "🌙", label: "Recovery Day", dayTitle: "Today is restoration.", line: "My body needs gentle support.",
+    focusList: ["Gentle, nourishing meals", "Hydration", "Recovery support", "Extra care"],
+    prep: "Gentle & easy", reminder: "Water, protein, and rest. Your body is rebuilding.",
+    cards: [{ emoji: "🥤", title: "Hydration", body: "Warm or cold, keep fluids steady today." }, { emoji: "🥩", title: "Protein idea", body: "Soup with protein, eggs, or a smoothie." }, { emoji: "🍠", title: "Gentle meal", body: "Easy-to-digest, comforting, nourishing." }, { emoji: "🌙", title: "Rest", body: "Nourishment and rest are the same work today." }] },
 }
 const FOOD_PATHS = [
-  { id: "strength", emoji: "✨", name: "Build Strength", tag: "Support muscle growth and training.", grad: "linear-gradient(135deg,#E984B4,#A54E86)" },
-  { id: "fatloss", emoji: "🌱", name: "Fat Loss Support", tag: "Understand sustainable nutrition and body composition.", grad: "linear-gradient(135deg,#9CC79A,#6E9E6B)" },
-  { id: "mama", emoji: "🤱", name: "Strong Mama", tag: "Support postpartum recovery and busy seasons.", grad: "linear-gradient(135deg,#F0B7D4,#C97BA8)" },
-  { id: "energy", emoji: "⚡", name: "Energy", tag: "Support balanced meals, hydration, and daily energy.", grad: "linear-gradient(135deg,#F0C879,#D8A94E)" },
-  { id: "simple", emoji: "🏡", name: "Simple Nourishment", tag: "Realistic, low-complexity meals for real life.", grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)" },
+  { id: "strength", emoji: "✨", name: "Build Strength", tag: "Support muscle growth and training.", grad: "linear-gradient(135deg,#E984B4,#A54E86)",
+    goal: "Give your body the material and fuel it needs to build strength and recover well.",
+    focus: ["Protein consistency across the day", "Strength and training support", "Recovery nutrition after sessions"],
+    macros: [{ name: "Protein", note: "Your building material." }, { name: "Carbs", note: "Your training fuel." }, { name: "Fats", note: "Your support system." }, { name: "Calories", note: "Your body's energy supply." }],
+    grocery: { Protein: ["Chicken", "Greek yogurt", "Eggs", "Lean beef", "Protein powder"], Carbs: ["Rice", "Potatoes", "Oats", "Fruit"], Fats: ["Olive oil", "Avocado", "Nuts"], Produce: ["Leafy greens", "Peppers", "Berries"], Convenience: ["Rotisserie chicken", "Pre-cooked rice", "Protein bars"] },
+    prep: [{ cap: "Low-capacity week", note: "Prep one protein and one easy carb." }, { cap: "Medium week", note: "Prep 2-3 meal components to mix and match." }, { cap: "High-capacity week", note: "Batch cook proteins and carbs, create variety." }] },
+  { id: "fatloss", emoji: "🌱", name: "Fat Loss Support", tag: "Sustainable nutrition while keeping your strength.", grad: "linear-gradient(135deg,#9CC79A,#6E9E6B)",
+    goal: "Learn how to create a supportive energy balance while keeping your strength and energy. Not about being smaller.",
+    focus: ["Protein to protect muscle and stay full", "Fullness with volume and fiber", "Portions that feel sustainable", "Habits you can keep for good"],
+    macros: [{ name: "Protein", note: "Protects muscle and keeps you full." }, { name: "Carbs", note: "Fuel your workouts and your day." }, { name: "Fats", note: "Support hormones and satisfaction." }, { name: "Calories", note: "A gentle, supportive balance, not a punishment." }],
+    grocery: { Protein: ["Chicken", "Fish", "Greek yogurt", "Eggs", "Tofu"], Carbs: ["Potatoes", "Rice", "Fruit", "Beans"], Fats: ["Avocado", "Olive oil", "Nuts (portioned)"], Produce: ["Big leafy greens", "Broccoli", "Berries", "Cucumbers"], Convenience: ["Pre-portioned proteins", "Frozen veg", "Rice pouches"] },
+    prep: [{ cap: "Low-capacity week", note: "One protein, one carb, plenty of easy produce." }, { cap: "Medium week", note: "Prep protein and a big batch of veg for volume." }, { cap: "High-capacity week", note: "Build a few balanced meals you actually look forward to." }] },
+  { id: "mama", emoji: "🤱", name: "Strong Mama", tag: "Support postpartum recovery and busy seasons.", grad: "linear-gradient(135deg,#F0B7D4,#C97BA8)",
+    goal: "Support recovery, energy, and rebuilding with realistic meals that fit real motherhood.",
+    focus: ["Recovery-supporting nutrition", "Realistic, one-handed-friendly meals", "Steady energy through the day", "Hydration, especially if nursing"],
+    macros: [{ name: "Protein", note: "Rebuilds tissue and supports recovery." }, { name: "Carbs", note: "Energy for the demands of the day." }, { name: "Fats", note: "Support hormones and healing." }, { name: "Calories", note: "Enough fuel, especially if nursing." }],
+    grocery: { Protein: ["Eggs", "Greek yogurt", "Rotisserie chicken", "Cottage cheese"], Carbs: ["Oats", "Fruit", "Toast", "Rice"], Fats: ["Nut butter", "Avocado", "Olive oil"], Produce: ["Pre-washed greens", "Frozen berries", "Baby carrots"], Convenience: ["Protein shakes", "Cheese sticks", "Pre-cut fruit"] },
+    prep: [{ cap: "Low-capacity week", note: "Snacks you can eat one-handed. Protein wherever possible." }, { cap: "Medium week", note: "Prep a couple of grab-and-go proteins." }, { cap: "High-capacity week", note: "Batch a soup or two you can freeze in portions." }] },
+  { id: "energy", emoji: "⚡", name: "Energy", tag: "Balanced meals, hydration, and daily energy.", grad: "linear-gradient(135deg,#F0C879,#D8A94E)",
+    goal: "Keep steady energy through consistent, balanced meals and good hydration.",
+    focus: ["Balanced meals with all three macros", "Hydration through the day", "Consistent fueling, not skipping"],
+    macros: [{ name: "Protein", note: "Steadies blood sugar and fullness." }, { name: "Carbs", note: "Your main, quick energy source." }, { name: "Fats", note: "Slow, lasting energy." }, { name: "Calories", note: "Enough, consistently, to feel good." }],
+    grocery: { Protein: ["Eggs", "Chicken", "Yogurt", "Beans"], Carbs: ["Oats", "Rice", "Fruit", "Whole grain bread"], Fats: ["Nuts", "Avocado", "Olive oil"], Produce: ["Bananas", "Greens", "Peppers"], Convenience: ["Trail mix", "Yogurt cups", "Fruit"] },
+    prep: [{ cap: "Low-capacity week", note: "Keep easy balanced snacks on hand." }, { cap: "Medium week", note: "Prep breakfast and one balanced lunch." }, { cap: "High-capacity week", note: "Set up balanced meals across the week." }] },
+  { id: "simple", emoji: "🏡", name: "Simple Nourishment", tag: "Realistic, low-complexity meals for real life.", grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)",
+    goal: "Support does not have to be complicated. Nourish yourself with the least friction possible.",
+    focus: ["The easiest supportive choice", "Protein + something else, that's it", "No rules, no complexity", "Kindness over perfection"],
+    macros: [{ name: "Protein", note: "Pick the easiest one available." }, { name: "Carbs", note: "Whatever's simple and on hand." }, { name: "Fats", note: "They come along naturally, don't overthink." }, { name: "Calories", note: "Enough to feel okay. That's the whole goal." }],
+    grocery: { Protein: ["Rotisserie chicken", "Eggs", "Greek yogurt", "Canned tuna"], Carbs: ["Microwave rice", "Bread", "Fruit"], Fats: ["Cheese", "Nut butter"], Produce: ["Bagged salad", "Baby carrots", "Frozen veg"], Convenience: ["Frozen meals", "Protein shakes", "Pre-cut everything"] },
+    prep: [{ cap: "Low-capacity week", note: "No prep. Buy things that need zero cooking." }, { cap: "Medium week", note: "Prep one single thing if you have it in you." }, { cap: "High-capacity week", note: "Even now, keep it simple. Simple is the point." }] },
 ]
+const GROCERY_CATS = [["Protein", "🥩"], ["Carbs", "🍠"], ["Fats", "🥑"], ["Produce", "🥦"], ["Convenience", "🧺"]]
 const MACROS = [
   { emoji: "🥩", name: "Protein", supports: ["Muscle repair", "Strength", "Fullness", "Recovery"] },
   { emoji: "🍠", name: "Carbohydrates", supports: ["Energy", "Training performance", "Brain function"] },
   { emoji: "🥑", name: "Fats", supports: ["Hormones", "Nutrient absorption", "Satisfaction"] },
   { emoji: "🔥", name: "Calories", supports: ["Understanding energy balance", "Maintenance", "Gaining", "Losing"] },
 ]
+// Supplements populated (education, not medical advice). Ordered: protein + creatine first (closest to Train).
 const SUPPLEMENTS = [
-  { emoji: "✨", name: "Creatine" }, { emoji: "✨", name: "Protein Powder" }, { emoji: "✨", name: "Electrolytes" }, { emoji: "✨", name: "Magnesium" },
-  { emoji: "✨", name: "Vitamin D" }, { emoji: "✨", name: "Omega-3" }, { emoji: "✨", name: "Fiber" }, { emoji: "✨", name: "Collagen" },
+  { emoji: "🥛", name: "Protein Powder", what: "A convenient concentrated protein source, usually from whey (milk) or plant blends.", why: "People use it to hit protein goals easily, especially around workouts or busy mornings.", benefits: "Supports muscle repair and recovery when overall protein is adequate; convenient and filling.", considerations: "It's a food, not magic. Whole-food protein works too. Check for added sugars if that matters to you.", pro: "If you have kidney concerns or milk allergies, talk with your provider first." },
+  { emoji: "💪", name: "Creatine", what: "One of the most researched supplements; a compound your muscles use for quick energy.", why: "People use creatine monohydrate to support strength, training performance, and recovery.", benefits: "Well studied for supporting strength and training output; may support muscle over time with training.", considerations: "A common dose is around 3-5g daily. It may cause slight water retention early on, which is normal.", pro: "If you're pregnant, nursing, or have kidney concerns, discuss with your provider first." },
+  { emoji: "🧂", name: "Electrolytes", what: "Minerals like sodium, potassium, and magnesium that help your body balance fluids.", why: "People use them for hydration, especially with heavy sweating, heat, or low-carb eating.", benefits: "May support hydration and reduce that sluggish, headachy feeling when you're low.", considerations: "You may not need extra if you eat balanced meals. Watch added sugar in some drink mixes.", pro: "If you have blood pressure or heart concerns, check sodium amounts with your provider." },
+  { emoji: "🌙", name: "Magnesium", what: "A mineral involved in hundreds of processes, including muscle and nerve function.", why: "People use it for sleep, muscle relaxation, and to fill a common dietary gap.", benefits: "Studied for supporting sleep quality and muscle relaxation; many people don't get enough from food.", considerations: "Forms differ (glycinate is gentle; citrate can loosen stools). Start low.", pro: "If you take medications or have kidney concerns, ask your provider before adding it." },
+  { emoji: "☀️", name: "Vitamin D", what: "A vitamin your skin makes from sunlight, involved in bone health and immunity.", why: "People supplement when sun exposure is low or bloodwork shows they're low.", benefits: "Supports bone health and immune function; deficiency is common, especially in winter.", considerations: "More isn't always better. A blood test can tell you if you actually need it.", pro: "Ask your provider to check your level and suggest a dose that fits you." },
+  { emoji: "🐟", name: "Omega-3", what: "Healthy fats (EPA and DHA) found in fish oil and some algae.", why: "People use them to support heart, brain, and joint health when they don't eat much fish.", benefits: "Studied for supporting heart and brain health and a healthy inflammatory response.", considerations: "Quality varies. Look for third-party tested products to avoid rancid oils.", pro: "If you take blood thinners, talk with your provider before starting." },
+  { emoji: "🌾", name: "Fiber", what: "The part of plants your body doesn't digest, feeding your gut and slowing digestion.", why: "People use it to support digestion, fullness, and steady blood sugar when food falls short.", benefits: "Supports digestion, fullness, and gut health; most people eat less than recommended.", considerations: "Increase slowly and drink water, or you may feel bloated. Food sources count too.", pro: "If you have a gut condition, check with your provider on the right type." },
+  { emoji: "✨", name: "Collagen", what: "A protein that gives structure to skin, joints, and connective tissue.", why: "People use it hoping to support skin, hair, nails, and joints.", benefits: "Some studies suggest support for skin elasticity and joints; research is still growing.", considerations: "It's a protein, so it counts toward your intake, but it's low in some amino acids.", pro: "If you're pregnant or have allergies to the source, check with your provider." },
 ]
 const NOURISH_PROGRAM_MSG = {
-  foundations: "Build the nutrition habits that support your strength journey.",
-  strength: "Support your training with enough fuel and recovery.",
-  mama: "Support your body while it rebuilds.",
-  move: "Simple nourishment keeps momentum alive.",
-  balanced: "Fuel a sustainable, healthy lifestyle.",
+  foundations: "Your body is learning. Nourishment supports consistency.",
+  strength: "Your training asks more from your body. Your fuel should support that.",
+  mama: "Your body is rebuilding. Support is the priority.",
+  move: "Small choices create momentum.",
+  balanced: "Build a sustainable relationship with movement and food.",
+}
+const NOURISH_PROGRAM_FOCUS = {
+  foundations: ["Protein habits", "Balanced meals", "Hydration"],
+  strength: ["Protein", "Carbohydrates", "Recovery"],
+  mama: ["Nourishment", "Recovery", "Realistic meals"],
+  move: ["Simple meals", "Consistency"],
+  balanced: ["Balance across all three macros", "Sustainable habits", "Hydration"],
 }
 const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
 // Deterministic schedule: days since program start -> week + weekday -> workout type
@@ -2030,10 +2082,27 @@ export default function App() {
                 </div>
               </SoftCard>
 
-              <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Today's Focus</div><div style={{ fontSize: 13.5, color: BASE.cream, lineHeight: 1.5 }}>{ncap.focus}</div></SoftCard>
-              <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Meal Support</div><Placeholder label="Capacity-based meal ideas" /></SoftCard>
-              <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Preparation Level</div><div style={{ fontSize: 13.5, color: BASE.cream }}>{ncap.prep}</div></SoftCard>
-              <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>A Helpful Reminder</div><div style={{ fontSize: 13.5, color: BASE.cream, fontStyle: "italic", lineHeight: 1.5 }}>{ncap.reminder}</div></SoftCard>
+              <div style={{ borderRadius: 16, background: "rgba(217,138,106,0.08)", border: "1px solid rgba(217,138,106,0.28)", padding: "16px 18px", marginBottom: 14 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: BASE.cream, marginBottom: 10 }}>{ncap.dayTitle}</div>
+                {ncap.focusList.map((ff, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 7 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#D98A6A" }} />
+                    <span style={{ fontSize: 13.5, color: BASE.cream }}>{ff}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "6px 2px 10px" }}>Quick support</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {ncap.cards.map((cd, i) => (
+                  <div key={i} style={{ borderRadius: 14, background: BASE.surface, border: "1px solid " + BASE.border, padding: "14px 14px" }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{cd.emoji}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: BASE.cream, marginBottom: 2 }}>{cd.title}</div>
+                    <div style={{ fontSize: 11.5, color: BASE.taupe, lineHeight: 1.45 }}>{cd.body}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "16px 0 0" }}>{ncap.reminder}</div>
             </>
           )}
 
@@ -2072,9 +2141,32 @@ export default function App() {
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginTop: 4 }}>{p.name}</div>
                   <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.92)", marginTop: 2 }}>{p.tag}</div>
                 </div>
-                {["Your Goal", "Nutrition Focus", "Grocery Support", "Meal Prep Support", "Macro Education"].map((sec) => (
-                  <SoftCard key={sec}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>{sec}</div><Placeholder label={sec} /></SoftCard>
-                ))}
+
+                <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 6 }}>Your Goal</div><div style={{ fontSize: 13.5, color: BASE.cream, lineHeight: 1.55 }}>{p.goal}</div></SoftCard>
+
+                <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 8 }}>Nutrition Focus</div>
+                  {p.focus.map((ff, i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 6 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9558E" }} /><span style={{ fontSize: 13, color: BASE.cream }}>{ff}</span></div>))}
+                </SoftCard>
+
+                <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 10 }}>Macro Education</div>
+                  {p.macros.map((m, i) => (<div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}><span style={{ fontSize: 12.5, fontWeight: 800, color: BASE.cream, minWidth: 62 }}>{m.name}</span><span style={{ fontSize: 12.5, color: BASE.creamDim, fontStyle: "italic", lineHeight: 1.4 }}>{m.note}</span></div>))}
+                </SoftCard>
+
+                <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 10 }}>Grocery Builder</div>
+                  {GROCERY_CATS.map(([cat, ic]) => p.grocery[cat] ? (
+                    <div key={cat} style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: BASE.cream, marginBottom: 5 }}>{ic} {cat}</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{p.grocery[cat].map((it, j) => (<span key={j} style={{ fontSize: 11.5, color: BASE.creamDim, background: "rgba(233,132,180,0.08)", padding: "4px 10px", borderRadius: 999 }}>{it}</span>))}</div>
+                    </div>
+                  ) : null)}
+                  <div style={{ fontSize: 10.5, color: BASE.taupe, fontStyle: "italic", marginTop: 4 }}>A tap-to-build grocery list is coming. For now, these are your go-to shelves.</div>
+                </SoftCard>
+
+                <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 10 }}>Meal Prep Rhythm</div>
+                  {p.prep.map((pr, i) => (<div key={i} style={{ marginBottom: 9 }}><div style={{ fontSize: 12, fontWeight: 700, color: BASE.cream }}>{pr.cap}</div><div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.45 }}>{pr.note}</div></div>))}
+                  <div style={{ fontSize: 10.5, color: BASE.taupe, fontStyle: "italic", marginTop: 4 }}>Not influencer meal prep. Just enough to make your week kinder.</div>
+                </SoftCard>
+                <div style={{ height: 16 }} />
               </div>
             )
           })()}
@@ -2095,16 +2187,20 @@ export default function App() {
             </>
           )}
 
-          {nourishView === "supps" && suppOpen && (
+          {nourishView === "supps" && suppOpen && (() => {
+            const sp = SUPPLEMENTS.find((x) => x.name === suppOpen)
+            const rows = [["What it is", sp.what], ["Why people use it", sp.why], ["Potential benefits studied", sp.benefits], ["Common considerations", sp.considerations], ["When to discuss with a professional", sp.pro]]
+            return (
             <div className="fade-in">
               <div onClick={() => setSuppOpen(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 12 }}>{"\u2039 All supplements"}</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 16 }}>✨ {suppOpen}</div>
-              {["What it is", "Why people use it", "Potential benefits studied", "Common considerations", "When to discuss with a healthcare professional"].map((sec) => (
-                <SoftCard key={sec}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>{sec}</div><Placeholder label={sec} /></SoftCard>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 16 }}>{sp.emoji} {sp.name}</div>
+              {rows.map(([sec, body]) => (
+                <SoftCard key={sec}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>{sec}</div><div style={{ fontSize: 13, color: BASE.cream, lineHeight: 1.55 }}>{body}</div></SoftCard>
               ))}
               <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "6px 0 18px", lineHeight: 1.6 }}>New Ray shares education, not prescriptions. Always talk with your own provider before starting a supplement.</div>
             </div>
-          )}
+            )
+          })()}
 
           {nourishView === "program" && (
             <>
@@ -2117,9 +2213,12 @@ export default function App() {
                       <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, marginTop: 4 }}>{prog.name}</div>
                       <div style={{ fontSize: 13, color: "rgba(255,255,255,0.94)", lineHeight: 1.5, marginTop: 6 }}>{NOURISH_PROGRAM_MSG[programId]}</div>
                     </div>
-                    {["Nutrition for this program", "How much to eat", "Timing around workouts", "Recovery support"].map((sec) => (
-                      <SoftCard key={sec}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>{sec}</div><Placeholder label={sec} /></SoftCard>
-                    ))}
+                    <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 8 }}>Your Focus</div>
+                      {(NOURISH_PROGRAM_FOCUS[programId] || []).map((ff, i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 6 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9558E" }} /><span style={{ fontSize: 13.5, color: BASE.cream }}>{ff}</span></div>))}
+                    </SoftCard>
+                    <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Timing around workouts</div><Placeholder label="Fueling before and after your sessions" /></SoftCard>
+                    <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Recovery support</div><Placeholder label="What helps your body bounce back" /></SoftCard>
+                    <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "6px 0 0" }}>Explore Food Paths for grocery and meal-prep support that fits this program.</div>
                   </>
                 )
               })() : (
