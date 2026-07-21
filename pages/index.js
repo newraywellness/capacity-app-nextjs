@@ -320,6 +320,9 @@ const WORKOUT_TEMPLATES = {
   "strength:upperB": { title: "Upper Strength B", focus: "Push-led strength", slots: [
     { pattern: "push", role: "primary" }, { pattern: "pull", role: "primary" },
     { pattern: "shoulder", role: "primary" }, { pattern: "corestab", role: "core" } ] },
+  "strength:accessories": { title: "Accessories + Core", focus: "Supporting lifts and core strength", slots: [
+    { pattern: "glute", role: "primary" }, { pattern: "legiso", role: "accessory" },
+    { pattern: "shoulder", role: "accessory" }, { pattern: "corestab", role: "core" }, { pattern: "corestab", role: "core" } ] },
   // ---- STRONG MAMA REBUILD ----
   "mama:full": { title: "Full Body Rebuild", focus: "Controlled, connected full-body strength", slots: [
     { pattern: "deepcore", role: "primary" }, { pattern: "squat", role: "primary" }, { pattern: "hinge", role: "primary" },
@@ -367,7 +370,7 @@ const WORKOUT_TEMPLATES = {
 // This REPLACES the loose split[] for programs that define a schedule; split stays as fallback.
 const PROGRAM_SCHEDULE = {
   foundations: ["foundations:full", "walk+mobility", "foundations:legs", "foundations:upper", "walk+recovery", "foundations:glutes", "recovery"],
-  strength: ["strength:lowerA", "strength:upperA", "recovery", "strength:lowerB", "strength:upperB", "conditioning", "recovery"],
+  strength: ["strength:lowerA", "strength:upperA", "walk+mobility", "strength:lowerB", "strength:upperB", "strength:accessories", "recovery"],
   mama: ["mama:full", "walk+mobility", "mama:legs", "mama:upper", "walk", "mama:glutes", "recovery"],
   move: ["move:simple", "move:walk", "move:legs", "move:walk", "move:simple", "move:walk", "recovery"],
   balanced: ["balanced:full", "walk+mobility", "balanced:legs", "balanced:upper", "balanced:conditioning", "balanced:glutes", "recovery"],
@@ -422,6 +425,7 @@ const EXERCISES = {
       { name: "Leg press", sets: 3, reps: "12", ai: true, cue: "Feet mid-platform, lower to about 90 degrees.", how: ["Sit with feet hip-width on the platform.", "Lower until knees reach about 90 degrees.", "Press out smooth, no hard lockout."] },
       { name: "Goblet squat", sets: 3, reps: "10", cue: "Chest tall, controlled depth.", how: ["Hold a dumbbell at your chest.", "Squat to a depth you control.", "Drive up through the heels."] },
       { name: "Hack squat machine", sets: 3, reps: "10", cue: "Control the descent, own the range.", how: ["Shoulders under the pads, feet mid-platform.", "Lower with control.", "Press up without locking hard."] },
+      { name: "Barbell back squat", sets: 4, reps: "6-8", cue: "Brace hard, sit between your hips, drive up.", how: ["Bar on your upper back, hands secure.", "Brace your core, sit down and back.", "Drive through the whole foot to stand. Add weight only when form holds."] },
     ],
   },
   hinge: {
@@ -497,6 +501,8 @@ const EXERCISES_UPPER = {
     gym: [
       { name: "Chest press machine", sets: 3, reps: "10", ai: true, cue: "Handles at mid-chest, smooth press.", how: ["Adjust the seat so handles sit at mid-chest.", "Press out with control.", "Return over 2-3 seconds."] },
       { name: "Dumbbell bench press", sets: 3, reps: "10", cue: "Control down, drive up.", how: ["Lie on a bench, dumbbells over your chest.", "Lower with control to chest level.", "Press up, shoulder blades pinned."] },
+      { name: "Bench press", sets: 4, reps: "6-8", cue: "Control down, drive up, shoulder blades pinned.", how: ["Lie on the bench, grip just outside shoulders.", "Lower the bar to mid-chest with control.", "Press up powerfully. Use a spotter as you get heavier."] },
+      { name: "Incline dumbbell press", sets: 3, reps: "8-10", cue: "Bench low incline, press smooth.", how: ["Set the bench to a low incline.", "Press the dumbbells up and slightly together.", "Lower with control to the stretch."] },
     ],
   },
   pull: {
@@ -577,6 +583,7 @@ const PROGRAM_ENV_DEFAULT = "gym" // user can toggle; Foundations supports homeB
 const PROGRAM_EXERCISE_PREF = {
   mama: ["360 breathing", "Dead bug", "Bird dog", "Heel slides", "Glute bridge", "Sit-to-stand squat", "Bodyweight squat", "Step ups", "Seated row machine", "Chest press machine", "Lat pulldown", "Farmer carry", "Side-lying leg raise", "Hip abduction machine", "Band row", "Modified plank", "Dumbbell hip thrust"],
   balanced: ["Goblet squat", "Leg press", "Dumbbell Romanian deadlift", "Hip thrust machine", "Lateral lunges", "Step ups", "Chest press machine", "Dumbbell press", "Lat pulldown", "Seated row machine", "Shoulder press", "Farmer carry", "Band Pallof press", "Cable Pallof press", "Full plank", "Dead bug", "Bird dog", "Easy walk", "Mobility flow"],
+  strength: ["Barbell back squat", "Goblet squat", "Leg press", "Barbell Romanian deadlift", "Dumbbell Romanian deadlift", "Barbell hip thrust", "Hip thrust machine", "Step ups", "Dumbbell press", "Bench press", "Chest press machine", "Lat pulldown", "Seated row machine", "Dumbbell row", "Shoulder press", "Farmer carry", "Cable Pallof press", "Full plank", "Easy walk"],
 }
 const pickExercise = (patternId, env, idx, progId) => {
   const bank = EXERCISES[patternId]
@@ -591,7 +598,7 @@ const pickExercise = (patternId, env, idx, progId) => {
       const prefs = PROGRAM_EXERCISE_PREF[progId]
       if (prefs) {
         // favor a preferred exercise in this list; keep idx variety among preferred if several match
-        const preferred = list.filter((x) => prefs.includes(x.name))
+        const preferred = list.filter((x) => prefs.includes(x.name)).sort((a, b) => prefs.indexOf(a.name) - prefs.indexOf(b.name))
         if (preferred.length) return preferred[idx % preferred.length]
       }
       return list[idx % list.length]
@@ -680,6 +687,7 @@ const COMPLETION = {
   foundations: { title: "You built your foundation.", weeksWord: "Eight weeks", message: "Eight weeks of showing up for yourself. You learned the movements, built the habit, and got stronger. That's yours to keep.", paths: [["Repeat, a little stronger", "Run Strong Foundations again with more confidence and resistance.", "self"], ["Move into Build Strength", "Progressive lifting for your next chapter.", "strength"], ["Try Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]] },
   mama: { title: "You're ready for your next chapter.", weeksWord: "Ten weeks", message: "Ten weeks of honoring your body while it rebuilt. You reconnected, grew stronger, and did it with patience. That strength is yours.", paths: [["Repeat Strong Mama Rebuild", "Move through the rebuild again, meeting your body where it is now.", "self"], ["Begin Strong Foundations", "Step into structured strength training with confidence.", "foundations"], ["Begin Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]] },
   balanced: { title: "Strength is part of your life now.", weeksWord: "Eight weeks", message: "You've built a body that supports your life. Keep growing in the direction that excites you most \u2014 this is a way of living, not a finish line.", paths: [["Repeat Balanced Strength", "Keep the sustainable rhythm going, a little stronger.", "self"], ["Begin Build Strength", "Ready for more? Step into progressive lifting.", "strength"], ["Return to Strong Foundations", "Revisit the fundamentals anytime.", "foundations"], ["Explore another path", "Browse all the New Ray programs.", null]] },
+  strength: { title: "Look how far you've come.", weeksWord: "Twelve weeks", message: "You're stronger than when you began \u2014 in more ways than one. Twelve weeks of showing up, lifting with intention, and trusting the process. This strength is yours.", paths: [["Repeat Build Strength", "Run it back with heavier progressive overload.", "self"], ["Move into Balanced Strength", "Shift toward sustainable, balanced training.", "balanced"], ["Return to Strong Foundations", "Revisit the fundamentals anytime.", "foundations"], ["Explore another path", "Browse all the New Ray programs.", null]] },
 }
 const PROGRAM_PHASES = {
   foundations: [
@@ -697,6 +705,11 @@ const PROGRAM_PHASES = {
     { name: "Build Capacity", weeks: [3, 5], level: "intermediate", goal: "Grow strength, work capacity, mobility, and endurance.", emphasis: "Gradually increase the challenge while keeping every session enjoyable.", repBias: 1, coach: "Strong bodies make everyday life easier. Leave a little energy for the rest of your day." },
     { name: "Live Strong", weeks: [6, 8], level: "intermediate", goal: "Balanced, athletic, sustainable fitness you can keep for years.", emphasis: "Finish stronger while still feeling fresh enough to enjoy life outside the gym.", repBias: 1, addWeight: true, coach: "You don't need to prove anything today. This is a body built to support your life." },
   ],
+  strength: [
+    { name: "Build Technique", weeks: [1, 4], level: "intermediate", goal: "Learn the compound lifts with quality and confidence.", emphasis: "Movement quality first. Learn the big lifts, build consistency, own the technique.", repBias: 0, coach: "Technique first. Strength follows. Strong women aren't built overnight." },
+    { name: "Build Strength", weeks: [5, 8], level: "intermediate", goal: "Progressive overload \u2014 add load and intensity intentionally.", emphasis: "Now we grow: add weight or reps each week while protecting your form.", repBias: 1, addWeight: true, coach: "Excellent control. Now let's grow from here \u2014 progress is measured one workout at a time." },
+    { name: "Lift Strong", weeks: [9, 12], level: "advanced", goal: "Power, control, and long-term strength.", emphasis: "Become stronger without sacrificing movement quality. This is confident, capable lifting.", repBias: 2, addWeight: true, coach: "Look how strong you've become. Your future strength is built by today's consistency." },
+  ],
 }
 // Per-program coaching overlays (gentler for Mama). Falls back to COACH_LINES.
 const PROGRAM_COACH_LINES = {
@@ -711,6 +724,12 @@ const PROGRAM_COACH_LINES = {
     yellow: ["Leave a little energy for the rest of your day.", "We've trimmed today to keep you fresh and consistent.", "You don't need to prove anything today."],
     red: ["A sustainable body knows when to ease off.", "The highest-value movements today, and nothing more.", "Protecting your energy is how this lasts for years."],
     recovery: ["Recovery is where sustainable strength is built.", "A walk and some mobility is a complete, healthy day.", "Rest today so you can enjoy moving tomorrow."],
+  },
+  strength: {
+    green: ["Technique first. Strength follows.", "Excellent control. Now let's grow from here.", "Progress is measured one workout at a time."],
+    yellow: ["We've kept your main lifts and trimmed the rest.", "Smart training protects the big lifts on lighter days.", "Strength is earned through patience \u2014 today counts."],
+    red: ["Just the highest-value lifts today. That's real training.", "Come back stronger \u2014 backing off today is strategy, not weakness.", "Strong women aren't built by grinding through every day."],
+    recovery: ["Strength is built through recovery as much as training.", "Your muscles grow on days like today.", "Rest is part of the program, and it's making you stronger."],
   },
 }
 const phaseFor = (progId, week) => {
