@@ -1266,6 +1266,16 @@ export default function App() {
   useEffect(() => { checkAuth() }, [])
 
   useEffect(() => {
+    // When a Bloom card is open, lock background scroll so the panel stays centered in view.
+    if (typeof document === "undefined") return
+    if (bloomCard || editCycle) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = "hidden"
+      return () => { document.body.style.overflow = prev }
+    }
+  }, [bloomCard, editCycle])
+
+  useEffect(() => {
     // Instant capacity restore from local cache (only if it's still today), before Supabase responds.
     try {
       const raw = localStorage.getItem("nr_today_cap")
@@ -2977,7 +2987,7 @@ export default function App() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingBottom: 24 }}>
               {sec.cards.map((card, i) => (
-                <div key={i} onClick={() => setBloomCard(card)} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)", cursor: "pointer" }}>
+                <div key={i} onClick={() => { setBloomCard(card); try { window.scrollTo({ top: 0, behavior: "auto" }) } catch (e) {} }} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)", cursor: "pointer" }}>
                   <div style={{ position: "absolute", top: 12, right: 13, fontSize: 26, opacity: 0.9 }}>{card.ic}</div>
                   <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,transparent 40%,rgba(0,0,0,0.12))" }} />
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: "#fff", position: "relative", textShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>{card.n}</div>
@@ -2988,8 +2998,8 @@ export default function App() {
           </div>
 
           {bloomCard && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setBloomCard(null)}>
-              <div className="fade-in" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto", background: "#FFF9F5", borderTopLeftRadius: 28, borderTopRightRadius: 28, boxShadow: "0 -10px 40px rgba(60,37,69,0.3)" }}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.5)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 14px", overflowY: "auto" }} onClick={() => setBloomCard(null)}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, maxHeight: "86vh", overflowY: "auto", background: "#FFF9F5", borderRadius: 28, boxShadow: "0 20px 50px rgba(60,37,69,0.35)" }}>
                 <div style={{ position: "relative", padding: "34px 24px 26px", background: sec.grad, overflow: "hidden", borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
                   <div style={{ position: "absolute", top: -16, right: -10, fontSize: 80, opacity: 0.16 }}>🌸</div>
                   <div onClick={() => setBloomCard(null)} style={{ position: "absolute", top: 16, right: 18, width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 16 }}>{"\u2715"}</div>
