@@ -948,14 +948,107 @@ const BLOOM_INVITATIONS = {
 }
 const BLOOM_SECTIONS = [
   { id: "appearance", emoji: "✨", name: "Appearance", grad: "linear-gradient(135deg,#F0B7D4,#C97BA8)",
-    intro: "Not beauty perfection. Feeling cared for.",
-    cards: [["Skincare", "🌿"], ["Hair", "💇\u200d♀️"], ["Makeup", "💄"], ["Perfume", "🌸"], ["Jewelry", "💎"], ["Nails", "💅"], ["Wardrobe", "👗"], ["Spa Night", "🛁"], ["Facials", "✨"], ["Brows", "🪮"], ["Lips", "💋"], ["Body Care", "🧴"]] },
+    intro: "Feeling cared for, not chasing perfection.",
+    cards: [
+      { n: "Skincare", ic: "🌸", intro: "Simple routines that help you feel refreshed and cared for.",
+        blocks: [
+          { h: "Morning Routine", items: ["☀️ Cleanse or rinse", "✨ Serum (optional)", "🧴 Moisturizer", "🌞 SPF"] },
+          { h: "Evening Routine", items: ["🌙 Remove makeup / SPF", "🫧 Cleanse", "✨ Treatment or serum if desired", "🧴 Moisturizer"] },
+        ],
+        note: "Consistency with simple basics matters more than having a complicated routine.",
+        future: "Product recommendations, a routine builder, and New Ray skincare are on the way." },
+      { n: "Hair", ic: "💇\u200d♀️", intro: "Small rituals that help you feel put together.",
+        blocks: [
+          { h: "Little rituals", items: ["A simple wash routine that works for you", "Heat protection before styling", "One or two easy go-to styles", "Refreshing second-day hair", "A hair mask when it needs love", "Simple, low-effort maintenance"] },
+        ] },
+      { n: "Makeup", ic: "💄", intro: "Enhance, don't hide.",
+        blocks: [
+          { h: "Everyday confidence", items: ["A 5-minute everyday face", "Groomed brows", "A coat of mascara", "A little blush for life", "A lip product you love", "Simple looks that feel like you"] },
+        ] },
+      { n: "Perfume", ic: "🌸", intro: "A small ritual that becomes part of your identity.",
+        blocks: [
+          { h: "Your signature", items: ["Finding your scent style", "Everyday vs. special occasion", "How and where to apply fragrance", "Layering scents", "Creating memories through scent"] },
+        ],
+        future: "Vanessa's favorites and recommendations are coming to this space." },
+      { n: "Jewelry", ic: "💎", intro: "The little details that make an ordinary day feel special.",
+        blocks: [
+          { h: "The details", items: ["Everyday pieces you never take off", "A signature piece that's yours", "Simple, effortless styling", "Wearing something just because you love it"] },
+        ] },
+      { n: "Nails", ic: "💅", intro: "Small details that make you feel polished.",
+        blocks: [
+          { h: "Cared-for hands", items: ["Simple at-home care", "Nail health basics", "Colors and styles you enjoy", "Easy maintenance ideas"] },
+        ] },
+      { n: "Wardrobe", ic: "👗", intro: "Getting dressed in a way that feels like you.",
+        blocks: [
+          { h: "Dressing like you", items: ["Outfit formulas that always work", "Closet basics worth having", "Finding your personal style", "Pieces that make you feel confident", "Dressing for your current season of life"] },
+        ] },
+      { n: "Spa Night", ic: "🛁", intro: "Create moments that feel luxurious at home.",
+        blocks: [
+          { h: "A cozy reset", items: ["A slow shower ritual", "Body care you enjoy", "A hair mask", "A candle and some music", "A cozy evening reset"] },
+        ] },
+      { n: "Facials", ic: "✨", intro: "Professional skincare and intentional care.",
+        blocks: [
+          { h: "Intentional care", items: ["What facials actually are", "Common treatments explained", "A little skin education", "Future New Ray services"] },
+        ] },
+      { n: "Brows", ic: "🪮", intro: "Small details that brighten your features.",
+        blocks: [
+          { h: "Framing your face", items: ["Grooming basics", "A little shaping education", "Simple maintenance"] },
+        ] },
+      { n: "Lips", ic: "💋", intro: "A tiny ritual that makes you feel cared for.",
+        blocks: [
+          { h: "Soft and cared for", items: ["Lip hydration", "Lip products you love", "Simple everyday care"] },
+        ] },
+      { n: "Body Care", ic: "🧴", intro: "Caring for the skin you're in, gently.",
+        blocks: [
+          { h: "Everyday softness", items: ["Moisturizing after a shower", "A body oil or butter you love", "Gentle exfoliation now and then", "A scent that feels like you"] },
+        ] },
+    ] },
   { id: "mind", emoji: "🧠", name: "Mind", grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)",
-    intro: "Mental restoration. Not productivity.",
-    cards: [["Reading", "📖"], ["Journaling", "🖋️"], ["Breathing", "🌬️"], ["Quiet Time", "🕊️"], ["Music", "🎧"], ["Gratitude", "🤍"], ["Visualization", "🌙"], ["Learning", "📚"], ["Creating", "🎨"], ["Reflection", "💭"]] },
+    intro: "Mental restoration, not productivity.",
+    cards: [
+      { n: "Reading", ic: "📖", intro: "A quiet escape that's just yours.",
+        blocks: [{ h: "A reading ritual", items: ["Creating a reading ritual you look forward to", "Choosing books that pull you in", "Even one page counts"] }] },
+      { n: "Journaling", ic: "🖋️", intro: "Getting what's in your head onto the page.",
+        blocks: [{ h: "On the page", items: ["A brain dump to clear your mind", "A few lines of gratitude", "Gentle reflection prompts"] }] },
+      { n: "Breathing", ic: "🌬️", intro: "A reset you can do anywhere, anytime.",
+        blocks: [{ h: "Come back to calm", items: ["Long-exhale breathing", "Short calming moments through the day"] }] },
+      { n: "Quiet Time", ic: "🕊️", intro: "Moments without input, just for you.",
+        blocks: [{ h: "Stillness", items: ["Coffee alone, uninterrupted", "Sitting outside for a few minutes", "Time without a screen or a task"] }] },
+      { n: "Music", ic: "🎧", intro: "The fastest way to shift how you feel.",
+        blocks: [{ h: "Sound as care", items: ["Playlists for different moods", "Music to shift your energy", "Listening as its own kind of self-care"] }] },
+      { n: "Gratitude", ic: "🤍", intro: "Noticing what's already good.",
+        blocks: [{ h: "Small joys", items: ["Noticing the small joys", "A daily moment of reflection"] }] },
+      { n: "Visualization", ic: "🌙", intro: "Picturing the woman you're becoming.",
+        blocks: [{ h: "Future self", items: ["Imagining your future self", "Getting clear on what you want", "Growing into your identity"] }] },
+      { n: "Learning", ic: "📚", intro: "Feeding your curiosity.",
+        blocks: [{ h: "Stay curious", items: ["Learning a new skill", "Following your curiosity, just because"] }] },
+      { n: "Creating", ic: "🎨", intro: "Making something that's only yours.",
+        blocks: [{ h: "Make something", items: ["Art in any form", "A hobby you love", "Creativity with no goal but joy"] }] },
+      { n: "Reflection", ic: "💭", intro: "Looking back to see how far you've come.",
+        blocks: [{ h: "Recognizing growth", items: ["Looking back gently", "Recognizing your own growth"] }] },
+    ] },
   { id: "lifestyle", emoji: "🌿", name: "Lifestyle", grad: "linear-gradient(135deg,#B9D4A8,#7FA054)",
-    intro: "Becoming someone who enjoys her life.",
-    cards: [["Flowers", "🌸"], ["Baking", "🧁"], ["Photography", "📷"], ["Violin", "🎻"], ["Gardening", "🌱"], ["Date Yourself", "🍷"], ["Coffee Shop", "☕"], ["Farmer's Market", "🧺"], ["Sunrise Walk", "🌅"], ["Creative Hobby", "🎨"]] },
+    intro: "Creating a life you enjoy living.",
+    cards: [
+      { n: "Flowers", ic: "🌸", intro: "Bringing a little beauty into your space.",
+        blocks: [{ h: "Beauty at home", items: ["Bringing beauty into your space", "Simple arrangements you can do yourself"] }] },
+      { n: "Baking", ic: "🧁", intro: "Creating something warm with your hands.",
+        blocks: [{ h: "Comfort and creating", items: ["The joy of creating", "Comfort in the process", "Something to share"] }] },
+      { n: "Photography", ic: "📷", intro: "Learning to see beauty everywhere.",
+        blocks: [{ h: "Capturing moments", items: ["Capturing the moments you love", "Learning to see beauty in the ordinary"] }] },
+      { n: "Violin", ic: "🎻", intro: "Returning to a passion that's yours.",
+        blocks: [{ h: "Your own thing", items: ["Returning to a passion", "Creativity for its own sake", "An identity outside your responsibilities"] }] },
+      { n: "Gardening", ic: "🌱", intro: "Slowing down and watching things grow.",
+        blocks: [{ h: "Growth and nature", items: ["The rhythm of growth", "A quiet connection with nature"] }] },
+      { n: "Date Yourself", ic: "🍷", intro: "Enjoying your own company, on purpose.",
+        blocks: [{ h: "Solo joy", items: ["A coffee shop by yourself", "A slow hour in a bookstore", "Solo outings, just because"] }] },
+      { n: "Farmer's Market", ic: "🧺", intro: "The pleasure of slow, seasonal living.",
+        blocks: [{ h: "Slow living", items: ["The rhythm of slow living", "Seasonal experiences to look forward to"] }] },
+      { n: "Sunrise Walk", ic: "🌅", intro: "A quiet start that's entirely yours.",
+        blocks: [{ h: "Fresh air", items: ["Fresh air first thing", "A few quiet moments before the day begins"] }] },
+      { n: "Creative Hobby", ic: "🎨", intro: "Making time for the things that light you up.",
+        blocks: [{ h: "Time for you", items: ["Making time for yourself", "Doing something purely because you love it"] }] },
+    ] },
 ]
 const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
 // Deterministic schedule: days since program start -> week + weekday -> workout type
@@ -1137,6 +1230,7 @@ export default function App() {
   const [glowLog, setGlowLog] = useState({})
   const [bloomNotes, setBloomNotes] = useState({})
   const [bloomSection, setBloomSection] = useState("appearance")
+  const [bloomCard, setBloomCard] = useState(null)
   const [ctxOpen, setCtxOpen] = useState(false)
   const [editLife, setEditLife] = useState(null)
   const [programId, setProgramId] = useState(null)
@@ -2882,16 +2976,54 @@ export default function App() {
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: "#9B7290", textAlign: "center", marginBottom: 18 }}>{sec.intro}</div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingBottom: 24 }}>
-              {sec.cards.map(([name, ic], i) => (
-                <div key={i} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)" }}>
-                  <div style={{ position: "absolute", top: 12, right: 13, fontSize: 26, opacity: 0.9 }}>{ic}</div>
+              {sec.cards.map((card, i) => (
+                <div key={i} onClick={() => setBloomCard(card)} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)", cursor: "pointer" }}>
+                  <div style={{ position: "absolute", top: 12, right: 13, fontSize: 26, opacity: 0.9 }}>{card.ic}</div>
                   <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,transparent 40%,rgba(0,0,0,0.12))" }} />
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: "#fff", position: "relative", textShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>{name}</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: "#fff", position: "relative", textShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>{card.n}</div>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", padding: "0 20px 20px", lineHeight: 1.6 }}>Each of these will open into something beautiful over time. For now, let them be inspiration.</div>
+            <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", padding: "0 20px 20px", lineHeight: 1.6 }}>Tap any card to open it. This is an inspiration library — never a checklist.</div>
           </div>
+
+          {bloomCard && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setBloomCard(null)}>
+              <div className="fade-in" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto", background: "#FFF9F5", borderTopLeftRadius: 28, borderTopRightRadius: 28, boxShadow: "0 -10px 40px rgba(60,37,69,0.3)" }}>
+                <div style={{ position: "relative", padding: "34px 24px 26px", background: sec.grad, overflow: "hidden", borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
+                  <div style={{ position: "absolute", top: -16, right: -10, fontSize: 80, opacity: 0.16 }}>🌸</div>
+                  <div onClick={() => setBloomCard(null)} style={{ position: "absolute", top: 16, right: 18, width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 16 }}>{"\u2715"}</div>
+                  <div style={{ fontSize: 40, position: "relative" }}>{bloomCard.ic}</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: "#fff", marginTop: 6, position: "relative", textShadow: "0 1px 4px rgba(0,0,0,0.12)" }}>{bloomCard.n}</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: "rgba(255,255,255,0.95)", marginTop: 6, position: "relative", lineHeight: 1.4 }}>{bloomCard.intro}</div>
+                </div>
+                <div style={{ padding: "24px 24px 30px" }}>
+                  {bloomCard.blocks.map((b, bi) => (
+                    <div key={bi} style={{ marginBottom: 22 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#C97BA8", marginBottom: 12 }}>{b.h}</div>
+                      {b.items && b.items.map((it, ii) => (
+                        <div key={ii} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#C97BA8", marginTop: 8, flexShrink: 0 }} />
+                          <span style={{ fontSize: 14.5, color: "#5A4458", lineHeight: 1.5 }}>{it}</span>
+                        </div>
+                      ))}
+                      {b.body && <div style={{ fontSize: 14.5, color: "#5A4458", lineHeight: 1.6 }}>{b.body}</div>}
+                    </div>
+                  ))}
+                  {bloomCard.note && (
+                    <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", marginBottom: 16 }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C97BA8", marginBottom: 6 }}>A New Ray reminder</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 17, color: "#7E5578", lineHeight: 1.45 }}>{bloomCard.note}</div>
+                    </div>
+                  )}
+                  {bloomCard.future && (
+                    <div style={{ fontSize: 11.5, color: "#A88BA0", textAlign: "center", fontStyle: "italic", lineHeight: 1.6 }}>{bloomCard.future}</div>
+                  )}
+                  <div style={{ fontSize: 11.5, color: "#B39BAE", textAlign: "center", fontStyle: "italic", marginTop: 18, lineHeight: 1.6 }}>Nothing here to complete. Take whatever feels good and leave the rest.</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )
     }
