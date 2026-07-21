@@ -896,6 +896,31 @@ const NOURISH_PROGRAM_FOCUS = {
   move: ["Simple meals", "Consistency"],
   balanced: ["Balance across all three macros", "Sustainable habits", "Hydration"],
 }
+// ============ CYCLE PHASE PRESENTATION (Phase 1: colors + education) ============
+// Reuses computeCycle/PHASES engine; adds the spec's calendar colors + education content.
+const CYCLE_PHASES = {
+  menstrual: { key: "menstrual", emoji: "🌑", name: "Menstrual Phase", color: "#7E5E9E", soft: "rgba(126,94,158,0.14)", meaning: "Rest, restoration, reflection",
+    insight: "Today may be a day to offer yourself extra support.",
+    suggestions: ["Hydration", "Nourishing meals", "Gentle movement if you feel like it", "Recovery"],
+    message: "Rest is not falling behind.",
+    edu: [["What is happening", "Your period has begun as hormone levels are at their lowest. This is the start of a new cycle."], ["What some women notice", "Lower energy, a need for warmth and rest, or cramps. Everyone is different, and however you feel is valid."], ["Movement support", "Gentle movement like walking, mobility, or light strength if it feels good. Rest is equally valid."], ["Nourishment support", "Focus on nourishment, hydration, and comfort. Iron-rich foods can be supportive."], ["Recovery support", "Prioritize sleep and warmth. This is a natural window to slow down."]] },
+  follicular: { key: "follicular", emoji: "🌱", name: "Follicular Phase", color: "#6E9E6B", soft: "rgba(110,158,107,0.14)", meaning: "Growth, rebuilding, increasing energy",
+    insight: "Your energy may be building. A nice window to start things.",
+    suggestions: ["Movement that feels good", "Balanced meals", "Hydration", "Try something new"],
+    message: "Build when your body feels ready.",
+    edu: [["What is happening", "Estrogen is rising as your body prepares to release an egg. Energy often starts to climb."], ["Energy awareness", "Many women notice more steadiness and motivation. Use it intentionally, without expecting it every day."], ["Training support", "Often a good window to build, add a little, or try something new if you feel ready."], ["Nourishment support", "Balanced meals with protein and colorful carbs support the building energy."]] },
+  ovulation: { key: "ovulation", emoji: "☀️", name: "Ovulation Phase", color: "#D8A94E", soft: "rgba(216,169,78,0.16)", meaning: "Connection, confidence, higher energy awareness",
+    insight: "Often a higher-energy window. Enjoy it while still listening.",
+    suggestions: ["Movement you enjoy", "Connection and social energy", "Hydration", "Protein with meals"],
+    message: "Use your energy, while still listening.",
+    edu: [["What is happening", "An egg is released and estrogen peaks. This is often the highest-energy point of the cycle."], ["Energy awareness", "You may feel confident and social. Every phase is you, so try not to set the bar only here."], ["Training support", "A natural window for anything that takes a little more energy, if you feel up to it."], ["Recovery support", "Even in a high-energy phase, hydration and rest keep you feeling good."]] },
+  luteal: { key: "luteal", emoji: "🌙", name: "Luteal Phase", color: "#5E7FB0", soft: "rgba(94,127,176,0.14)", meaning: "Preparation, slowing down, increased support",
+    insight: "Your needs may be shifting. That is information, not failure.",
+    suggestions: ["Consistent meals", "Extra hydration", "Protein and satisfying food", "Protect your sleep"],
+    message: "Changing needs are information, not failure.",
+    edu: [["What is happening", "Progesterone rises as your body prepares for the next cycle. Energy may gradually taper."], ["Support needs", "Many notice a need for more rest, more food, and more grace. This is completely normal."], ["Training considerations", "Movement still feels good for many. Let capacity decide the intensity, not the calendar."], ["Nourishment considerations", "Consistent meals and satisfying nutrition may feel especially supportive right now."]] },
+}
+const CYCLE_PHASE_ORDER = ["menstrual", "follicular", "ovulation", "luteal"]
 const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
 // Deterministic schedule: days since program start -> week + weekday -> workout type
 const progSchedule = (prog, startISO) => {
@@ -1086,6 +1111,8 @@ export default function App() {
   const [nourishView, setNourishView] = useState("home")
   const [foodPath, setFoodPath] = useState(null)
   const [suppOpen, setSuppOpen] = useState(null)
+  const [cycleMonth, setCycleMonth] = useState(0)
+  const [eduPhase, setEduPhase] = useState(null)
   const [woEnv, setWoEnv] = useState("gym")
   const [recoveryOpen, setRecoveryOpen] = useState(null)
   const [recoveryDone, setRecoveryDone] = useState(false)
@@ -2127,6 +2154,131 @@ export default function App() {
             <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 8 }}>You never fall behind — you only meet today where it is.</div>
           </div>
           <div style={{ height: 18 }} />
+        </div>
+      )
+    }
+
+    if (tab === "body" && bodyView === "cycle") {
+      const setup = cycleNow != null
+      const now = new Date()
+      const viewDate = new Date(now.getFullYear(), now.getMonth() + cycleMonth, 1)
+      const monthLabel = viewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+      const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)
+      const startWeekday = (firstDay.getDay() + 6) % 7 // Mon=0
+      const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate()
+      const todayISOstr = now.toISOString().slice(0, 10)
+      const cells = []
+      for (let i = 0; i < startWeekday; i++) cells.push(null)
+      for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewDate.getFullYear(), viewDate.getMonth(), d))
+      const cur = cycleNow ? CYCLE_PHASES[cycleNow.phase] : null
+
+      if (!setup) {
+        return (
+          <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+            <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", marginBottom: 18, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", right: -24, top: -24, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
+              <div style={{ fontSize: 30 }}>🌙</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginTop: 6 }}>Understand your rhythm. Support your body.</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", marginTop: 6, fontStyle: "italic" }}>Your cycle is information — not a limitation.</div>
+            </div>
+            <div style={{ textAlign: "center", padding: "26px 20px", borderRadius: 18, background: BASE.surface, border: "1px dashed " + BASE.border }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: BASE.cream, marginBottom: 8 }}>Set up your cycle</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 16 }}>Add your typical cycle length and the start date of your last period, and Cycle will map your phases. This stays private and is only ever context — never a limit.</div>
+              <button onClick={() => { setMoreView("root"); setTab("more") }} style={{ padding: "12px 20px", borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", fontSize: 13.5, fontWeight: 700 }}>Set up in Settings</button>
+            </div>
+          </div>
+        )
+      }
+
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div style={{ borderRadius: 22, padding: "24px 22px", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", marginBottom: 18, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", right: -24, top: -24, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
+            <div style={{ fontSize: 28 }}>🌙</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginTop: 4, lineHeight: 1.2 }}>Understand your rhythm. Support your body.</div>
+            <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.92)", marginTop: 6, fontStyle: "italic" }}>Your cycle is information — not a limitation.</div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <button onClick={() => setCycleMonth(cycleMonth - 1)} style={{ background: "none", border: "none", cursor: "pointer", color: BASE.taupe, fontSize: 18, padding: "0 8px" }}>{"\u2039"}</button>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, color: BASE.cream }}>{monthLabel}</div>
+            <button onClick={() => setCycleMonth(cycleMonth + 1)} style={{ background: "none", border: "none", cursor: "pointer", color: BASE.taupe, fontSize: 18, padding: "0 8px" }}>{"\u203a"}</button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 8 }}>
+            {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (<div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: BASE.taupe }}>{d}</div>))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 14 }}>
+            {cells.map((cell, i) => {
+              if (!cell) return <div key={i} />
+              const iso = cell.toISOString().slice(0, 10)
+              const c = computeCycle(cycleLength, lastPeriod, cell)
+              const ph = c ? CYCLE_PHASES[c.phase] : null
+              const isToday = iso === todayISOstr
+              return (
+                <div key={i} style={{ aspectRatio: "1", borderRadius: 9, background: ph ? ph.soft : "transparent", border: isToday ? "2px solid " + (ph ? ph.color : "#C9558E") : "1px solid transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                  <div style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: ph ? ph.color : BASE.taupe }}>{cell.getDate()}</div>
+                  {c && <div style={{ fontSize: 7.5, color: ph.color, opacity: 0.8 }}>d{c.day}</div>}
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18, justifyContent: "center" }}>
+            {CYCLE_PHASE_ORDER.map((k) => { const ph = CYCLE_PHASES[k]; return (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: ph.color }} /><span style={{ fontSize: 10.5, color: BASE.taupe }}>{ph.name.replace(" Phase", "")}</span></div>
+            )})}
+          </div>
+
+          <div style={{ borderRadius: 18, background: cur.soft, border: "1px solid " + cur.color, padding: "18px 20px", marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: cur.color, textTransform: "uppercase" }}>Cycle Day {cycleNow.day}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: BASE.cream, margin: "2px 0 8px" }}>{cur.emoji} {cur.name}</div>
+            <div style={{ fontSize: 13.5, color: BASE.cream, lineHeight: 1.5, marginBottom: 12 }}>{cur.insight}</div>
+            {cur.suggestions.map((sg, i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cur.color }} /><span style={{ fontSize: 12.5, color: BASE.creamDim }}>{sg}</span></div>))}
+          </div>
+
+          {cycleNow.phase === "menstrual" && cycleNow.day <= 2 && (
+            <div style={{ borderRadius: 18, background: "linear-gradient(135deg,rgba(201,123,168,0.14),rgba(126,94,158,0.14))", border: "1px solid rgba(201,123,168,0.3)", padding: "18px 20px", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><span style={{ fontSize: 20 }}>🍫</span><span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: BASE.cream }}>A Little Comfort</span></div>
+              <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.55, marginBottom: 10 }}>Your body is asking for care today. Enjoyment and nourishment can both be part of wellness.</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>{["A favorite sweet treat", "A warm drink", "A comfort meal"].map((it, i) => (<span key={i} style={{ fontSize: 11.5, color: "#B36B93", background: "rgba(201,123,168,0.12)", padding: "5px 11px", borderRadius: 999 }}>{it}</span>))}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: "#B36B93" }}>Pleasure is part of taking care of yourself.</div>
+            </div>
+          )}
+
+          <div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 18px", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><span style={{ fontSize: 16 }}>🔄</span><span style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>Your cycle is one piece of your capacity picture.</span></div>
+            <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>Sleep, stress, motherhood, work, life demands, and recovery all matter too. Cycle offers context — but you always choose your capacity for the day. Nothing here is assigned for you.</div>
+          </div>
+
+          <div style={{ borderRadius: 16, background: "rgba(168,123,209,0.06)", border: "1px dashed rgba(168,123,209,0.3)", padding: "16px 18px", marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#A87BD1", textTransform: "uppercase", marginBottom: 5 }}>Learning your patterns</div>
+            <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>As you check in over time, New Ray will gently notice your personal energy trends across cycles — like when you tend to feel your best, or when a little extra support helps. This is reflection, never prediction or diagnosis.</div>
+          </div>
+
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Understand each phase</div>
+          <div style={{ fontSize: 12.5, color: BASE.taupe, marginBottom: 14 }}>Tap any phase to learn what's happening and how to support yourself.</div>
+          {CYCLE_PHASE_ORDER.map((k) => {
+            const ph = CYCLE_PHASES[k]
+            const open = eduPhase === k
+            return (
+              <div key={k} style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + (open ? ph.color : BASE.border), marginBottom: 10, overflow: "hidden" }}>
+                <div onClick={() => setEduPhase(open ? null : k)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", cursor: "pointer" }}>
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: ph.color }} />
+                  <div style={{ flex: 1 }}><div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{ph.emoji} {ph.name}</div><div style={{ fontSize: 11, color: BASE.taupe }}>{ph.meaning}</div></div>
+                  <span style={{ color: BASE.taupe }}>{open ? "\u2212" : "+"}</span>
+                </div>
+                {open && (
+                  <div className="fade-in" style={{ padding: "0 16px 16px" }}>
+                    {ph.edu.map(([sec, body], i) => (<div key={i} style={{ marginBottom: 10 }}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: ph.color, textTransform: "uppercase", marginBottom: 3 }}>{sec}</div><div style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.5 }}>{body}</div></div>))}
+                    <div style={{ borderRadius: 10, background: ph.soft, padding: "10px 13px", marginTop: 4 }}><div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14, color: BASE.cream }}>{ph.message}</div></div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "8px 0 20px", lineHeight: 1.6 }}>Cycle context can appear in Train and Nourish over time — but your capacity always decides today. You can always train.</div>
+          <div style={{ height: 10 }} />
         </div>
       )
     }
