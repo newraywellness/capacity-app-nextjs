@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import Head from 'next/head'
 import { createClient } from '@supabase/supabase-js'
 
@@ -1231,6 +1231,7 @@ export default function App() {
   const [bloomNotes, setBloomNotes] = useState({})
   const [bloomSection, setBloomSection] = useState("appearance")
   const [bloomCard, setBloomCard] = useState(null)
+  const bloomScrollY = useRef(0)
   const [ctxOpen, setCtxOpen] = useState(false)
   const [editLife, setEditLife] = useState(null)
   const [programId, setProgramId] = useState(null)
@@ -1266,12 +1267,16 @@ export default function App() {
   useEffect(() => { checkAuth() }, [])
 
   useEffect(() => {
-    // When a Bloom card is open, lock background scroll so the panel stays centered in view.
+    // When a Bloom card is open, lock background scroll so the panel stays in view.
     if (typeof document === "undefined") return
     if (bloomCard || editCycle) {
       const prev = document.body.style.overflow
       document.body.style.overflow = "hidden"
-      return () => { document.body.style.overflow = prev }
+      return () => {
+        document.body.style.overflow = prev
+        // Return the user to exactly where they were when they opened a card.
+        if (!editCycle) { try { window.scrollTo({ top: bloomScrollY.current, behavior: "auto" }) } catch (e) {} }
+      }
     }
   }, [bloomCard, editCycle])
 
@@ -2987,7 +2992,7 @@ export default function App() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingBottom: 24 }}>
               {sec.cards.map((card, i) => (
-                <div key={i} onClick={() => { setBloomCard(card); try { window.scrollTo({ top: 0, behavior: "auto" }) } catch (e) {} }} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)", cursor: "pointer" }}>
+                <div key={i} onClick={() => { try { bloomScrollY.current = window.scrollY || 0 } catch (e) {} setBloomCard(card); try { window.scrollTo({ top: 0, behavior: "auto" }) } catch (e) {} }} style={{ borderRadius: 18, overflow: "hidden", aspectRatio: "1.35", background: sec.grad, position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 15px", boxShadow: "0 6px 18px rgba(180,130,170,0.16)", cursor: "pointer" }}>
                   <div style={{ position: "absolute", top: 12, right: 13, fontSize: 26, opacity: 0.9 }}>{card.ic}</div>
                   <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,transparent 40%,rgba(0,0,0,0.12))" }} />
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: "#fff", position: "relative", textShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>{card.n}</div>
