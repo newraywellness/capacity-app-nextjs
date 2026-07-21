@@ -2998,8 +2998,8 @@ export default function App() {
           </div>
 
           {bloomCard && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.5)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 14px", overflowY: "auto" }} onClick={() => setBloomCard(null)}>
-              <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, maxHeight: "86vh", overflowY: "auto", background: "#FFF9F5", borderRadius: 28, boxShadow: "0 20px 50px rgba(60,37,69,0.35)" }}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.5)", zIndex: 60, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "12px 14px 20px", overflowY: "auto" }} onClick={() => setBloomCard(null)}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, marginTop: 8, background: "#FFF9F5", borderRadius: 28, boxShadow: "0 20px 50px rgba(60,37,69,0.35)" }}>
                 <div style={{ position: "relative", padding: "34px 24px 26px", background: sec.grad, overflow: "hidden", borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
                   <div style={{ position: "absolute", top: -16, right: -10, fontSize: 80, opacity: 0.16 }}>🌸</div>
                   <div onClick={() => setBloomCard(null)} style={{ position: "absolute", top: 16, right: 18, width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 16 }}>{"\u2715"}</div>
