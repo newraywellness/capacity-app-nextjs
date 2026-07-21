@@ -340,12 +340,16 @@ const WORKOUT_TEMPLATES = {
     { pattern: "glute", role: "primary" }, { pattern: "squat", role: "accessory" },
     { pattern: "hipstab", role: "accessory" }, { pattern: "deepcore", role: "core" }, { pattern: "corestab", role: "core" } ] },
   // ---- JUST MOVE (<= ~20 min, low decisions) ----
-  "move:simple": { title: "Simple Strength", focus: "One full-body move + a couple easy exercises", cap: 20, slots: [
-    { pattern: "squat", role: "primary" }, { pattern: "push", role: "accessory" }, { pattern: "glute", role: "accessory" } ] },
-  "move:walk": { title: "Walk + Move", focus: "Walking with a little gentle movement", cap: 20, slots: [
-    { pattern: "walk", role: "primary" }, { pattern: "mobility", role: "finisher" } ] },
-  "move:legs": { title: "Easy Lower Body", focus: "Simple leg movement", cap: 20, slots: [
-    { pattern: "squat", role: "primary" }, { pattern: "glute", role: "accessory" }, { pattern: "walk", role: "finisher" } ] },
+  "move:full": { title: "Full Body Express", focus: "A little of everything, in under 20 minutes", cap: 20, slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "push", role: "accessory" }, { pattern: "pull", role: "accessory" }, { pattern: "deepcore", role: "core" } ] },
+  "move:walk": { title: "Walk", focus: "Just a walk \u2014 that's the whole workout, and it counts", cap: 20, slots: [
+    { pattern: "walk", role: "primary" } ] },
+  "move:legs": { title: "Lower Body Express", focus: "Simple, gentle leg movement", cap: 20, slots: [
+    { pattern: "squat", role: "primary" }, { pattern: "glute", role: "accessory" }, { pattern: "hipstab", role: "optional" } ] },
+  "move:upper": { title: "Upper Body Express", focus: "Easy pressing and pulling", cap: 20, slots: [
+    { pattern: "push", role: "primary" }, { pattern: "pull", role: "primary" }, { pattern: "mobility", role: "finisher" } ] },
+  "move:glutes": { title: "Glutes + Core Express", focus: "Quick hip and core work", cap: 20, slots: [
+    { pattern: "glute", role: "primary" }, { pattern: "deepcore", role: "core" }, { pattern: "corestab", role: "optional" } ] },
   // ---- BALANCED STRENGTH ----
   "balanced:full": { title: "Full Body Strength", focus: "Balanced full-body session", slots: [
     { pattern: "squat", role: "primary" }, { pattern: "hinge", role: "primary" },
@@ -372,7 +376,7 @@ const PROGRAM_SCHEDULE = {
   foundations: ["foundations:full", "walk+mobility", "foundations:legs", "foundations:upper", "walk+recovery", "foundations:glutes", "recovery"],
   strength: ["strength:lowerA", "strength:upperA", "walk+mobility", "strength:lowerB", "strength:upperB", "strength:accessories", "recovery"],
   mama: ["mama:full", "walk+mobility", "mama:legs", "mama:upper", "walk", "mama:glutes", "recovery"],
-  move: ["move:simple", "move:walk", "move:legs", "move:walk", "move:simple", "move:walk", "recovery"],
+  move: ["move:full", "move:walk", "move:legs", "move:upper", "walk+mobility", "move:glutes", "recovery"],
   balanced: ["balanced:full", "walk+mobility", "balanced:legs", "balanced:upper", "balanced:conditioning", "balanced:glutes", "recovery"],
 }
 // Progression philosophy per program (shown to user; drives future load/rep logic).
@@ -584,6 +588,7 @@ const PROGRAM_EXERCISE_PREF = {
   mama: ["360 breathing", "Dead bug", "Bird dog", "Heel slides", "Glute bridge", "Sit-to-stand squat", "Bodyweight squat", "Step ups", "Seated row machine", "Chest press machine", "Lat pulldown", "Farmer carry", "Side-lying leg raise", "Hip abduction machine", "Band row", "Modified plank", "Dumbbell hip thrust"],
   balanced: ["Goblet squat", "Leg press", "Dumbbell Romanian deadlift", "Hip thrust machine", "Lateral lunges", "Step ups", "Chest press machine", "Dumbbell press", "Lat pulldown", "Seated row machine", "Shoulder press", "Farmer carry", "Band Pallof press", "Cable Pallof press", "Full plank", "Dead bug", "Bird dog", "Easy walk", "Mobility flow"],
   strength: ["Barbell back squat", "Goblet squat", "Leg press", "Barbell Romanian deadlift", "Dumbbell Romanian deadlift", "Barbell hip thrust", "Hip thrust machine", "Step ups", "Dumbbell press", "Bench press", "Chest press machine", "Lat pulldown", "Seated row machine", "Dumbbell row", "Shoulder press", "Farmer carry", "Cable Pallof press", "Full plank", "Easy walk"],
+  move: ["Easy walk", "Indoor walking intervals", "Chair squat", "Sit-to-stand squat", "Bodyweight squat", "Glute bridge", "Bird dog", "Dead bug", "Band row", "Wall pushup", "Incline pushup", "Step ups", "Band lateral walks", "Farmer carry", "Shoulder press", "Mobility flow", "Recovery stretch", "360 breathing"],
 }
 const pickExercise = (patternId, env, idx, progId) => {
   const bank = EXERCISES[patternId]
@@ -688,6 +693,7 @@ const COMPLETION = {
   mama: { title: "You're ready for your next chapter.", weeksWord: "Ten weeks", message: "Ten weeks of honoring your body while it rebuilt. You reconnected, grew stronger, and did it with patience. That strength is yours.", paths: [["Repeat Strong Mama Rebuild", "Move through the rebuild again, meeting your body where it is now.", "self"], ["Begin Strong Foundations", "Step into structured strength training with confidence.", "foundations"], ["Begin Balanced Strength", "Strength, mobility, and conditioning for the long run.", "balanced"], ["Choose another path", "Browse all the New Ray programs.", null]] },
   balanced: { title: "Strength is part of your life now.", weeksWord: "Eight weeks", message: "You've built a body that supports your life. Keep growing in the direction that excites you most \u2014 this is a way of living, not a finish line.", paths: [["Repeat Balanced Strength", "Keep the sustainable rhythm going, a little stronger.", "self"], ["Begin Build Strength", "Ready for more? Step into progressive lifting.", "strength"], ["Return to Strong Foundations", "Revisit the fundamentals anytime.", "foundations"], ["Explore another path", "Browse all the New Ray programs.", null]] },
   strength: { title: "Look how far you've come.", weeksWord: "Twelve weeks", message: "You're stronger than when you began \u2014 in more ways than one. Twelve weeks of showing up, lifting with intention, and trusting the process. This strength is yours.", paths: [["Repeat Build Strength", "Run it back with heavier progressive overload.", "self"], ["Move into Balanced Strength", "Shift toward sustainable, balanced training.", "balanced"], ["Return to Strong Foundations", "Revisit the fundamentals anytime.", "foundations"], ["Explore another path", "Browse all the New Ray programs.", null]] },
+  move: { title: "You kept moving forward.", weeksWord: "Six weeks", message: "Momentum is one of the strongest things you can build \u2014 and you built it, one gentle day at a time. However busy life got, you kept showing up. That's everything.", paths: [["Repeat Just Move", "Keep your momentum going, gently.", "self"], ["Begin Strong Foundations", "Ready to build? Step into structured strength.", "foundations"], ["Begin Balanced Strength", "Sustainable strength for everyday life.", "balanced"], ["Explore another path", "Browse all the New Ray programs.", null]] },
 }
 const PROGRAM_PHASES = {
   foundations: [
@@ -710,6 +716,11 @@ const PROGRAM_PHASES = {
     { name: "Build Strength", weeks: [5, 8], level: "intermediate", goal: "Progressive overload \u2014 add load and intensity intentionally.", emphasis: "Now we grow: add weight or reps each week while protecting your form.", repBias: 1, addWeight: true, coach: "Excellent control. Now let's grow from here \u2014 progress is measured one workout at a time." },
     { name: "Lift Strong", weeks: [9, 12], level: "advanced", goal: "Power, control, and long-term strength.", emphasis: "Become stronger without sacrificing movement quality. This is confident, capable lifting.", repBias: 2, addWeight: true, coach: "Look how strong you've become. Your future strength is built by today's consistency." },
   ],
+  move: [
+    { name: "Start Moving", weeks: [1, 2], level: "beginner", goal: "Create momentum with simple movement and walking.", emphasis: "Just start. Walking and easy movement, building the habit of showing up.", repBias: 0, coach: "You made it here today. That's enough to begin." },
+    { name: "Build Routine", weeks: [3, 4], level: "beginner", goal: "Settle into a gentle, consistent rhythm.", emphasis: "Light strength, mobility, and a little more energy. Small steps become strong habits.", repBias: 0, coach: "Small steps become strong habits. Movement is an act of caring for yourself." },
+    { name: "Ready for More", weeks: [5, 6], level: "beginner", goal: "Grow confidence and prepare for whatever comes next.", emphasis: "Slightly longer sessions and a touch more strength. You can absolutely keep going.", repBias: 1, coach: "Look what you've built. You can absolutely keep going." },
+  ],
 }
 // Per-program coaching overlays (gentler for Mama). Falls back to COACH_LINES.
 const PROGRAM_COACH_LINES = {
@@ -730,6 +741,12 @@ const PROGRAM_COACH_LINES = {
     yellow: ["We've kept your main lifts and trimmed the rest.", "Smart training protects the big lifts on lighter days.", "Strength is earned through patience \u2014 today counts."],
     red: ["Just the highest-value lifts today. That's real training.", "Come back stronger \u2014 backing off today is strategy, not weakness.", "Strong women aren't built by grinding through every day."],
     recovery: ["Strength is built through recovery as much as training.", "Your muscles grow on days like today.", "Rest is part of the program, and it's making you stronger."],
+  },
+  move: {
+    green: ["You made it here today. That's enough to begin.", "Small steps become strong habits.", "Movement is an act of caring for yourself."],
+    yellow: ["You don't have to do everything. Just this next movement.", "This counts. Every bit of it counts.", "Showing up is the whole win today."],
+    red: ["The hardest part was showing up, and you already did.", "One or two gentle movements is a complete day here.", "This counts. You kept your momentum alive."],
+    recovery: ["A walk and some breathing is a real, complete day.", "Moving gently forward is exactly the point.", "You kept going. That's the strongest thing you can do."],
   },
 }
 const phaseFor = (progId, week) => {
