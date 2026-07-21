@@ -1107,6 +1107,21 @@ export default function App() {
   useEffect(() => { checkAuth() }, [])
 
   useEffect(() => {
+    // Instant capacity restore from local cache (only if it's still today), before Supabase responds.
+    try {
+      const raw = localStorage.getItem("nr_today_cap")
+      if (raw) {
+        const cached = JSON.parse(raw)
+        const today = new Date().toISOString().slice(0, 10)
+        if (cached && cached.date === today && typeof cached.pct === "number") {
+          setPct(cached.pct)
+          setCheckedIn(true)
+        }
+      }
+    } catch (e) {}
+  }, [])
+
+  useEffect(() => {
     if (restLeft <= 0) return
     const t = setTimeout(() => setRestLeft((n) => n - 1), 1000)
     return () => clearTimeout(t)
@@ -1147,8 +1162,15 @@ export default function App() {
           } else if (p.data.first_name) {
             setFirstName(p.data.first_name)
           }
+          // Cross-device program restore (profile wins over local if present)
+          if (p.data.program) {
+            setProgramId(p.data.program)
+            if (p.data.program_start) setProgramStart(p.data.program_start)
+            try { localStorage.setItem("nr_program", p.data.program); if (p.data.program_start) localStorage.setItem("nr_program_start", p.data.program_start) } catch (e) {}
+          }
         }
         await loadHistory(u.id)
+        await loadWorkouts(u.id)
       }
     } catch (err) { console.log(err) }
     setLoading(false)
@@ -1166,7 +1188,32 @@ export default function App() {
       supports: Array.isArray(d.supports) ? d.supports : [],
     })))
     const today = new Date().toISOString().slice(0, 10)
-    if (rows.some((d) => d.date === today)) setCheckedIn(true)
+    const todayRow = rows.find((d) => d.date === today)
+    if (todayRow) {
+      setCheckedIn(true)
+      setPct(todayRow.pct)
+      if (Array.isArray(todayRow.factors)) setFactors(todayRow.factors)
+      if (Array.isArray(todayRow.supports)) setSupports(todayRow.supports)
+      if (todayRow.one_thing) setOneThing(todayRow.one_thing)
+      try { localStorage.setItem("nr_today_cap", JSON.stringify({ date: today, pct: todayRow.pct })) } catch (e) {}
+    }
+  }
+
+  const loadWorkouts = async (uid) => {
+    try {
+      const { data } = await db.from("workouts").select("*").eq("user_id", uid).order("date", { ascending: true })
+      if (!data) return
+      const remote = data.map((w) => ({ date: w.date, type: w.workout_type, color: w.color, program: w.program, sets: w.sets_done }))
+      // Merge: remote is source of truth per date; keep any local-only dates too.
+      let local = []
+      try { local = JSON.parse(localStorage.getItem("nr_workout_log") || "[]") } catch (e) {}
+      const byDate = {}
+      local.forEach((w) => { byDate[w.date] = w })
+      remote.forEach((w) => { byDate[w.date] = w })
+      const merged = Object.values(byDate).sort((a, b) => (a.date < b.date ? -1 : 1))
+      setWoLog(merged)
+      try { localStorage.setItem("nr_workout_log", JSON.stringify(merged)) } catch (e) {}
+    } catch (e) {}
   }
 
   const handleLogin = async () => {
@@ -1217,6 +1264,20 @@ export default function App() {
 
   const toggle = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v])
 
+  // Persist program selection: localStorage (instant) + profile (cross-device). Pass null to clear.
+  const persistProgram = (pid) => {
+    const iso = new Date().toISOString().slice(0, 10)
+    if (pid) {
+      setProgramId(pid); setProgramStart(iso)
+      try { localStorage.setItem("nr_program", pid); localStorage.setItem("nr_program_start", iso) } catch (e) {}
+      if (user && db) { try { db.from("profiles").update({ program: pid, program_start: iso }).eq("id", user.id).then(() => {}) } catch (e) {} }
+    } else {
+      setProgramId(null)
+      try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {}
+      if (user && db) { try { db.from("profiles").update({ program: null, program_start: null }).eq("id", user.id).then(() => {}) } catch (e) {} }
+    }
+  }
+
   const saveCheckin = async () => {
     setSaving(true); setSaveErr("")
     const color = colorFromPct(pct)
@@ -1228,6 +1289,7 @@ export default function App() {
     setSaving(false)
     if (error) { setSaveErr(error.message); return }
     setCheckedIn(true)
+    try { localStorage.setItem("nr_today_cap", JSON.stringify({ date: today, pct })) } catch (e) {}
     await loadHistory(user.id)
   }
 
@@ -1689,7 +1751,7 @@ export default function App() {
     if (tab === "body" && bodyView === "gym" && !programId && detailProgram) {
       const p = PROG_BY_ID(detailProgram)
       const DAYNAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-      const chooseIt = () => { const iso = new Date().toISOString().slice(0,10); setProgramId(p.id); setProgramStart(iso); setDetailProgram(null); try { localStorage.setItem("nr_program", p.id); localStorage.setItem("nr_program_start", iso) } catch (e) {} }
+      const chooseIt = () => { persistProgram(p.id); setDetailProgram(null) }
       const Chip = ({ children }) => (<span style={{ display: "inline-block", padding: "6px 12px", borderRadius: 999, background: "rgba(168,123,209,0.1)", color: BASE.creamDim, fontSize: 12, fontWeight: 600, margin: "0 6px 6px 0" }}>{children}</span>)
       const Stat = ({ label, value }) => (<div style={{ flex: "1 0 45%", marginBottom: 12 }}><div style={{ fontSize: 10, letterSpacing: 1.5, color: BASE.taupe, textTransform: "uppercase" }}>{label}</div><div style={{ fontSize: 13.5, color: BASE.cream, fontWeight: 600, marginTop: 2 }}>{value}</div></div>)
       const capRows = [["Green", "Full programmed workout.", "#7FA054"], ["Yellow", "Reduced volume while keeping your progress.", "#D08F2E"], ["Red", "Simplified movement to keep consistency.", "#D65C4E"], ["Recovery", "Intentional rest, still connected to the program.", "#A87BD1"]]
@@ -1771,7 +1833,7 @@ export default function App() {
                 <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 14 }}><b style={{ color: BASE.cream }}>Equipment:</b> {p.equip}</div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setDetailProgram(p.id)} style={{ flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + BASE.border, background: "transparent", color: BASE.creamDim, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Learn More</button>
-                  <button onClick={() => { const iso = new Date().toISOString().slice(0,10); setProgramId(p.id); setProgramStart(iso); try { localStorage.setItem("nr_program", p.id); localStorage.setItem("nr_program_start", iso) } catch (e) {} }} style={{ flex: 1, padding: 12, borderRadius: 12, border: "none", cursor: "pointer", background: p.grad, color: "#fff", fontSize: 13, fontWeight: 700 }}>Choose</button>
+                  <button onClick={() => persistProgram(p.id)} style={{ flex: 1, padding: 12, borderRadius: 12, border: "none", cursor: "pointer", background: p.grad, color: "#fff", fontSize: 13, fontWeight: 700 }}>Choose</button>
                 </div>
               </div>
             </div>
@@ -1826,7 +1888,7 @@ export default function App() {
               </div>
               <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 12 }}>Where to next</div>
               {done.paths.map(([t, d, target], i) => (
-                <div key={i} onClick={() => { const tgt = target === "self" ? programId : target; if (tgt) { const iso = new Date().toISOString().slice(0,10); setProgramId(tgt); setProgramStart(iso); try { localStorage.setItem("nr_program", tgt); localStorage.setItem("nr_program_start", iso) } catch (e) {} } else { setProgramId(null); try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {} } }} style={{ padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, cursor: "pointer" }}>
+                <div key={i} onClick={() => { const tgt = target === "self" ? programId : target; persistProgram(tgt || null) }} style={{ padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, cursor: "pointer" }}>
                   <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{t}</div>
                   <div style={{ fontSize: 12, color: BASE.taupe, marginTop: 2, lineHeight: 1.4 }}>{d}</div>
                 </div>
@@ -1932,7 +1994,7 @@ export default function App() {
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setTrainView("library")} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Exercise Library</button>
             <button onClick={() => { setTab("progress"); setProgressView("workouts") }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>History</button>
-            <button onClick={() => { if (confirm("Change your program? Your progress in the current one is kept, but a new program starts today.")) { setProgramId(null); try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {} } }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Change Program</button>
+            <button onClick={() => { if (confirm("Change your program? Your progress in the current one is kept, but a new program starts today.")) { persistProgram(null) } }} style={{ flex: 1, padding: 11, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>Change Program</button>
           </div>
         </div>
       )
@@ -2308,10 +2370,19 @@ export default function App() {
         return woLog.some((w) => w.date === iso)
       }
       const finishWorkout = () => {
-        const entry = { date: todayISO, type: woType, color: gymColor }
+        const entry = { date: todayISO, type: woType, color: gymColor, program: programId, sets: doneSets }
         const next = [...woLog.filter((w) => w.date !== todayISO), entry]
         setWoLog(next); setWoLogged(true)
         try { localStorage.setItem("nr_workout_log", JSON.stringify(next)) } catch (e) {}
+        // Cross-device sync (best-effort; localStorage stays the instant layer)
+        if (user && db) {
+          try {
+            db.from("workouts").upsert(
+              { user_id: user.id, date: todayISO, program: programId, workout_type: woType, color: gymColor, sets_done: doneSets },
+              { onConflict: "user_id,date" }
+            ).then(() => {})
+          } catch (e) {}
+        }
       }
       const totalSets = wo.exercises.reduce((a, e) => a + e.sets, 0)
       const doneSets = wo.exercises.reduce((a, e, i) => a + Array.from({ length: e.sets }).filter((_, sx) => woDone[setKey(i, sx)]).length, 0)
