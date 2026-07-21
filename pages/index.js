@@ -792,6 +792,37 @@ const coachData = (ex) => {
     hasVideo: false,
   }
 }
+// ============ NOURISH DATA (Phase 1: structure, not deep content) ============
+const NOURISH_CAP = {
+  green: { emoji: "🟢", label: "Green Day", line: "I have time and energy to support myself.", focus: "A balanced plate with protein, color, and something you enjoy.", prep: "Full prep welcome", reminder: "Great day to cook a little extra for tomorrow." },
+  yellow: { emoji: "🟡", label: "Yellow Day", line: "I can make intentional choices, but I need simplicity.", focus: "One solid meal, protein first, keep the rest easy.", prep: "Light prep", reminder: "Simple still counts. Reach for what's already easy." },
+  red: { emoji: "🔴", label: "Red Day", line: "I need nourishment with minimal effort.", focus: "Anything with protein and water. Assembled, not cooked.", prep: "No cooking needed", reminder: "Fed is the goal today. That is enough." },
+  recovery: { emoji: "🌙", label: "Recovery Day", line: "My body needs gentle support.", focus: "Hydration, easy nourishing foods, a little extra care.", prep: "Gentle & easy", reminder: "Water, protein, and rest. Your body is rebuilding." },
+}
+const FOOD_PATHS = [
+  { id: "strength", emoji: "✨", name: "Build Strength", tag: "Support muscle growth and training.", grad: "linear-gradient(135deg,#E984B4,#A54E86)" },
+  { id: "fatloss", emoji: "🌱", name: "Fat Loss Support", tag: "Understand sustainable nutrition and body composition.", grad: "linear-gradient(135deg,#9CC79A,#6E9E6B)" },
+  { id: "mama", emoji: "🤱", name: "Strong Mama", tag: "Support postpartum recovery and busy seasons.", grad: "linear-gradient(135deg,#F0B7D4,#C97BA8)" },
+  { id: "energy", emoji: "⚡", name: "Energy", tag: "Support balanced meals, hydration, and daily energy.", grad: "linear-gradient(135deg,#F0C879,#D8A94E)" },
+  { id: "simple", emoji: "🏡", name: "Simple Nourishment", tag: "Realistic, low-complexity meals for real life.", grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)" },
+]
+const MACROS = [
+  { emoji: "🥩", name: "Protein", supports: ["Muscle repair", "Strength", "Fullness", "Recovery"] },
+  { emoji: "🍠", name: "Carbohydrates", supports: ["Energy", "Training performance", "Brain function"] },
+  { emoji: "🥑", name: "Fats", supports: ["Hormones", "Nutrient absorption", "Satisfaction"] },
+  { emoji: "🔥", name: "Calories", supports: ["Understanding energy balance", "Maintenance", "Gaining", "Losing"] },
+]
+const SUPPLEMENTS = [
+  { emoji: "✨", name: "Creatine" }, { emoji: "✨", name: "Protein Powder" }, { emoji: "✨", name: "Electrolytes" }, { emoji: "✨", name: "Magnesium" },
+  { emoji: "✨", name: "Vitamin D" }, { emoji: "✨", name: "Omega-3" }, { emoji: "✨", name: "Fiber" }, { emoji: "✨", name: "Collagen" },
+]
+const NOURISH_PROGRAM_MSG = {
+  foundations: "Build the nutrition habits that support your strength journey.",
+  strength: "Support your training with enough fuel and recovery.",
+  mama: "Support your body while it rebuilds.",
+  move: "Simple nourishment keeps momentum alive.",
+  balanced: "Fuel a sustainable, healthy lifestyle.",
+}
 const PROG_BY_ID = (id) => PROGRAMS.find((p) => p.id === id) || PROGRAMS[0]
 // Deterministic schedule: days since program start -> week + weekday -> workout type
 const progSchedule = (prog, startISO) => {
@@ -979,6 +1010,9 @@ export default function App() {
   const [detailProgram, setDetailProgram] = useState(null)
   const [libOpen, setLibOpen] = useState(null)
   const [libLevel, setLibLevel] = useState("beginner")
+  const [nourishView, setNourishView] = useState("home")
+  const [foodPath, setFoodPath] = useState(null)
+  const [suppOpen, setSuppOpen] = useState(null)
   const [woEnv, setWoEnv] = useState("gym")
   const [recoveryOpen, setRecoveryOpen] = useState(null)
   const [recoveryDone, setRecoveryDone] = useState(false)
@@ -1963,18 +1997,141 @@ export default function App() {
     }
 
     if (tab === "body" && bodyView === "nourish") {
+      const capKey = pct < 10 ? "recovery" : cur
+      const ncap = NOURISH_CAP[capKey]
+      const Pills = () => (
+        <div style={{ display: "flex", gap: 6, background: BASE.surface2, borderRadius: 999, padding: 4, marginBottom: 18 }}>
+          {[["home", "🍽 Home"], ["paths", "🍎 Food"], ["supps", "✨ Supps"], ["program", "💪 Program"]].map(([k, lbl]) => (
+            <button key={k} onClick={() => { setNourishView(k); setFoodPath(null); setSuppOpen(null) }} style={{ flex: 1, padding: "8px 3px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 11.5, fontWeight: 700, background: nourishView === k ? "#fff" : "transparent", color: nourishView === k ? "#C9558E" : BASE.taupe, boxShadow: nourishView === k ? "0 2px 8px rgba(120,80,130,0.12)" : "none" }}>{lbl}</button>
+          ))}
+        </div>
+      )
+      const SoftCard = ({ children, style }) => (<div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 17px", marginBottom: 12, ...style }}>{children}</div>)
+      const Placeholder = ({ label }) => (<div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", padding: "10px 0" }}>{label} — coming soon</div>)
+
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
-          <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#F0B77E,#D98A6A)", color: "#fff", boxShadow: "0 14px 32px rgba(200,130,90,0.3)", marginBottom: 18, position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", right: -24, top: -24, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
-            <div style={{ fontSize: 30 }}>🍽️</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, marginTop: 6 }}>Nourish</div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.5, marginTop: 4 }}>Simple, realistic food support that flexes with your capacity — not another diet to fail.</div>
-          </div>
-          <div style={{ textAlign: "center", padding: "30px 20px", borderRadius: 18, background: BASE.surface, border: `1px dashed ${BASE.border}` }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: BASE.cream, marginBottom: 8 }}>Coming next</div>
-            <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6 }}>Capacity-based eating support: what to reach for on a Red day, easy protein, real-life meal patterns — all in your nurse's voice, no calorie counting, ever.</div>
-          </div>
+          <Pills />
+
+          {nourishView === "home" && (
+            <>
+              <div style={{ borderRadius: 22, padding: "24px 22px", background: "linear-gradient(135deg,#F0B77E,#D98A6A)", color: "#fff", boxShadow: "0 14px 32px rgba(200,130,90,0.3)", marginBottom: 18, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: -24, top: -24, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
+                <div style={{ fontSize: 28 }}>🍽️</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 25, fontWeight: 700, marginTop: 4, lineHeight: 1.25 }}>Feed the version of you that showed up today.</div>
+                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.92)", marginTop: 8 }}>Your body needs fuel, not another set of rules.</div>
+              </div>
+
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, color: BASE.cream, marginBottom: 4 }}>What capacity do you have for nourishment today?</div>
+              <SoftCard style={{ borderLeft: "4px solid #D98A6A" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 22 }}>{ncap.emoji}</span>
+                  <div><div style={{ fontSize: 15, fontWeight: 700, color: BASE.cream }}>{ncap.label}</div><div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>{ncap.line}</div></div>
+                </div>
+              </SoftCard>
+
+              <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Today's Focus</div><div style={{ fontSize: 13.5, color: BASE.cream, lineHeight: 1.5 }}>{ncap.focus}</div></SoftCard>
+              <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Meal Support</div><Placeholder label="Capacity-based meal ideas" /></SoftCard>
+              <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Preparation Level</div><div style={{ fontSize: 13.5, color: BASE.cream }}>{ncap.prep}</div></SoftCard>
+              <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>A Helpful Reminder</div><div style={{ fontSize: 13.5, color: BASE.cream, fontStyle: "italic", lineHeight: 1.5 }}>{ncap.reminder}</div></SoftCard>
+            </>
+          )}
+
+          {nourishView === "paths" && !foodPath && (
+            <>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Food Paths</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 18 }}>Choose the focus that fits your season. Each path will hold your goal, nutrition focus, grocery and meal-prep support, and macro education.</div>
+              {FOOD_PATHS.map((p) => (
+                <div key={p.id} onClick={() => setFoodPath(p.id)} style={{ borderRadius: 18, overflow: "hidden", marginBottom: 12, cursor: "pointer", border: "1px solid " + BASE.border }}>
+                  <div style={{ background: p.grad, padding: "16px 18px", display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 26 }}>{p.emoji}</span>
+                    <div style={{ flex: 1 }}><div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: "#fff" }}>{p.name}</div><div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.92)" }}>{p.tag}</div></div>
+                    <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 20 }}>{"\u203a"}</span>
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, margin: "22px 0 4px" }}>Understand Your Nutrition</div>
+              <div style={{ fontSize: 12.5, color: BASE.taupe, marginBottom: 14 }}>Education, never tracking. Learn what each part of your plate does for you.</div>
+              {MACROS.map((m) => (
+                <SoftCard key={m.name}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}><span style={{ fontSize: 22 }}>{m.emoji}</span><span style={{ fontSize: 16, fontWeight: 700, color: BASE.cream }}>{m.name}</span></div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{m.supports.map((sp, i) => (<span key={i} style={{ fontSize: 11.5, color: BASE.creamDim, background: "rgba(233,132,180,0.1)", padding: "4px 10px", borderRadius: 999 }}>{sp}</span>))}</div>
+                </SoftCard>
+              ))}
+              <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "6px 0 18px" }}>A macro calculator can come later. This is understanding first.</div>
+            </>
+          )}
+
+          {nourishView === "paths" && foodPath && (() => {
+            const p = FOOD_PATHS.find((x) => x.id === foodPath)
+            return (
+              <div className="fade-in">
+                <div onClick={() => setFoodPath(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 12 }}>{"\u2039 All paths"}</div>
+                <div style={{ borderRadius: 20, padding: "22px 20px", background: p.grad, color: "#fff", marginBottom: 18 }}>
+                  <div style={{ fontSize: 32 }}>{p.emoji}</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginTop: 4 }}>{p.name}</div>
+                  <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.92)", marginTop: 2 }}>{p.tag}</div>
+                </div>
+                {["Your Goal", "Nutrition Focus", "Grocery Support", "Meal Prep Support", "Macro Education"].map((sec) => (
+                  <SoftCard key={sec}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>{sec}</div><Placeholder label={sec} /></SoftCard>
+                ))}
+              </div>
+            )
+          })()}
+
+          {nourishView === "supps" && !suppOpen && (
+            <>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Supplements</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 8 }}>Learn what supplements are, why people use them, and what questions to consider before adding them.</div>
+              <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", marginBottom: 16 }}>Education from a nurse's perspective — never medical advice.</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {SUPPLEMENTS.map((sp) => (
+                  <div key={sp.name} onClick={() => setSuppOpen(sp.name)} style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "18px 14px", textAlign: "center", cursor: "pointer" }}>
+                    <div style={{ fontSize: 24, marginBottom: 6 }}>{sp.emoji}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{sp.name}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {nourishView === "supps" && suppOpen && (
+            <div className="fade-in">
+              <div onClick={() => setSuppOpen(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 12 }}>{"\u2039 All supplements"}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, marginBottom: 16 }}>✨ {suppOpen}</div>
+              {["What it is", "Why people use it", "Potential benefits studied", "Common considerations", "When to discuss with a healthcare professional"].map((sec) => (
+                <SoftCard key={sec}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>{sec}</div><Placeholder label={sec} /></SoftCard>
+              ))}
+              <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "6px 0 18px", lineHeight: 1.6 }}>New Ray shares education, not prescriptions. Always talk with your own provider before starting a supplement.</div>
+            </div>
+          )}
+
+          {nourishView === "program" && (
+            <>
+              {programId ? (() => {
+                const prog = PROG_BY_ID(programId)
+                return (
+                  <>
+                    <div style={{ borderRadius: 20, padding: "22px 20px", background: prog.grad, color: "#fff", marginBottom: 18 }}>
+                      <div style={{ fontSize: 30 }}>{prog.emoji}</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, marginTop: 4 }}>{prog.name}</div>
+                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.94)", lineHeight: 1.5, marginTop: 6 }}>{NOURISH_PROGRAM_MSG[programId]}</div>
+                    </div>
+                    {["Nutrition for this program", "How much to eat", "Timing around workouts", "Recovery support"].map((sec) => (
+                      <SoftCard key={sec}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>{sec}</div><Placeholder label={sec} /></SoftCard>
+                    ))}
+                  </>
+                )
+              })() : (
+                <div style={{ textAlign: "center", padding: "30px 20px", borderRadius: 18, background: BASE.surface, border: "1px dashed " + BASE.border }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: BASE.cream, marginBottom: 8 }}>Choose a program first</div>
+                  <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 16 }}>Your nutrition guidance follows your Train program. Pick one and it'll show up here.</div>
+                  <button onClick={() => { setBodyView("gym") }} style={{ padding: "12px 20px", borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 13.5, fontWeight: 700 }}>Go to Train</button>
+                </div>
+              )}
+            </>
+          )}
+          <div style={{ height: 20 }} />
         </div>
       )
     }
@@ -2114,7 +2271,7 @@ export default function App() {
           <div style={{ padding: "20px 20px", borderRadius: 22, background: HERO_GRAD[gymColor], marginBottom: 16, boxShadow: `0 10px 26px rgba(${THEMES[gymColor].glow},0.35)`, position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", right: -30, top: -30, width: 140, height: 140, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
-              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.85)" }}>{THEMES[gymColor].label} \u00b7 {wo.title}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.85)" }}>{THEMES[gymColor].label} · {wo.title}</span>
               <span style={{ fontSize: 11.5, fontWeight: 800, color: "#FFFFFF", background: "rgba(255,255,255,0.22)", padding: "5px 12px", borderRadius: 999 }}>~{Math.max(15, wo.exercises.length * 6)} min</span>
             </div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: "#FFFFFF", margin: "10px 0 4px", lineHeight: 1.1, position: "relative" }}>{wo.title}</div>
