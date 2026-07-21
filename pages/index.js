@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import Head from 'next/head'
 import { createClient } from '@supabase/supabase-js'
 
@@ -3013,8 +3014,8 @@ export default function App() {
             <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", padding: "0 20px 20px", lineHeight: 1.6 }}>Tap any card to open it. This is an inspiration library — never a checklist.</div>
           </div>
 
-          {bloomCard && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.4)", zIndex: 60, opacity: bloomOpen ? 1 : 0, transition: "opacity 0.35s ease" }} onClick={closeBloom}>
+          {bloomCard && typeof document !== "undefined" && createPortal(
+            <div style={{ position: "fixed", inset: 0, background: "rgba(60,37,69,0.4)", zIndex: 9999, opacity: bloomOpen ? 1 : 0, transition: "opacity 0.35s ease" }} onClick={closeBloom}>
               <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, margin: "0 auto", maxWidth: 440, background: "#FFF9F5", overflowY: "auto", boxShadow: "0 0 60px rgba(60,37,69,0.25)", display: "flex", flexDirection: "column", transform: bloomOpen ? "translateY(0)" : "translateY(100%)", transition: "transform 0.4s cubic-bezier(0.22,0.61,0.36,1)" }}>
                 <div style={{ position: "relative", padding: "44px 24px 30px", background: sec.grad, overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: -16, right: -10, fontSize: 90, opacity: 0.16 }}>🌸</div>
@@ -3050,7 +3051,8 @@ export default function App() {
                   <button onClick={closeBloom} style={{ width: "100%", marginTop: 22, padding: "14px", borderRadius: 14, border: "none", cursor: "pointer", background: sec.grad, color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: 0.3 }}>Back to Bloom</button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       )
