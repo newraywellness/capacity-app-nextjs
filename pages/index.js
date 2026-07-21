@@ -868,6 +868,27 @@ const NOURISH_PROGRAM_MSG = {
   move: "Small choices create momentum.",
   balanced: "Build a sustainable relationship with movement and food.",
 }
+// Nourish: Timing & Recovery education (shared across programs).
+const NOURISH_TIMING = {
+  title: "Fueling Before & After Your Sessions",
+  intro: "Nutrition can support your movement without rigid rules or perfection. Fuel needs vary with intensity, timing, preference, and capacity \u2014 some sessions feel better with fuel beforehand, others need no extra planning.",
+  cards: [
+    { emoji: "🔋", title: "Before Your Workout", goal: "Support energy and performance.", rows: [["Strength training days", "Protein support, some carbohydrates for training fuel, and hydration."], ["Short or low-capacity days", "Keep it simple: normal meals, hydration, easy support."]] },
+    { emoji: "💧", title: "After Your Workout", goal: "Support recovery and adaptation.", rows: [["Protein", "Provides the building blocks your muscles use."], ["Carbohydrates", "Help replenish your energy."], ["Hydration", "Supports normal body function."]] },
+  ],
+  capacity: [["Green", "You may have more flexibility to plan your nutrition around training.", "#7FA054"], ["Yellow", "Choose simple support. Reduce decisions, not nourishment.", "#D08F2E"], ["Red", "Your goal today is support. Easy meals still count.", "#D65C4E"], ["Recovery", "Recovery is part of progress.", "#A87BD1"]],
+}
+const NOURISH_RECOVERY = {
+  title: "Supporting Your Body After Movement",
+  intro: "Recovery is where your body adapts. It's not something to earn or rush \u2014 it's part of getting stronger.",
+  cards: [
+    { emoji: "💪", title: "Muscle Recovery", body: "Resistance training creates a small, healthy stress on your muscles. With rest and protein, your body rebuilds them a little stronger than before." },
+    { emoji: "😴", title: "Sleep + Recovery", body: "A lot of recovery happens while you sleep. Rest is when your body does much of its repair work, which is why sleep matters as much as training." },
+    { emoji: "💧", title: "Hydration", body: "Fluids support nearly every process in your body. Electrolytes can help when you've sweated a lot or on hotter days." },
+    { emoji: "🚶", title: "Gentle Recovery Movement", body: "Walking, mobility, stretching, and lower-intensity movement all support recovery. You'll find these in Train on your recovery days." },
+  ],
+  close: "Your body does not only become stronger during the workout. It becomes stronger when you recover.",
+}
 const NOURISH_PROGRAM_FOCUS = {
   foundations: ["Protein habits", "Balanced meals", "Hydration"],
   strength: ["Protein", "Carbohydrates", "Recovery"],
@@ -2059,7 +2080,6 @@ export default function App() {
         </div>
       )
       const SoftCard = ({ children, style }) => (<div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 17px", marginBottom: 12, ...style }}>{children}</div>)
-      const Placeholder = ({ label }) => (<div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", padding: "10px 0" }}>{label} — coming soon</div>)
 
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
@@ -2216,8 +2236,35 @@ export default function App() {
                     <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 8 }}>Your Focus</div>
                       {(NOURISH_PROGRAM_FOCUS[programId] || []).map((ff, i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 6 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9558E" }} /><span style={{ fontSize: 13.5, color: BASE.cream }}>{ff}</span></div>))}
                     </SoftCard>
-                    <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Timing around workouts</div><Placeholder label="Fueling before and after your sessions" /></SoftCard>
-                    <SoftCard><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 5 }}>Recovery support</div><Placeholder label="What helps your body bounce back" /></SoftCard>
+                    <div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 17px", marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 3 }}>Timing around workouts</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, color: BASE.cream, marginBottom: 6 }}>{NOURISH_TIMING.title}</div>
+                      <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55, marginBottom: 12 }}>{NOURISH_TIMING.intro}</div>
+                      {NOURISH_TIMING.cards.map((cd, i) => (
+                        <div key={i} style={{ borderRadius: 12, background: "rgba(233,132,180,0.06)", padding: "12px 13px", marginBottom: 10 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}><span style={{ fontSize: 17 }}>{cd.emoji}</span><span style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{cd.title}</span></div>
+                          <div style={{ fontSize: 11.5, color: BASE.taupe, fontStyle: "italic", marginBottom: 8 }}>{cd.goal}</div>
+                          {cd.rows.map(([k, v], j) => (<div key={j} style={{ marginBottom: 6 }}><div style={{ fontSize: 12, fontWeight: 700, color: BASE.cream }}>{k}</div><div style={{ fontSize: 12, color: BASE.creamDim, lineHeight: 1.45 }}>{v}</div></div>))}
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 0 8px" }}>Through the Capacity Method</div>
+                      {NOURISH_TIMING.capacity.map(([k, v, col], i) => (<div key={i} style={{ display: "flex", gap: 10, marginBottom: 7 }}><span style={{ minWidth: 62, fontSize: 12, fontWeight: 800, color: col }}>{k}</span><span style={{ fontSize: 12, color: BASE.creamDim, fontStyle: "italic", lineHeight: 1.4 }}>{v}</span></div>))}
+                    </div>
+
+                    <div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 17px", marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 3 }}>Recovery support</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, color: BASE.cream, marginBottom: 6 }}>{NOURISH_RECOVERY.title}</div>
+                      <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55, marginBottom: 12 }}>{NOURISH_RECOVERY.intro}</div>
+                      {NOURISH_RECOVERY.cards.map((cd, i) => (
+                        <div key={i} style={{ display: "flex", gap: 11, marginBottom: 11 }}>
+                          <span style={{ fontSize: 20 }}>{cd.emoji}</span>
+                          <div><div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, marginBottom: 2 }}>{cd.title}</div><div style={{ fontSize: 12, color: BASE.creamDim, lineHeight: 1.5 }}>{cd.body}</div></div>
+                        </div>
+                      ))}
+                      <div style={{ borderRadius: 12, background: "rgba(168,123,209,0.1)", padding: "13px 15px", marginTop: 4 }}>
+                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.cream, lineHeight: 1.5 }}>{NOURISH_RECOVERY.close}</div>
+                      </div>
+                    </div>
                     <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "6px 0 0" }}>Explore Food Paths for grocery and meal-prep support that fits this program.</div>
                   </>
                 )
