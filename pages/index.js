@@ -1329,6 +1329,7 @@ export default function App() {
       window.localStorage.setItem("cap_cycle_length", L)
       window.localStorage.setItem("cap_last_period", tmpStart)
     } catch (e) {}
+    if (user && db) { try { db.from("profiles").update({ setup: { ...(setupData || {}), cycleLength: L, lastPeriod: tmpStart } }).eq("id", user.id).then(() => {}) } catch (e) {} }
     setEditCycle(false)
   }
 
@@ -2219,12 +2220,33 @@ export default function App() {
 
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          {editCycle && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(43,27,61,0.55)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEditCycle(false)}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 360, background: BASE.bg2 || "#FFF9F5", borderRadius: 22, padding: "24px 22px", boxShadow: "0 20px 50px rgba(43,27,61,0.4)" }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, color: BASE.cream, marginBottom: 4 }}>Edit your cycle</div>
+                <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.5, marginBottom: 18 }}>Update these anytime your cycle changes. You're always in control of this.</div>
+
+                <div style={{ fontSize: 12, fontWeight: 700, color: BASE.creamDim, marginBottom: 6 }}>First day of your last period</div>
+                <input type="date" value={tmpStart} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setTmpStart(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, color: BASE.cream, fontSize: 14, marginBottom: 16, outline: "none", boxSizing: "border-box" }} />
+
+                <div style={{ fontSize: 12, fontWeight: 700, color: BASE.creamDim, marginBottom: 6 }}>Average cycle length: {tmpLen} days</div>
+                <input type="range" min="20" max="45" value={tmpLen} onChange={(e) => setTmpLen(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: BASE.taupe, marginBottom: 20 }}><span>20</span><span>45</span></div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setEditCycle(false)} style={{ flex: 1, padding: 13, borderRadius: 12, border: "1px solid " + BASE.border, background: "transparent", color: BASE.creamDim, cursor: "pointer", fontSize: 13.5, fontWeight: 700 }}>Cancel</button>
+                  <button onClick={saveCycle} disabled={!tmpStart} style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", cursor: tmpStart ? "pointer" : "default", background: tmpStart ? "linear-gradient(135deg,#9B6BC3,#5E7FB0)" : BASE.surface2, color: tmpStart ? "#fff" : BASE.taupe, fontSize: 13.5, fontWeight: 700 }}>Save</button>
+                </div>
+                <div onClick={() => { const iso = new Date().toISOString().slice(0, 10); setTmpStart(iso) }} style={{ textAlign: "center", marginTop: 14, fontSize: 12, fontWeight: 700, color: "#9B6BC3", cursor: "pointer" }}>My period started today {"\u2192"}</div>
+              </div>
+            </div>
+          )}
           <div style={{ borderRadius: 22, padding: "24px 22px", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", marginBottom: 18, position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", right: -24, top: -24, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />
             <div style={{ fontSize: 28 }}>🌙</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginTop: 4, lineHeight: 1.2 }}>Understand your rhythm. Support your body.</div>
             <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.92)", marginTop: 6, fontStyle: "italic" }}>Your cycle is information — not a limitation.</div>
-            <button onClick={() => { setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod); setEditCycle(true); setMoreView("root"); setTab("more") }} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{"\u2699\ufe0f Edit Cycle"}</button>
+            <button onClick={() => { setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod || ""); setEditCycle(true) }} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{"\u2699\ufe0f Edit Cycle"}</button>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -2269,9 +2291,12 @@ export default function App() {
           </div>
           <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", lineHeight: 1.5, marginBottom: 6 }}>Two layers: the day's color is your estimated cycle phase, the dot is the capacity you actually logged. Over time, your own patterns show themselves.</div>
           {trackFrom && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 14 }}>
-              <div style={{ fontSize: 11.5, color: BASE.taupe }}>Tracking from: <b style={{ color: BASE.creamDim }}>{trackFrom}</b> {"\u00b7"} {cycleNow.length}-day cycle</div>
-              <button onClick={() => { setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod); setEditCycle(true); setMoreView("root"); setTab("more") }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9B6BC3", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{"\u270f\ufe0f Edit"}</button>
+            <div style={{ padding: "12px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div style={{ fontSize: 11.5, color: BASE.taupe }}>Tracking from: <b style={{ color: BASE.creamDim }}>{trackFrom}</b> {"\u00b7"} {cycleNow.length}-day cycle</div>
+                <button onClick={() => { setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod || ""); setEditCycle(true) }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9B6BC3", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{"\u270f\ufe0f Edit"}</button>
+              </div>
+              <button onClick={() => { const iso = new Date().toISOString().slice(0, 10); setLastPeriod(iso); try { window.localStorage.setItem("cap_last_period", iso) } catch (e) {}; if (user && db) { try { db.from("profiles").update({ setup: { ...(setupData || {}), lastPeriod: iso } }).eq("id", user.id).then(() => {}) } catch (e) {} }; setPeriodDismissed(true) }} style={{ width: "100%", padding: "9px", borderRadius: 10, border: "1px dashed rgba(155,107,195,0.4)", background: "rgba(155,107,195,0.06)", color: "#9B6BC3", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{"\ud83c\udf19 My period started today"}</button>
             </div>
           )}
 
