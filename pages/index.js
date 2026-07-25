@@ -2146,6 +2146,7 @@ export default function App() {
       const pctThroughWeeks = Math.round((sched.week / prog.weeks) * 100)
       const programComplete = sched.complete
       // Coach insight: rotating message + history-aware opener
+      const todayISO = new Date().toISOString().slice(0, 10)
       const insightCap = recovery ? "recovery" : cur
       const insightTitle = COACH_INSIGHT_TITLE[insightCap]
       const insightBank = COACH_INSIGHTS[insightCap]
