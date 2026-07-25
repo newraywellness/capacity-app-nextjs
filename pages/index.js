@@ -621,8 +621,14 @@ const resolveSession = (session, env, capKey, phase, progId) => {
     const ex = pickExercise(sl.pattern, env, i, progId)
     if (!ex) return null
     let sets = ex.sets
-    if (capKey === "yellow") sets = Math.max(2, sets - 1)
-    if (capKey === "red") sets = 2
+    // Duration-based single sessions (walks, mobility flows, recovery) stay one continuous session —
+    // the minimum-two-set rule is for multi-set strength work only. Bumping a single walk to 2 would
+    // make lower-capacity days longer than Green, which is the opposite of the intent.
+    const isDurationSession = ex.sets === 1 || /min\b/.test(String(ex.reps))
+    if (!isDurationSession) {
+      if (capKey === "yellow") sets = Math.max(2, sets - 1)
+      if (capKey === "red") sets = 2
+    }
     // Phase rep bias: gently nudge rep targets up as confidence builds (display only, non-destructive)
     let reps = ex.reps
     if (repBias && capKey !== "red" && /^\d+/.test(String(reps))) {
@@ -1063,6 +1069,38 @@ const progSchedule = (prog, startISO) => {
   return { week, rawWeek, weekday, type, totalWeeks: prog.weeks, complete: rawWeek > prog.weeks }
 }
 // Capacity -> today's version (label, minutes, note)
+// ============ COACH INSIGHT CARD ============
+// Dynamic, rotating coaching notes. Title changes by capacity; message explains WHY today's
+// recommendation makes sense. Rotated daily via dayIndex so users don't see the same line repeatedly.
+const COACH_INSIGHT_TITLE = { green: "Today's Opportunity", yellow: "Today's Focus", red: "Today's Support", recovery: "Today's Recovery" }
+const COACH_INSIGHTS = {
+  green: [
+    "Your body has the energy to build today. This is a great opportunity to make real progress while still respecting tomorrow.",
+    "You're in Green today — energy is here and your body is ready to work. Let's use today's capacity wisely and finish feeling strong, not spent.",
+    "Green means your body has recovered well and has room to build. A good day to show up fully and give today's session your energy.",
+    "You've got capacity to build today. Meet it with intention — strong, controlled work now is what tomorrow's strength is made of.",
+  ],
+  yellow: [
+    "You're running a little lower today. This session is trimmed to keep your momentum moving forward without draining what you have.",
+    "Yellow means you're functioning, but running low. We'll protect your progress with a simpler session and let you keep the habit alive.",
+    "A little less in the tank today, and that's okay. Today is about maintaining — showing up gently still moves you forward.",
+    "You're steady but not at full charge. This lighter session keeps you consistent while leaving something for the rest of your day.",
+  ],
+  red: [
+    "Today isn't about pushing harder. Small, intentional movement supports recovery and makes it easier to come back stronger tomorrow.",
+    "Red means your reserves are low. We've kept only the highest-value movement so you can move a little and still protect your energy.",
+    "This is a gentle day by design. A short, simple session honors where you are and keeps the thread of your routine unbroken.",
+    "Low capacity is information, not failure. Today's movement is light on purpose — enough to feel good, never enough to set you back.",
+  ],
+  recovery: [
+    "Your body is asking for recovery today. Rest isn't losing progress — it's how progress continues. Taking care of yourself today makes tomorrow possible.",
+    "Today your body needs restoration, not a workout. Gentle movement or rest is exactly the right choice, and it's part of the plan.",
+    "Recovery is the work today. Let yourself slow down — this is how your body rebuilds and comes back stronger.",
+    "You're depleted, and that deserves care, not pressure. Rest, breathe, move gently if you like. Tomorrow will meet you where you are.",
+  ],
+}
+// Optional history-aware opener: if the same body area was trained very recently, acknowledge recovery.
+const bodyAreaOf = (title) => { const t = (title || "").toLowerCase(); if (t.includes("lower") || t.includes("leg") || t.includes("glute")) return "lower body"; if (t.includes("upper")) return "upper body"; if (t.includes("full")) return "full body"; return null }
 const CAP_VERSION = {
   green: { label: "Full session", mins: [40, 55], note: "You have room today \u2014 this is the full workout, at full volume." },
   yellow: { label: "Shortened", mins: [25, 32], note: "Because today is a Yellow day, we shortened the workout, reduced volume, and removed the finisher." },
@@ -1207,6 +1245,7 @@ export default function App() {
   const [confirmPw, setConfirmPw] = useState("")
   const [setupData, setSetupData] = useState(null)
   const [setupStep, setSetupStep] = useState(0)
+  const [introStep, setIntroStep] = useState(0)
   const [draftSetup, setDraftSetup] = useState({ season: "", hopes: [], level: "", equip: "", cyclePref: "" })
   const [recovery, setRecovery] = useState(false)
   const [authMsg, setAuthMsg] = useState("")
@@ -1223,6 +1262,7 @@ export default function App() {
   const [woDone, setWoDone] = useState({})
   const [woOpen, setWoOpen] = useState(null)
   const [woLog, setWoLog] = useState([])
+  const [manualWo, setManualWo] = useState(null)
   const [woLogged, setWoLogged] = useState(false)
   const [bodyView, setBodyView] = useState("gym")
   const [progressView, setProgressView] = useState("trends")
@@ -1666,6 +1706,59 @@ export default function App() {
     )
   }
 
+  if (user && !setupData && introStep < 2) {
+    const envS = ENV(new Date().getHours(), null)
+    if (introStep === 0) {
+      return (
+        <><Fonts /><GlobalStyle />
+          <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 30px", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -30, right: -20, fontSize: 130, opacity: 0.08 }}>🌸</div>
+            <div style={{ position: "absolute", bottom: 40, left: -24, fontSize: 90, opacity: 0.07 }}>🌷</div>
+            <div className="fade-in" style={{ position: "relative" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "#C9558E", marginBottom: 20 }}>New Ray</div>
+              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 40, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.1, marginBottom: 24 }}>Welcome to<br />New Ray</h1>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 21, color: envS.dark ? "#F0C879" : "#C9558E", lineHeight: 1.35, marginBottom: 22 }}>Your capacity changes every day.</div>
+              <p style={{ fontSize: 15.5, color: envS.dark ? "rgba(255,246,236,0.9)" : "#5A4458", lineHeight: 1.7, marginBottom: 14 }}>Some days you have energy to build. Some days you're simply trying to make it through.</p>
+              <p style={{ fontSize: 15.5, color: envS.dark ? "rgba(255,246,236,0.9)" : "#5A4458", lineHeight: 1.7, marginBottom: 40 }}>New Ray helps you stop fighting your body and start working with it — by matching your workouts, nutrition, recovery, and support to the version of you that showed up today.</p>
+              <button onClick={() => setIntroStep(1)} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: 15, letterSpacing: 0.3, boxShadow: "0 10px 26px rgba(200,110,170,0.28)" }}>Get Started</button>
+            </div>
+          </div>
+        </>
+      )
+    }
+    const CAP_CARDS = [
+      { emoji: "🟢", label: "Green", range: "71–100%", lines: ["I have energy today.", "Let's build."], color: "#7FA054", soft: "rgba(127,160,84,0.12)" },
+      { emoji: "🟡", label: "Yellow", range: "36–70%", lines: ["I'm functioning, but running low.", "Let's protect progress."], color: "#D08F2E", soft: "rgba(208,143,46,0.12)" },
+      { emoji: "🔴", label: "Red", range: "0–35%", lines: ["I'm depleted.", "Recovery IS the workout."], color: "#D65C4E", soft: "rgba(214,92,78,0.12)" },
+    ]
+    return (
+      <><Fonts /><GlobalStyle />
+        <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "36px 26px" }}>
+          <div className="fade-in">
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 30, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.15, marginBottom: 22, textAlign: "center" }}>Meet the Capacity Method</h1>
+            {CAP_CARDS.map((c) => (
+              <div key={c.label} style={{ borderRadius: 18, background: envS.dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)", border: `1px solid ${c.color}`, borderLeft: `5px solid ${c.color}`, padding: "16px 18px", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 6 }}>
+                  <span style={{ fontSize: 18 }}>{c.emoji}</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: envS.dark ? "#FFF6EC" : "#3D2545" }}>{c.label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.range}</span>
+                </div>
+                {c.lines.map((ln, i) => (
+                  <div key={i} style={{ fontSize: 14, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.5, fontWeight: i === c.lines.length - 1 ? 700 : 400 }}>{ln}</div>
+                ))}
+              </div>
+            ))}
+            <div style={{ textAlign: "center", margin: "22px 0 30px" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 19, color: envS.dark ? "#F0C879" : "#C9558E", marginBottom: 8 }}>Your capacity isn't your character.</div>
+              <div style={{ fontSize: 14, color: envS.dark ? "rgba(255,246,236,0.85)" : "#5A4458", lineHeight: 1.6 }}>It changes every day. New Ray changes with you.</div>
+            </div>
+            <button onClick={() => setIntroStep(2)} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: 15, letterSpacing: 0.3, boxShadow: "0 10px 26px rgba(200,110,170,0.28)" }}>Continue</button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   if (user && !setupData) {
     const envS = ENV(new Date().getHours(), null)
     const steps = [
@@ -2037,7 +2130,7 @@ export default function App() {
     if (tab === "body" && bodyView === "gym" && programId && trainView === "home") {
       const prog = PROG_BY_ID(programId)
       const sched = progSchedule(prog, programStart)
-      const recovery = pct < 10
+      const recovery = pct < 15
       const capKey = recovery ? "recovery" : cur
       const session = buildSession(programId, sched.weekday, capKey)
       const phase = phaseFor(programId, sched.week)
@@ -2052,6 +2145,26 @@ export default function App() {
       const heroGrad = recovery ? "linear-gradient(135deg,#8A6FA8,#5E4578)" : HERO_GRAD[cur]
       const pctThroughWeeks = Math.round((sched.week / prog.weeks) * 100)
       const programComplete = sched.complete
+      // Coach insight: rotating message + history-aware opener
+      const insightCap = recovery ? "recovery" : cur
+      const insightTitle = COACH_INSIGHT_TITLE[insightCap]
+      const insightBank = COACH_INSIGHTS[insightCap]
+      let insightMsg = insightBank[dayIndex(insightBank.length)]
+      // History-aware touch: if a recent (<=2 days) workout hit the same area, acknowledge recovery
+      const area = bodyAreaOf(typeLabel)
+      const recentSame = area && woLog.some((w) => {
+        const days = (new Date(todayISO + "T12:00:00") - new Date(w.date + "T12:00:00")) / 86400000
+        return days > 0 && days <= 2 && bodyAreaOf(w.type) === area
+      })
+      const recentDiff = area && woLog.some((w) => {
+        const days = (new Date(todayISO + "T12:00:00") - new Date(w.date + "T12:00:00")) / 86400000
+        return days > 0 && days <= 2 && bodyAreaOf(w.type) && bodyAreaOf(w.type) !== area
+      })
+      if (insightCap === "green" && recentDiff) insightMsg = `Your ${area} has recovered well since your last session, and your energy is here today. A great opportunity to build while respecting tomorrow.`
+      else if (insightCap === "yellow" && recentSame) insightMsg = `You trained similar muscles recently, so today's lighter session lets them keep recovering while you hold onto your momentum.`
+      // Workouts the user can manually choose within this program
+      const progSchedKeys = [...new Set((PROGRAM_SCHEDULE[programId] || []).filter((k) => k !== "recovery"))]
+      const manualOptions = progSchedKeys.map((k) => WORKOUT_TEMPLATES[k] ? { key: k, title: WORKOUT_TEMPLATES[k].title, pattern: (WORKOUT_TEMPLATES[k].slots[0] || {}).pattern } : null).filter(Boolean)
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 24, lineHeight: 1.3, marginBottom: 2 }}>Your body needs today's version of you.</div>
@@ -2098,6 +2211,12 @@ export default function App() {
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.94)", lineHeight: 1.6, position: "relative" }}>Recovery is part of the program, not a break from it. Your body gets stronger when it has time to rebuild.</div>
               </div>
 
+              <div style={{ borderRadius: 18, background: "linear-gradient(135deg,rgba(168,123,209,0.1),rgba(126,94,158,0.1))", border: "1px solid rgba(168,123,209,0.3)", padding: "18px 20px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: -14, top: -14, fontSize: 54, opacity: 0.1 }}>🌙</div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#9B6BC3", marginBottom: 7, position: "relative" }}>{COACH_INSIGHT_TITLE.recovery}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: BASE.cream, lineHeight: 1.5, position: "relative" }}>{COACH_INSIGHTS.recovery[dayIndex(COACH_INSIGHTS.recovery.length)]}</div>
+              </div>
+
               <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "0 2px 10px" }}>Choose how to recover</div>
               {RECOVERY_OPTIONS.map((r) => {
                 const open = recoveryOpen === r.key
@@ -2125,9 +2244,10 @@ export default function App() {
                 )
               })}
 
-              <button onClick={() => { setRecoveryDone(true) }} style={{ width: "100%", marginTop: 6, padding: 16, borderRadius: 16, border: "none", cursor: "pointer", background: recoveryDone ? "rgba(168,123,209,0.15)" : "linear-gradient(135deg,#B9A0CE,#8A6FA8)", color: recoveryDone ? "#8A6FA8" : "#fff", fontSize: 15.5, fontWeight: 800, boxShadow: recoveryDone ? "none" : "0 10px 26px rgba(138,111,168,0.35)" }}>{recoveryDone ? "Recovery logged \u2713 well done" : "Begin Recovery"}</button>
+              <button onClick={() => { setRecoveryDone(true) }} style={{ width: "100%", marginTop: 6, padding: 16, borderRadius: 16, border: "none", cursor: "pointer", background: recoveryDone ? "rgba(168,123,209,0.15)" : "linear-gradient(135deg,#B9A0CE,#8A6FA8)", color: recoveryDone ? "#8A6FA8" : "#fff", fontSize: 15.5, fontWeight: 800, boxShadow: recoveryDone ? "none" : "0 10px 26px rgba(138,111,168,0.35)" }}>{recoveryDone ? "Recovery logged \u2713 well done" : "Start Recovery"}</button>
 
-              <div onClick={() => { setWoColor(cur); setWoType(recovery ? "walk" : "full"); setTrainView("workout") }} style={{ textAlign: "center", marginTop: 14, fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", textDecoration: "underline" }}>I want to train today {"\u2192"}</div>
+              <div onClick={() => { setWoColor(cur); setWoType(recovery ? "walk" : "full"); setTrainView("workout") }} style={{ textAlign: "center", marginTop: 14, fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>Train anyway {"\u2192"}</div>
+              <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", marginTop: 4, fontStyle: "italic", lineHeight: 1.5 }}>No shame in it — recovery is just today's recommendation, not a rule.</div>
               <div style={{ height: 18 }} />
             </>
           ) : (
@@ -2156,7 +2276,30 @@ export default function App() {
                 <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 10, fontStyle: "italic" }}>Your coach picks the exact exercise for each slot from the movement library.</div>
               </div>
 
-              <button onClick={() => { setWoColor(cur); setWoType(woType2); setTrainView("workout") }} style={{ width: "100%", padding: 18, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.4)", marginBottom: 14 }}>Start Workout</button>
+              <div style={{ borderRadius: 18, background: "linear-gradient(135deg,rgba(233,132,180,0.09),rgba(168,123,209,0.09))", border: "1px solid rgba(168,123,209,0.28)", padding: "18px 20px", marginBottom: 14, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: -14, top: -14, fontSize: 54, opacity: 0.1 }}>🤍</div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#C9558E", marginBottom: 7, position: "relative" }}>{insightTitle}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: BASE.cream, lineHeight: 1.5, position: "relative" }}>{insightMsg}</div>
+              </div>
+
+              <button onClick={() => { setManualWo(null); setWoColor(cur); setWoType(woType2); setTrainView("workout") }} style={{ width: "100%", padding: 18, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.4)", marginBottom: 16 }}>Start Recommended Workout</button>
+
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>Or choose another workout</div>
+              <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 12, lineHeight: 1.5 }}>Today's recommendation fits your capacity best, but your life is yours. Pick anything in your program — you won't fall behind.</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                {manualOptions.map((mo) => {
+                  const isRec = mo.key === scheduleKey
+                  return (
+                    <div key={mo.key} onClick={() => { setWoColor(cur); setWoType(mo.pattern || "full"); setTrainView("workout") }} style={{ padding: "13px 14px", borderRadius: 13, background: BASE.surface, border: `1px solid ${isRec ? "#C9558E" : BASE.border}`, cursor: "pointer" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>{mo.title}</div>
+                      {isRec && <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: "#C9558E", textTransform: "uppercase", marginTop: 2 }}>Recommended</div>}
+                    </div>
+                  )
+                })}
+                <div onClick={() => { setWoColor(cur); setWoType("walk"); setTrainView("workout") }} style={{ padding: "13px 14px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, cursor: "pointer" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>Walk / Mobility</div>
+                </div>
+              </div>
 
               <div onClick={() => setWhyOpen(!whyOpen)} style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 16px", cursor: "pointer", marginBottom: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2546,7 +2689,7 @@ export default function App() {
     }
 
     if (tab === "body" && bodyView === "nourish") {
-      const capKey = pct < 10 ? "recovery" : cur
+      const capKey = pct < 15 ? "recovery" : cur
       const ncap = NOURISH_CAP[capKey]
       const Pills = () => (
         <div style={{ display: "flex", gap: 6, background: BASE.surface2, borderRadius: 999, padding: 4, marginBottom: 18 }}>
@@ -2762,7 +2905,7 @@ export default function App() {
       const gymColor = woColor || cur
       const _prog = PROG_BY_ID(programId)
       const _sched = progSchedule(_prog, programStart)
-      const _capKey = pct < 10 ? "recovery" : gymColor
+      const _capKey = pct < 15 ? "recovery" : gymColor
       const _phase = phaseFor(programId, _sched.week)
       const _session = buildSession(programId, _sched.weekday, _capKey)
       const _resolved = resolveSession(_session, woEnv, _capKey, _phase, programId)
