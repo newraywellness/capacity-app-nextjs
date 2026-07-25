@@ -1269,6 +1269,9 @@ export default function App() {
   const [woLogged, setWoLogged] = useState(false)
   const [bodyView, setBodyView] = useState("gym")
   const [progressView, setProgressView] = useState("trends")
+  const [capRange, setCapRange] = useState("month")
+  const [capMonth, setCapMonth] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
+  const [capDay, setCapDay] = useState(null)
   const [moreView, setMoreView] = useState("menu")
   const [glowLog, setGlowLog] = useState({})
   const [bloomNotes, setBloomNotes] = useState({})
@@ -1406,6 +1409,7 @@ export default function App() {
       color: d.color,
       factors: Array.isArray(d.factors) ? d.factors : [],
       supports: Array.isArray(d.supports) ? d.supports : [],
+      note: d.one_thing || "",
     })))
     const today = new Date().toISOString().slice(0, 10)
     const todayRow = rows.find((d) => d.date === today)
@@ -2107,7 +2111,30 @@ export default function App() {
       }
       return { rows: PHASE_ORDER.map((p) => ({ phase: p, enough: stats[p].n >= PHASE_MIN, n: stats[p].n, avg: stats[p].n ? avg(p) : null, top: stats[p].n ? top(p) : null })), summary, allFour: withEnough.length === 4 }
     })()
-    return { momentum, weekly, recoveryPatterns, totalWorkouts, totalMinutes, favCat: favCat ? favCat[0] : null, checkinStreak, workoutStreak, headerLine, biggestWin, monthlyReflection, recoveryDays, monthHi, monthLo, tierOf, cyclePhases }
+    // ---- Date-indexed lookups for the capacity calendar ----
+    const byDate = {}
+    history.forEach((d) => { if (d.dateISO) byDate[d.dateISO] = d })
+    const woByDate = {}
+    woLog.forEach((w) => { if (w.date) { (woByDate[w.date] = woByDate[w.date] || []).push(w) } })
+    // ---- Average capacity for a given calendar month (for month-over-month comparison) ----
+    const avgForMonth = (y, m) => {
+      const rows = history.filter((d) => d.date.getFullYear() === y && d.date.getMonth() === m)
+      if (!rows.length) return null
+      return Math.round(rows.reduce((s, d) => s + d.pct, 0) / rows.length)
+    }
+    // ---- Per-month summary for the Year view ----
+    const yearMonths = (y) => {
+      return Array.from({ length: 12 }, (_, m) => {
+        const rows = history.filter((d) => d.date.getFullYear() === y && d.date.getMonth() === m)
+        if (!rows.length) return { m, n: 0, avg: null, tier: null }
+        const avg = Math.round(rows.reduce((s, d) => s + d.pct, 0) / rows.length)
+        const colors = {}
+        rows.forEach((d) => { const t = d.pct < 15 ? "recovery" : d.color; colors[t] = (colors[t] || 0) + 1 })
+        const tier = Object.keys(colors).sort((a, b) => colors[b] - colors[a])[0]
+        return { m, n: rows.length, avg, tier }
+      })
+    }
+    return { momentum, weekly, recoveryPatterns, totalWorkouts, totalMinutes, favCat: favCat ? favCat[0] : null, checkinStreak, workoutStreak, headerLine, biggestWin, monthlyReflection, recoveryDays, monthHi, monthLo, tierOf, cyclePhases, byDate, woByDate, avgForMonth, yearMonths }
   })()
 
   const ReportLine = ({ label, value }) => (
@@ -3438,19 +3465,191 @@ export default function App() {
             <div style={{ padding: 24, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.taupe, fontSize: 14, lineHeight: 1.6, textAlign: "center" }}>Once you start checking in each day, your capacity history will grow here — and patterns will start to show.</div>
           ) : (
             <>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 130, paddingBottom: 8, borderBottom: `0.5px solid ${BASE.border}`, marginBottom: 20 }}>
-                {history.map((d, i) => (
-                  <div key={i} title={d.pct + "%"} style={{ flex: 1, height: `${Math.max(4, d.pct)}%`, borderRadius: 3, background: d.pct < 15 ? "#A87BD1" : THEMES[d.color].accent, opacity: 0.85 }} />
+              {/* Range control */}
+              <div style={{ display: "flex", gap: 6, padding: 4, background: BASE.surface, borderRadius: 999, border: `1px solid ${BASE.border}`, marginBottom: 18 }}>
+                {[["week", "Week"], ["month", "Month"], ["year", "Year"]].map(([k, lbl]) => (
+                  <button key={k} onClick={() => { setCapRange(k); setCapDay(null) }} style={{ flex: 1, padding: "8px 0", borderRadius: 999, cursor: "pointer", fontSize: 12.5, fontWeight: 700, border: "none", background: capRange === k ? "linear-gradient(135deg,#E984B4,#A87BD1)" : "transparent", color: capRange === k ? "#fff" : BASE.creamDim }}>{lbl}</button>
                 ))}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                <Stat label="Average capacity" value={stats.avg + "%"} accent={T.accent} />
-                <Stat label="Most common day" value={CAP_L[stats.top] || THEMES[stats.top].label.split(" ")[0]} accent={THEMES[stats.top] ? THEMES[stats.top].accent : T.accent} />
-                <Stat label="Green Days" value={stats.counts.green} accent={THEMES.green.accent} />
-                <Stat label="Yellow Days" value={stats.counts.yellow} accent={THEMES.yellow.accent} />
-                <Stat label="Red Days" value={stats.counts.red} accent={THEMES.red.accent} />
-                <Stat label="Recovery Days" value={pd.recoveryDays} accent="#A87BD1" />
-              </div>
+
+              {(() => {
+                const CELL = { green: THEMES.green.accent, yellow: THEMES.yellow.accent, red: THEMES.red.accent, recovery: "#A87BD1" }
+                const CAPL = { green: "Green Day", yellow: "Yellow Day", red: "Red Day", recovery: "Recovery Day" }
+                const iso = (dt) => dt.toISOString().slice(0, 10)
+                const tierFor = (rec) => rec ? (rec.pct < 15 ? "recovery" : rec.color) : null
+                const dowShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+                // ===== WEEK VIEW =====
+                if (capRange === "week") {
+                  const today = new Date(); today.setHours(12, 0, 0, 0)
+                  const days = Array.from({ length: 7 }, (_, i) => { const dt = new Date(today); dt.setDate(dt.getDate() - (6 - i)); return dt })
+                  return (
+                    <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+                      {days.map((dt, i) => {
+                        const key = iso(dt); const rec = pd.byDate[key]; const tier = tierFor(rec)
+                        const sel = capDay === key
+                        return (
+                          <div key={i} onClick={() => rec && setCapDay(sel ? null : key)} style={{ flex: 1, borderRadius: 14, padding: "10px 4px", textAlign: "center", cursor: rec ? "pointer" : "default", background: tier ? CELL[tier] : BASE.surface, border: `1px solid ${sel ? BASE.cream : (tier ? "transparent" : BASE.border)}`, opacity: rec ? 1 : 0.5 }}>
+                            <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: tier ? "rgba(255,255,255,0.85)" : BASE.taupe, textTransform: "uppercase" }}>{dowShort[dt.getDay()]}</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: tier ? "#fff" : BASE.creamDim, margin: "3px 0" }}>{dt.getDate()}</div>
+                            <div style={{ fontSize: 10.5, fontWeight: 700, color: tier ? "rgba(255,255,255,0.95)" : BASE.taupe }}>{rec ? rec.pct + "%" : "—"}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                }
+
+                // ===== YEAR VIEW =====
+                if (capRange === "year") {
+                  const y = capMonth.y
+                  const months = pd.yearMonths(y)
+                  const MN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                  return (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: BASE.taupe, marginBottom: 12 }}>{y}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                        {months.map((mo) => (
+                          <div key={mo.m} onClick={() => { if (mo.n) { setCapMonth({ y, m: mo.m }); setCapRange("month"); setCapDay(null) } }} style={{ borderRadius: 14, padding: "12px 8px", textAlign: "center", background: BASE.surface, border: `1px solid ${BASE.border}`, cursor: mo.n ? "pointer" : "default", opacity: mo.n ? 1 : 0.45 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: BASE.cream, marginBottom: 6 }}>{MN[mo.m]}</div>
+                            {mo.n ? (
+                              <>
+                                <div style={{ width: 26, height: 26, borderRadius: "50%", background: CELL[mo.tier], margin: "0 auto 5px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 10.5, fontWeight: 800 }}>{mo.avg}</div>
+                                <div style={{ fontSize: 9.5, color: BASE.taupe }}>avg %</div>
+                              </>
+                            ) : (
+                              <div style={{ fontSize: 10, color: BASE.taupe, fontStyle: "italic", padding: "6px 0" }}>—</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                }
+
+                // ===== MONTH VIEW (calendar heat-map) =====
+                const y = capMonth.y, m = capMonth.m
+                const first = new Date(y, m, 1)
+                const startDow = first.getDay()
+                const daysInMonth = new Date(y, m + 1, 0).getDate()
+                const monthName = first.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                const cells = []
+                for (let i = 0; i < startDow; i++) cells.push(null)
+                for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+                const canPrev = history.some((h) => h.date < first)
+                const nextFirst = new Date(y, m + 1, 1)
+                const canNext = nextFirst <= new Date()
+                return (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <span onClick={() => canPrev && (m === 0 ? setCapMonth({ y: y - 1, m: 11 }) : setCapMonth({ y, m: m - 1 }))} style={{ fontSize: 18, color: canPrev ? BASE.creamDim : BASE.border, cursor: canPrev ? "pointer" : "default", padding: "0 8px" }}>{"\u2039"}</span>
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{monthName}</span>
+                      <span onClick={() => canNext && (m === 11 ? setCapMonth({ y: y + 1, m: 0 }) : setCapMonth({ y, m: m + 1 }))} style={{ fontSize: 18, color: canNext ? BASE.creamDim : BASE.border, cursor: canNext ? "pointer" : "default", padding: "0 8px" }}>{"\u203a"}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 5, marginBottom: 6 }}>
+                      {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: 9.5, fontWeight: 700, color: BASE.taupe }}>{d}</div>)}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 5 }}>
+                      {cells.map((d, i) => {
+                        if (d === null) return <div key={i} />
+                        const key = iso(new Date(y, m, d)); const rec = pd.byDate[key]; const tier = tierFor(rec)
+                        const sel = capDay === key
+                        const isToday = key === new Date().toISOString().slice(0, 10)
+                        return (
+                          <div key={i} onClick={() => rec && setCapDay(sel ? null : key)} style={{ aspectRatio: "1", borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, cursor: rec ? "pointer" : "default", background: tier ? CELL[tier] : "transparent", color: tier ? "#fff" : BASE.taupe, border: sel ? `2px solid ${BASE.cream}` : (tier ? "none" : `1px solid ${isToday ? "#C9558E" : BASE.border}`) }}>{d}</div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Day detail card */}
+              {capDay && pd.byDate[capDay] && (() => {
+                const rec = pd.byDate[capDay]
+                const tier = rec.pct < 15 ? "recovery" : rec.color
+                const CELL = { green: THEMES.green.accent, yellow: THEMES.yellow.accent, red: THEMES.red.accent, recovery: "#A87BD1" }
+                const CAPL = { green: "Green Day", yellow: "Yellow Day", red: "Red Day", recovery: "Recovery Day" }
+                const wos = pd.woByDate[capDay] || []
+                const cyc = (cycleLength && lastPeriod) ? computeCycle(cycleLength, lastPeriod, new Date(capDay + "T00:00:00")) : null
+                const dateLabel = new Date(capDay + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                const DetailRow = ({ label, value }) => (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "7px 0", borderTop: `0.5px solid ${BASE.border}` }}>
+                    <span style={{ fontSize: 12, color: BASE.taupe, flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontSize: 12.5, color: BASE.cream, fontWeight: 600, textAlign: "right" }}>{value}</span>
+                  </div>
+                )
+                return (
+                  <div className="fade-in" style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "16px 18px", marginBottom: 20, position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: CELL[tier] }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, color: BASE.cream }}>{dateLabel}</span>
+                      <span onClick={() => setCapDay(null)} style={{ fontSize: 18, color: BASE.taupe, cursor: "pointer", lineHeight: 1 }}>{"\u00d7"}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: CELL[tier] }} />
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: CELL[tier] }}>{CAPL[tier]}</span>
+                      <span style={{ fontSize: 13.5, color: BASE.taupe }}>· {rec.pct}%</span>
+                    </div>
+                    {wos.length > 0 && <DetailRow label="Workout" value={wos.map((w) => (WO_TYPES.find((t) => t.key === w.type) || { label: w.type }).label).join(", ")} />}
+                    {rec.supports && rec.supports.length > 0 && <DetailRow label="Support" value={rec.supports.join(", ")} />}
+                    {rec.factors && rec.factors.length > 0 && <DetailRow label="Affecting you" value={rec.factors.join(", ")} />}
+                    {cyc && <DetailRow label="Cycle phase" value={CYCLE_PHASES[cyc.phase] ? CYCLE_PHASES[cyc.phase].name : cyc.phase} />}
+                    {rec.note && <DetailRow label="Your one thing" value={rec.note} />}
+                  </div>
+                )
+              })()}
+
+              {/* Hero summary: Average Capacity + comparison */}
+              {(() => {
+                // Determine the scope for the summary based on range
+                let scopeRows, compareText = null
+                if (capRange === "week") {
+                  const today = new Date(); today.setHours(12, 0, 0, 0)
+                  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 6)
+                  scopeRows = history.filter((d) => d.date >= cutoff)
+                } else if (capRange === "year") {
+                  scopeRows = history.filter((d) => d.date.getFullYear() === capMonth.y)
+                } else {
+                  scopeRows = history.filter((d) => d.date.getFullYear() === capMonth.y && d.date.getMonth() === capMonth.m)
+                  // month-over-month comparison
+                  const prevM = capMonth.m === 0 ? { y: capMonth.y - 1, m: 11 } : { y: capMonth.y, m: capMonth.m - 1 }
+                  const thisAvg = pd.avgForMonth(capMonth.y, capMonth.m)
+                  const prevAvg = pd.avgForMonth(prevM.y, prevM.m)
+                  if (thisAvg != null && prevAvg != null) {
+                    const delta = thisAvg - prevAvg
+                    if (delta >= 3) compareText = `\u2191 ${delta}% from last month`
+                    else if (delta <= -3) compareText = `\u2193 ${Math.abs(delta)}% from last month — every month has its own shape`
+                    else compareText = "Steady compared with last month"
+                  }
+                }
+                if (!scopeRows.length) return <div style={{ fontSize: 12.5, color: BASE.taupe, textAlign: "center", padding: "10px 0 18px", fontStyle: "italic" }}>No check-ins logged in this range yet.</div>
+                const c = { green: 0, yellow: 0, red: 0, recovery: 0 }
+                let sum = 0
+                scopeRows.forEach((d) => { sum += d.pct; const t = d.pct < 15 ? "recovery" : d.color; c[t]++ })
+                const avg = Math.round(sum / scopeRows.length)
+                const topTier = Object.keys(c).sort((a, b) => c[b] - c[a])[0]
+                const CAPL = { green: "Green", yellow: "Yellow", red: "Red", recovery: "Recovery" }
+                return (
+                  <>
+                    <div style={{ textAlign: "center", padding: "6px 0 14px" }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe }}>Average Capacity</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 52, fontWeight: 600, color: THEMES[colorFromPct(avg)].accent, lineHeight: 1.05 }}>{avg}%</div>
+                      {compareText && <div style={{ fontSize: 12.5, color: BASE.creamDim, marginTop: 2 }}>{compareText}</div>}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 10 }}>
+                      {[["Green", c.green, THEMES.green.accent], ["Yellow", c.yellow, THEMES.yellow.accent], ["Red", c.red, THEMES.red.accent], ["Recovery", c.recovery, "#A87BD1"]].map(([lbl, n, col]) => (
+                        <div key={lbl} style={{ textAlign: "center", padding: "11px 3px", borderRadius: 12, background: BASE.surface, border: `1px solid ${BASE.border}` }}>
+                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, color: col }}>{n}</div>
+                          <div style={{ fontSize: 10, color: BASE.taupe }}>{lbl}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ textAlign: "center", fontSize: 11.5, color: BASE.taupe, marginBottom: 16 }}>Most common: <span style={{ fontWeight: 700, color: ({ green: THEMES.green.accent, yellow: THEMES.yellow.accent, red: THEMES.red.accent, recovery: "#A87BD1" })[topTier] }}>{CAPL[topTier]}</span></div>
+                  </>
+                )
+              })()}
+
               {/* Capacity Momentum */}
               {pd.momentum && (
                 <div style={{ borderRadius: 18, background: "linear-gradient(160deg,rgba(233,132,180,0.08),rgba(168,123,209,0.08))", border: "1px solid rgba(168,123,209,0.28)", padding: "18px 20px" }}>
