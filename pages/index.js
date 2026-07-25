@@ -2531,24 +2531,43 @@ export default function App() {
       const trackFrom = lastPeriod ? new Date(lastPeriod + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : null
       // Period check-in: is a new period likely due? (cycle day rolled back near 1)
       const periodDue = cycleNow && cycleNow.day >= (cycleNow.length - 1) && !periodDismissed
-      // Reflection foundation: tally logged capacity by cycle phase (observation, never prediction)
-      const phaseTally = { menstrual: {}, follicular: {}, ovulation: {}, luteal: {} }
-      let tallyTotal = 0
+      // Four-phase capacity analysis (observation only, never prediction or prescription).
+      // Each check-in is assigned to the phase that was active ON ITS DATE via computeCycle,
+      // so editing cycle dates automatically re-buckets history on next render (rule 7).
+      const PHASE_KEYS = ["menstrual", "follicular", "ovulation", "luteal"]
+      const PHASE_LABEL = { menstrual: "Menstrual", follicular: "Follicular", ovulation: "Ovulatory", luteal: "Luteal" }
+      const PHASE_MIN = 3 // minimum check-ins in a phase before we describe it as a pattern
+      const phaseStats = { menstrual: { n: 0, sum: 0, colors: {} }, follicular: { n: 0, sum: 0, colors: {} }, ovulation: { n: 0, sum: 0, colors: {} }, luteal: { n: 0, sum: 0, colors: {} } }
+      let analyzedTotal = 0
       history.forEach((h) => {
         if (!h.dateISO || !h.color) return
         const cc = computeCycle(cycleLength, lastPeriod, new Date(h.dateISO + "T00:00:00"))
-        if (!cc) return
-        phaseTally[cc.phase][h.color] = (phaseTally[cc.phase][h.color] || 0) + 1
-        tallyTotal++
+        if (!cc || !phaseStats[cc.phase]) return
+        const st = phaseStats[cc.phase]
+        st.n++
+        if (typeof h.pct === "number") st.sum += h.pct
+        // Derive a display tier that includes Recovery (<15%) as its own bucket
+        const tier = (typeof h.pct === "number" && h.pct < 15) ? "recovery" : h.color
+        st.colors[tier] = (st.colors[tier] || 0) + 1
+        analyzedTotal++
       })
-      const topCapFor = (ph) => { const t = phaseTally[ph]; const keys = Object.keys(t); if (!keys.length) return null; return keys.sort((a, b) => t[b] - t[a])[0] }
-      const CAP_WORD = { green: "Green", yellow: "Yellow", red: "Red" }
-      const reflection = tallyTotal >= 8 ? (() => {
-        const lut = topCapFor("luteal"); const fol = topCapFor("follicular")
-        if (lut) return `Across your check-ins so far, you've most often logged ${CAP_WORD[lut]} days during your luteal phase. Just an observation — your capacity is always yours to choose.`
-        if (fol) return `Across your check-ins so far, you've most often logged ${CAP_WORD[fol]} days during your follicular phase. Just an observation — your capacity is always yours to choose.`
-        return null
-      })() : null
+      const CAP_WORD = { green: "Green", yellow: "Yellow", red: "Red", recovery: "Recovery" }
+      const CAP_COLOR = { green: "#7FA054", yellow: "#E8B84B", red: "#D65C4E", recovery: "#A87BD1" }
+      const phaseAvg = (ph) => { const st = phaseStats[ph]; return st.n ? Math.round(st.sum / st.n) : null }
+      const phaseTop = (ph) => { const c = phaseStats[ph].colors; const keys = Object.keys(c); if (!keys.length) return null; return keys.sort((a, b) => c[b] - c[a])[0] }
+      const phasesWithEnough = PHASE_KEYS.filter((p) => phaseStats[p].n >= PHASE_MIN)
+      const allFourReady = phasesWithEnough.length === 4
+      // Build the narrative summary comparing phases (only among phases with enough data)
+      const buildSummary = () => {
+        if (!phasesWithEnough.length) return null
+        const ranked = [...phasesWithEnough].sort((a, b) => phaseAvg(b) - phaseAvg(a))
+        const highest = ranked[0], lowest = ranked[ranked.length - 1]
+        if (phasesWithEnough.length >= 2 && phaseAvg(highest) !== phaseAvg(lowest)) {
+          return `So far, your check-ins suggest your capacity has tended to run highest during your ${PHASE_LABEL[highest].toLowerCase()} phase and lowest during your ${PHASE_LABEL[lowest].toLowerCase()} phase.`
+        }
+        return `So far, your capacity has looked relatively steady across the phases you've logged. Keep checking in to see how your rhythm develops.`
+      }
+      const patternSummary = buildSummary()
 
       if (!setup) {
         return (
@@ -2701,8 +2720,40 @@ export default function App() {
           </div>
 
           <div style={{ borderRadius: 16, background: "rgba(168,123,209,0.06)", border: "1px dashed rgba(168,123,209,0.3)", padding: "16px 18px", marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#A87BD1", textTransform: "uppercase", marginBottom: 5 }}>Learning your patterns</div>
-            <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>{reflection || "As you check in over time, New Ray will gently notice your personal energy trends across cycles — like when you tend to feel your best, or when a little extra support helps. This is reflection, never prediction or diagnosis."}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#A87BD1", textTransform: "uppercase", marginBottom: 8 }}>Learning your patterns</div>
+            {analyzedTotal === 0 ? (
+              <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>We'll begin learning how your capacity shifts across your cycle as you complete check-ins.</div>
+            ) : !phasesWithEnough.length ? (
+              <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>We're beginning to notice your rhythm. Keep checking in through each phase to build a clearer picture of how your capacity changes.</div>
+            ) : (
+              <>
+                {patternSummary && <div style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 12 }}>{patternSummary}</div>}
+                {!allFourReady && <div style={{ fontSize: 11.5, color: BASE.taupe, lineHeight: 1.55, marginBottom: 12, fontStyle: "italic" }}>This is an early picture — keep checking in through every phase to complete it.</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 12 }}>
+                  {PHASE_KEYS.map((ph) => {
+                    const st = phaseStats[ph]
+                    const enough = st.n >= PHASE_MIN
+                    const top = phaseTop(ph)
+                    const avg = phaseAvg(ph)
+                    return (
+                      <div key={ph} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border }}>
+                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: enough && top ? CAP_COLOR[top] : "rgba(255,255,255,0.15)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, width: 82, flexShrink: 0 }}>{PHASE_LABEL[ph]}</span>
+                        {enough ? (
+                          <span style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 12, color: BASE.taupe }}>Avg {avg}%</span>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: CAP_COLOR[top], background: "rgba(255,255,255,0.05)", padding: "3px 9px", borderRadius: 999 }}>{CAP_WORD[top]}</span>
+                          </span>
+                        ) : (
+                          <span style={{ flex: 1, fontSize: 11.5, color: BASE.taupe, fontStyle: "italic" }}>Not enough check-ins yet</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, lineHeight: 1.55, fontStyle: "italic" }}>These are patterns, not rules. Your capacity is always yours to choose.</div>
+              </>
+            )}
           </div>
 
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Understand each phase</div>
