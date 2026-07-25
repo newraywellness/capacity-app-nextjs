@@ -1260,6 +1260,7 @@ export default function App() {
   const [woColor, setWoColor] = useState(null)
   const [woType, setWoType] = useState("full")
   const [woKey, setWoKey] = useState(null)
+  const [woTier, setWoTier] = useState(null)
   const [forceTrainMenu, setForceTrainMenu] = useState(false)
   const [woDone, setWoDone] = useState({})
   const [woOpen, setWoOpen] = useState(null)
@@ -1312,6 +1313,7 @@ export default function App() {
     // Clear any manual workout selection when the program changes (selection is per-program, per-session).
     setSelectedWoKey(null)
     setForceTrainMenu(false)
+    setWoTier(null)
   }, [programId])
 
   useEffect(() => {
@@ -2154,6 +2156,9 @@ export default function App() {
       // In "train anyway" mode where the recommendation is recovery, fall back to the first real workout.
       const firstRealKey = (PROGRAM_SCHEDULE[programId] || []).find((k) => k !== "recovery" && WORKOUT_TEMPLATES[k])
       const activeWorkout = validSelected || (recommendedWorkout === "recovery" ? (firstRealKey || recommendedWorkout) : recommendedWorkout)
+      // Capacity TIER is separate from workout CATEGORY. Below 15% the default is recovery, but
+      // "Train anyway" trains the Red-day version (never green/yellow). At 15-35% cur is already "red".
+      const activeTier = recovery ? (forceTrainMenu ? "red" : "recovery") : cur
       const scheduleKey = recommendedWorkout
       const isRest = activeWorkout === "recovery"
       // Build the session from the ACTIVE workout template, not just the weekday
@@ -2184,9 +2189,27 @@ export default function App() {
       })
       if (insightCap === "green" && recentDiff) insightMsg = `Your ${area} has recovered well since your last session, and your energy is here today. A great opportunity to build while respecting tomorrow.`
       else if (insightCap === "yellow" && recentSame) insightMsg = `You trained similar muscles recently, so today's lighter session lets them keep recovering while you hold onto your momentum.`
-      // Workouts the user can manually choose within this program
-      const progSchedKeys = [...new Set((PROGRAM_SCHEDULE[programId] || []).filter((k) => k !== "recovery"))]
-      const manualOptions = progSchedKeys.map((k) => WORKOUT_TEMPLATES[k] ? { key: k, title: WORKOUT_TEMPLATES[k].title, pattern: (WORKOUT_TEMPLATES[k].slots[0] || {}).pattern } : null).filter(Boolean)
+      // Workouts the user can manually choose within this program.
+      // Walk/mobility schedule days ("walk+mobility", "walk+recovery") map to the real walk template.
+      const walkTplKey = WORKOUT_TEMPLATES[programId + ":walk"] ? programId + ":walk" : (WORKOUT_TEMPLATES["move:walk"] ? "move:walk" : null)
+      const resolveSchedKey = (k) => {
+        if (WORKOUT_TEMPLATES[k]) return k
+        if (k === "walk+mobility" || k === "walk+recovery" || k === "conditioning" || k === "walk") return walkTplKey
+        return null
+      }
+      const progSchedRaw = [...new Set((PROGRAM_SCHEDULE[programId] || []).filter((k) => k !== "recovery"))]
+      const _seenTpl = {}
+      const manualOptions = progSchedRaw.map((k) => {
+        const tplKey = resolveSchedKey(k)
+        if (!tplKey || !WORKOUT_TEMPLATES[tplKey] || _seenTpl[tplKey]) return null
+        _seenTpl[tplKey] = true
+        return { key: tplKey, title: WORKOUT_TEMPLATES[tplKey].title, pattern: (WORKOUT_TEMPLATES[tplKey].slots[0] || {}).pattern }
+      }).filter(Boolean)
+      // Ensure a Walk option is always present if the program's week includes any walking day.
+      const hasWalkDay = (PROGRAM_SCHEDULE[programId] || []).some((k) => k.includes("walk") || k === "conditioning")
+      if (walkTplKey && hasWalkDay && !manualOptions.some((o) => o.key === walkTplKey)) {
+        manualOptions.push({ key: walkTplKey, title: WORKOUT_TEMPLATES[walkTplKey].title, pattern: (WORKOUT_TEMPLATES[walkTplKey].slots[0] || {}).pattern })
+      }
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 24, lineHeight: 1.3, marginBottom: 2 }}>Your body needs today's version of you.</div>
@@ -2304,7 +2327,7 @@ export default function App() {
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: BASE.cream, lineHeight: 1.5, position: "relative" }}>{insightMsg}</div>
               </div>
 
-              <button onClick={() => { setWoColor(cur); setWoKey(activeWorkout); setWoType(woType2); setTrainView("workout") }} style={{ width: "100%", padding: 18, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.4)", marginBottom: 16 }}>{isManual ? `Start ${typeLabel}` : `Start Recommended: ${typeLabel}`}</button>
+              <button onClick={() => { setWoColor(cur); setWoKey(activeWorkout); setWoTier(activeTier); setWoType(woType2); setTrainView("workout") }} style={{ width: "100%", padding: 18, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.4)", marginBottom: 16 }}>{isManual ? `Start ${typeLabel}` : `Start Recommended: ${typeLabel}`}</button>
 
               <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>Or choose another workout</div>
               <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 12, lineHeight: 1.5 }}>Today's recommendation fits your capacity best, but your life is yours. Pick anything in your program — you won't fall behind.</div>
@@ -2926,7 +2949,9 @@ export default function App() {
       const gymColor = woColor || cur
       const _prog = PROG_BY_ID(programId)
       const _sched = progSchedule(_prog, programStart)
-      const _capKey = pct < 15 ? "recovery" : gymColor
+      // Capacity tier: use the explicitly resolved tier passed from the selection screen when present.
+      // This lets "Train anyway" below 15% correctly train the RED-day version rather than recovery or full.
+      const _capKey = woTier || (pct < 15 ? "recovery" : gymColor)
       const _phase = phaseFor(programId, _sched.week)
       // Build from the explicitly chosen workout (woKey) when present; otherwise today's scheduled session.
       const _tpl = woKey && WORKOUT_TEMPLATES[woKey] ? WORKOUT_TEMPLATES[woKey] : null
