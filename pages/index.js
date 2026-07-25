@@ -1954,6 +1954,162 @@ export default function App() {
     return { empty: false, monthName: now.toLocaleDateString("en-US", { month: "long" }), avg, counts, trigger, recovery, bestPhase, days: rows.length }
   })()
 
+
+  // ============ PROGRESS DASHBOARD ANALYTICS ============
+  // All derived from real check-in history and workout log. Observational, never prescriptive.
+  const progressData = (() => {
+    const H = [...history].filter((d) => d.dateISO && typeof d.pct === "number").sort((a, b) => (a.dateISO < b.dateISO ? -1 : 1))
+    const todayISO = new Date().toISOString().slice(0, 10)
+    const tierOf = (d) => (d.pct < 15 ? "recovery" : d.color)
+    // Recovery-day count (below 15%)
+    const recoveryDays = H.filter((d) => d.pct < 15).length
+    // ---- Capacity momentum: compare last ~14 days vs the prior ~14 days ----
+    const momentum = (() => {
+      if (H.length < 6) return null
+      const recent = H.slice(-14), prior = H.slice(-28, -14)
+      if (!recent.length || prior.length < 3) return null
+      const avg = (arr) => arr.reduce((s, d) => s + d.pct, 0) / arr.length
+      const rAvg = avg(recent), pAvg = avg(prior)
+      const delta = Math.round(rAvg - pAvg)
+      if (delta >= 5) return { dir: "up", icon: "⬆️", delta, msg: "Your average capacity has gradually increased over recent weeks. Whatever you've been doing, it's supporting you." }
+      if (delta <= -5) return { dir: "down", icon: "⬇️", delta, msg: "Your capacity has dipped recently. Recovery may deserve a little extra attention — and that's a wise thing to give it." }
+      return { dir: "steady", icon: "➡️", delta, msg: "Your capacity has stayed relatively steady lately. Steady is its own kind of progress." }
+    })()
+    // ---- Weekly patterns: average capacity by day of week ----
+    const weekly = (() => {
+      if (H.length < 10) return null
+      const days = [[], [], [], [], [], [], []] // Sun..Sat
+      H.forEach((d) => { const wd = new Date(d.dateISO + "T12:00:00").getDay(); days[wd].push(d.pct) })
+      const named = days.map((arr, i) => ({ i, n: arr.length, avg: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null }))
+      const eligible = named.filter((x) => x.n >= 2)
+      if (eligible.length < 4) return null
+      const DOW = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"]
+      const hi = [...eligible].sort((a, b) => b.avg - a.avg)[0]
+      const lo = [...eligible].sort((a, b) => a.avg - b.avg)[0]
+      const out = []
+      if (hi && hi.avg != null) out.push(`Your capacity has tended to be highest on ${DOW[hi.i]}.`)
+      if (lo && lo.i !== hi.i) out.push(`${DOW[lo.i]} have often been a lower-capacity time for you.`)
+      return out.length ? out : null
+    })()
+    // ---- Recovery patterns: which supports precede higher-capacity days ----
+    const recoveryPatterns = (() => {
+      if (H.length < 8) return null
+      const greenRows = H.filter((d) => d.color === "green")
+      if (greenRows.length < 3) return null
+      // supports most commonly logged ON green days
+      const supTally = {}
+      greenRows.forEach((d) => (d.supports || []).forEach((s) => { supTally[s] = (supTally[s] || 0) + 1 }))
+      const topSup = Object.entries(supTally).sort((a, b) => b[1] - a[1])[0]
+      // factor most commonly logged on red days
+      const redRows = H.filter((d) => d.color === "red")
+      const facTally = {}
+      redRows.forEach((d) => (d.factors || []).forEach((f) => { facTally[f] = (facTally[f] || 0) + 1 }))
+      const topFac = Object.entries(facTally).sort((a, b) => b[1] - a[1])[0]
+      const out = []
+      if (topSup && topSup[1] >= 2) out.push(`"${topSup[0]}" is commonly present around your Green Days.`)
+      if (topFac && topFac[1] >= 2) out.push(`"${topFac[0]}" has often shown up on your lower-capacity days.`)
+      return out.length ? out : null
+    })()
+    // ---- Movement stats ----
+    const totalWorkouts = woLog.length
+    const totalMinutes = woLog.reduce((s, w) => s + (w.minutes || w.mins || (Array.isArray(w.sets) ? 0 : 0) || 25), 0) // ~25 min default when unknown
+    const catTally = {}
+    woLog.forEach((w) => { const lbl = (WO_TYPES.find((t) => t.key === w.type) || { label: w.type }).label; catTally[lbl] = (catTally[lbl] || 0) + 1 })
+    const favCat = Object.entries(catTally).sort((a, b) => b[1] - a[1])[0]
+    // ---- Check-in streak (consecutive days up to today) ----
+    const checkinStreak = (() => {
+      if (!H.length) return 0
+      const set = new Set(H.map((d) => d.dateISO))
+      let streak = 0
+      const cursor = new Date(todayISO + "T12:00:00")
+      // allow streak to count from today or yesterday backward
+      if (!set.has(cursor.toISOString().slice(0, 10))) cursor.setDate(cursor.getDate() - 1)
+      while (set.has(cursor.toISOString().slice(0, 10))) { streak++; cursor.setDate(cursor.getDate() - 1) }
+      return streak
+    })()
+    // ---- Workout streak (consecutive weeks with >=1 workout) is complex; use consecutive-day movement streak ----
+    const workoutStreak = (() => {
+      if (!woLog.length) return 0
+      const set = new Set(woLog.map((w) => w.date))
+      let streak = 0
+      const cursor = new Date(todayISO + "T12:00:00")
+      if (!set.has(cursor.toISOString().slice(0, 10))) cursor.setDate(cursor.getDate() - 1)
+      while (set.has(cursor.toISOString().slice(0, 10))) { streak++; cursor.setDate(cursor.getDate() - 1) }
+      return streak
+    })()
+    // ---- Dynamic header insight line ----
+    const headerLine = (() => {
+      const timeless = ["You're learning your rhythm.", "Small steps are adding up.", "Every check-in teaches us something.", "Your patterns are becoming clearer.", "Progress isn't always louder — it can be steadier.", "One day at a time is becoming real progress."]
+      const personal = []
+      if (checkinStreak >= 3) personal.push(`You've checked in ${checkinStreak} days in a row — you're building a clearer picture of your rhythm.`)
+      if (momentum && momentum.dir === "up") personal.push("Your capacity has been finding a steadier, stronger rhythm lately.")
+      if (recoveryDays >= 3) personal.push("You've been honoring recovery more often lately, and that matters.")
+      if (stats && stats.counts.green >= 3 && stats.counts.green >= stats.counts.red) personal.push("Your Green Days have been showing up more often.")
+      const pool = personal.length ? personal.concat(timeless.slice(0, 2)) : timeless
+      return pool[dayIndex(pool.length)]
+    })()
+    // ---- Biggest Win: pick the most meaningful, data-backed accomplishment ----
+    const biggestWin = (() => {
+      const wins = []
+      if (checkinStreak >= 7) wins.push({ p: 5, t: `You checked in ${checkinStreak} days in a row — consistency is quietly becoming one of your strengths.` })
+      else if (checkinStreak >= 3) wins.push({ p: 2, t: `You've checked in ${checkinStreak} days running. Showing up is the whole practice.` })
+      if (momentum && momentum.dir === "up" && momentum.delta >= 5) wins.push({ p: 5, t: `Your average capacity has risen about ${momentum.delta}% recently — real, quiet progress.` })
+      if (recoveryDays >= 2) wins.push({ p: 4, t: "You prioritized recovery instead of pushing through exhaustion. That's strength, not stepping back." })
+      // First green after a run of red
+      const sortedH = H
+      for (let i = 1; i < sortedH.length; i++) {
+        if (sortedH[i].color === "green" && sortedH[i - 1] && sortedH[i - 1].color === "red") { wins.push({ p: 3, t: "You reached a Green day after harder ones — proof your capacity rebuilds." }); break }
+      }
+      if (phaseAverages && PHASE_ORDER.every((p) => phaseAverages[p] != null)) wins.push({ p: 4, t: "You've now logged your capacity through every cycle phase — a full picture of your rhythm." })
+      if (workoutStreak >= 2) wins.push({ p: 3, t: `You've moved ${workoutStreak} days in a row. Momentum is building.` })
+      if (totalWorkouts >= 1) wins.push({ p: 1, t: `You've completed ${totalWorkouts} workout${totalWorkouts > 1 ? "s" : ""} — every one counted.` })
+      if (!wins.length) return "Every day you check in, you're learning something about yourself. That's where rebuilding begins."
+      const maxP = Math.max(...wins.map((w) => w.p))
+      const top = wins.filter((w) => w.p === maxP)
+      return top[dayIndex(top.length)].t
+    })()
+    // ---- Monthly reflection (rotating, data-aware) ----
+    const monthlyReflection = (() => {
+      if (!report || report.empty) return null
+      const g = report.counts.green, r = report.counts.red
+      const pool = []
+      if (g >= r) pool.push("You gave yourself more Green Days than Red this month. Progress doesn't always feel dramatic, but consistency is quietly changing your capacity.")
+      if (g >= r) pool.push("More Green than Red this month — your system has been finding steadier ground. That's worth pausing on.")
+      if (r > g) pool.push("This month asked a lot of you, yet you continued showing up. Even your Red Days became valuable information instead of failure.")
+      if (r > g) pool.push("A heavier month, and still you kept checking in. Meeting yourself honestly on the hard days is its own kind of strength.")
+      pool.push("However this month felt, you kept listening to your body. That awareness is the foundation everything else is built on.")
+      return pool[dayIndex(pool.length)]
+    })()
+    // highest/lowest capacity this month
+    const monthRows = report && !report.empty ? history.filter((d) => { const dt = d.date; const now = new Date(); return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear() }) : []
+    const monthHi = monthRows.length ? Math.max(...monthRows.map((d) => d.pct)) : null
+    const monthLo = monthRows.length ? Math.min(...monthRows.map((d) => d.pct)) : null
+    // ---- Cycle phase analysis (avg + most-common tier per phase, min 3 check-ins) ----
+    const cyclePhases = (() => {
+      if (!cycleLength || !lastPeriod || H.length < 3) return null
+      const PHASE_MIN = 3
+      const stats = { menstrual: { n: 0, sum: 0, colors: {} }, follicular: { n: 0, sum: 0, colors: {} }, ovulation: { n: 0, sum: 0, colors: {} }, luteal: { n: 0, sum: 0, colors: {} } }
+      H.forEach((d) => {
+        const cc = computeCycle(cycleLength, lastPeriod, new Date(d.dateISO + "T00:00:00"))
+        if (!cc || !stats[cc.phase]) return
+        const st = stats[cc.phase]; st.n++; st.sum += d.pct
+        const tier = tierOf(d); st.colors[tier] = (st.colors[tier] || 0) + 1
+      })
+      const withEnough = PHASE_ORDER.filter((p) => stats[p].n >= PHASE_MIN)
+      if (!withEnough.length) return { none: true }
+      const avg = (p) => Math.round(stats[p].sum / stats[p].n)
+      const top = (p) => { const c = stats[p].colors; const k = Object.keys(c); return k.length ? k.sort((a, b) => c[b] - c[a])[0] : null }
+      let summary = null
+      if (withEnough.length >= 2) {
+        const ranked = [...withEnough].sort((a, b) => avg(b) - avg(a))
+        const PL = { menstrual: "menstrual", follicular: "follicular", ovulation: "ovulatory", luteal: "luteal" }
+        if (avg(ranked[0]) !== avg(ranked[ranked.length - 1])) summary = `So far, your check-ins suggest your capacity runs highest during your ${PL[ranked[0]]} phase and lowest during your ${PL[ranked[ranked.length - 1]]} phase.`
+      }
+      return { rows: PHASE_ORDER.map((p) => ({ phase: p, enough: stats[p].n >= PHASE_MIN, n: stats[p].n, avg: stats[p].n ? avg(p) : null, top: stats[p].n ? top(p) : null })), summary, allFour: withEnough.length === 4 }
+    })()
+    return { momentum, weekly, recoveryPatterns, totalWorkouts, totalMinutes, favCat: favCat ? favCat[0] : null, checkinStreak, workoutStreak, headerLine, biggestWin, monthlyReflection, recoveryDays, monthHi, monthLo, tierOf, cyclePhases }
+  })()
+
   const ReportLine = ({ label, value }) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "8px 0" }}>
       <span style={{ fontSize: 13, color: BASE.taupe }}>{label}</span>
@@ -2719,42 +2875,6 @@ export default function App() {
             <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>Sleep, stress, motherhood, work, life demands, and recovery all matter too. Cycle offers context — but you always choose your capacity for the day. Nothing here is assigned for you.</div>
           </div>
 
-          <div style={{ borderRadius: 16, background: "rgba(168,123,209,0.06)", border: "1px dashed rgba(168,123,209,0.3)", padding: "16px 18px", marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#A87BD1", textTransform: "uppercase", marginBottom: 8 }}>Learning your patterns</div>
-            {analyzedTotal === 0 ? (
-              <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>We'll begin learning how your capacity shifts across your cycle as you complete check-ins.</div>
-            ) : !phasesWithEnough.length ? (
-              <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>We're beginning to notice your rhythm. Keep checking in through each phase to build a clearer picture of how your capacity changes.</div>
-            ) : (
-              <>
-                {patternSummary && <div style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 12 }}>{patternSummary}</div>}
-                {!allFourReady && <div style={{ fontSize: 11.5, color: BASE.taupe, lineHeight: 1.55, marginBottom: 12, fontStyle: "italic" }}>This is an early picture — keep checking in through every phase to complete it.</div>}
-                <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 12 }}>
-                  {PHASE_KEYS.map((ph) => {
-                    const st = phaseStats[ph]
-                    const enough = st.n >= PHASE_MIN
-                    const top = phaseTop(ph)
-                    const avg = phaseAvg(ph)
-                    return (
-                      <div key={ph} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border }}>
-                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: enough && top ? CAP_COLOR[top] : "rgba(255,255,255,0.15)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, width: 82, flexShrink: 0 }}>{PHASE_LABEL[ph]}</span>
-                        {enough ? (
-                          <span style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: 12, color: BASE.taupe }}>Avg {avg}%</span>
-                            <span style={{ fontSize: 10.5, fontWeight: 700, color: CAP_COLOR[top], background: "rgba(255,255,255,0.05)", padding: "3px 9px", borderRadius: 999 }}>{CAP_WORD[top]}</span>
-                          </span>
-                        ) : (
-                          <span style={{ flex: 1, fontSize: 11.5, color: BASE.taupe, fontStyle: "italic" }}>Not enough check-ins yet</span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-                <div style={{ fontSize: 11.5, color: BASE.taupe, lineHeight: 1.55, fontStyle: "italic" }}>These are patterns, not rules. Your capacity is always yours to choose.</div>
-              </>
-            )}
-          </div>
 
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Understand each phase</div>
           <div style={{ fontSize: 12.5, color: BASE.taupe, marginBottom: 14 }}>Tap any phase to learn what's happening and how to support yourself.</div>
@@ -3295,84 +3415,156 @@ export default function App() {
       )
     }
 
-    if (tab === "progress" && progressView === "workouts") {
-      const sorted = [...woLog].sort((a, b) => (a.date < b.date ? 1 : -1))
+    if (tab === "progress") {
+      const pd = progressData
+      const CAP_C = { green: THEMES.green.accent, yellow: THEMES.yellow.accent, red: THEMES.red.accent, recovery: "#A87BD1" }
+      const CAP_L = { green: "Green", yellow: "Yellow", red: "Red", recovery: "Recovery" }
+      const PHL = { menstrual: "Menstrual", follicular: "Follicular", ovulation: "Ovulatory", luteal: "Luteal" }
+      const sortedWo = [...woLog].sort((a, b) => (a.date < b.date ? 1 : -1))
+      const SectionTitle = ({ children, sub }) => (
+        <div style={{ margin: "26px 2px 14px" }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, color: BASE.cream }}>{children}</div>
+          {sub && <div style={{ fontSize: 12.5, color: BASE.taupe, fontStyle: "italic", marginTop: 2 }}>{sub}</div>}
+        </div>
+      )
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, margin: "12px 0 6px" }}>Your workouts</h2>
-          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 20 }}>{woLog.length} logged {"·"} every one counted.</p>
-          {!sorted.length ? (
-            <div style={{ padding: 24, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.taupe, fontSize: 14, lineHeight: 1.6, textAlign: "center" }}>Finish a workout in the Body tab and it will show up here.</div>
+          {/* Dynamic header insight line */}
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 17, color: "#C9558E", lineHeight: 1.4, marginBottom: 4, paddingLeft: 12, borderLeft: "2px solid #E8B84B" }}>{pd.headerLine}</div>
+
+          {/* ===== SECTION 1: CAPACITY JOURNEY ===== */}
+          <SectionTitle sub="Patterns, not pressure.">Your Capacity Journey</SectionTitle>
+          {!stats ? (
+            <div style={{ padding: 24, borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.taupe, fontSize: 14, lineHeight: 1.6, textAlign: "center" }}>Once you start checking in each day, your capacity history will grow here — and patterns will start to show.</div>
           ) : (
-            sorted.map((w, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
-                <span style={{ width: 12, height: 12, borderRadius: "50%", background: THEMES[w.color] ? THEMES[w.color].accent : BASE.terracotta }} />
+            <>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 130, paddingBottom: 8, borderBottom: `0.5px solid ${BASE.border}`, marginBottom: 20 }}>
+                {history.map((d, i) => (
+                  <div key={i} title={d.pct + "%"} style={{ flex: 1, height: `${Math.max(4, d.pct)}%`, borderRadius: 3, background: d.pct < 15 ? "#A87BD1" : THEMES[d.color].accent, opacity: 0.85 }} />
+                ))}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                <Stat label="Average capacity" value={stats.avg + "%"} accent={T.accent} />
+                <Stat label="Most common day" value={CAP_L[stats.top] || THEMES[stats.top].label.split(" ")[0]} accent={THEMES[stats.top] ? THEMES[stats.top].accent : T.accent} />
+                <Stat label="Green Days" value={stats.counts.green} accent={THEMES.green.accent} />
+                <Stat label="Yellow Days" value={stats.counts.yellow} accent={THEMES.yellow.accent} />
+                <Stat label="Red Days" value={stats.counts.red} accent={THEMES.red.accent} />
+                <Stat label="Recovery Days" value={pd.recoveryDays} accent="#A87BD1" />
+              </div>
+              {/* Capacity Momentum */}
+              {pd.momentum && (
+                <div style={{ borderRadius: 18, background: "linear-gradient(160deg,rgba(233,132,180,0.08),rgba(168,123,209,0.08))", border: "1px solid rgba(168,123,209,0.28)", padding: "18px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 20 }}>{pd.momentum.icon}</span>
+                    <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#C9558E" }}>Capacity Momentum</span>
+                  </div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16.5, color: BASE.cream, lineHeight: 1.5 }}>{pd.momentum.msg}</div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ===== SECTION 2: LEARNING YOUR PATTERNS ===== */}
+          <SectionTitle sub="What your check-ins are quietly revealing.">Learning Your Patterns</SectionTitle>
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "16px 18px", marginBottom: 12 }}>
+            {/* Cycle patterns */}
+            {pd.cyclePhases && !pd.cyclePhases.none ? (
+              <>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: "#9B6BC3", textTransform: "uppercase", marginBottom: 8 }}>Cycle Patterns</div>
+                {pd.cyclePhases.summary && <div style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 10 }}>{pd.cyclePhases.summary}</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
+                  {pd.cyclePhases.rows.map((r) => (
+                    <div key={r.phase} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 11, background: BASE.surface2 || "rgba(255,255,255,0.03)", border: `1px solid ${BASE.border}` }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: r.enough && r.top ? CAP_C[r.top] : "rgba(255,255,255,0.15)", flexShrink: 0 }} />
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: BASE.cream, width: 78, flexShrink: 0 }}>{PHL[r.phase]}</span>
+                      {r.enough ? (
+                        <span style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 11.5, color: BASE.taupe }}>Avg {r.avg}%</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: CAP_C[r.top], padding: "2px 8px", borderRadius: 999, background: "rgba(255,255,255,0.05)" }}>{CAP_L[r.top]}</span>
+                        </span>
+                      ) : <span style={{ flex: 1, fontSize: 11, color: BASE.taupe, fontStyle: "italic" }}>Not enough check-ins yet</span>}
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>{cycleLength && lastPeriod ? "As you check in through each cycle phase, your rhythm will start to appear here." : "Turn on cycle tracking in the Body tab to see how your capacity moves through your cycle."}</div>
+            )}
+            {/* Weekly patterns */}
+            {pd.weekly && (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: `0.5px solid ${BASE.border}` }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 8 }}>Weekly Patterns</div>
+                {pd.weekly.map((w, i) => <div key={i} style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.55, marginBottom: 4 }}>{w}</div>)}
+              </div>
+            )}
+            {/* Recovery patterns */}
+            {pd.recoveryPatterns && (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: `0.5px solid ${BASE.border}` }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: "#7FA054", textTransform: "uppercase", marginBottom: 8 }}>Recovery Patterns</div>
+                {pd.recoveryPatterns.map((w, i) => <div key={i} style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.55, marginBottom: 4 }}>{w}</div>)}
+              </div>
+            )}
+            <div style={{ fontSize: 11.5, color: BASE.taupe, lineHeight: 1.55, fontStyle: "italic", marginTop: 16, paddingTop: 14, borderTop: `0.5px solid ${BASE.border}` }}>These are patterns — not rules. Your capacity is always yours to choose.</div>
+          </div>
+
+          {/* ===== SECTION 3: MONTHLY REFLECTION ===== */}
+          {report && !report.empty && (
+            <>
+              <SectionTitle sub={`A gentle look back at ${report.monthName}.`}>Monthly Reflection</SectionTitle>
+              <div style={{ borderRadius: 20, background: `linear-gradient(160deg, ${BASE.surface}, ${BASE.bg2})`, border: `1px solid ${BASE.border}`, padding: "22px 20px" }}>
+                <div style={{ textAlign: "center", marginBottom: 18 }}>
+                  <div style={{ fontSize: 11, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1 }}>{report.monthName} · Average capacity</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 600, color: THEMES[colorFromPct(report.avg)].accent, lineHeight: 1.1 }}>{report.avg}%</div>
+                  {(pd.monthHi != null) && <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2 }}>Highest {pd.monthHi}% · Lowest {pd.monthLo}%</div>}
+                </div>
+                <div style={{ display: "flex", gap: 7, marginBottom: 16 }}>
+                  {[["Green", report.counts.green, THEMES.green.accent], ["Yellow", report.counts.yellow, THEMES.yellow.accent], ["Red", report.counts.red, THEMES.red.accent], ["Recovery", pd.recoveryDays, "#A87BD1"]].map(([lbl, n, c]) => (
+                    <div key={lbl} style={{ flex: 1, textAlign: "center", padding: "11px 3px", borderRadius: 12, background: BASE.surface2 }}>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, color: c }}>{n}</div>
+                      <div style={{ fontSize: 10, color: BASE.taupe }}>{lbl}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ borderTop: `0.5px solid ${BASE.border}`, paddingTop: 12 }}>
+                  {pd.favCat && <ReportLine label="Favorite workout" value={pd.favCat} />}
+                  {report.recovery && <ReportLine label="Most helpful recovery habit" value={report.recovery} />}
+                  {report.bestPhase && <ReportLine label="Highest-capacity phase" value={PHASES[report.bestPhase].emoji + " " + PHASES[report.bestPhase].name} />}
+                </div>
+                {pd.monthlyReflection && <p style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65, marginTop: 16, fontStyle: "italic" }}>{pd.monthlyReflection}</p>}
+              </div>
+            </>
+          )}
+
+          {/* ===== SECTION 4: MOVEMENT HISTORY ===== */}
+          <SectionTitle sub="Every session counted.">Movement History</SectionTitle>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+            <Stat label="Total workouts" value={pd.totalWorkouts} accent={T.accent} />
+            <Stat label="Movement minutes" value={"~" + pd.totalMinutes} accent="#9B6BC3" />
+            <Stat label="Favorite category" value={pd.favCat || "—"} accent="#C9558E" />
+            <Stat label="Current streak" value={pd.workoutStreak + (pd.workoutStreak === 1 ? " day" : " days")} accent={THEMES.green.accent} />
+          </div>
+          {!sortedWo.length ? (
+            <div style={{ padding: 22, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.taupe, fontSize: 13.5, lineHeight: 1.6, textAlign: "center" }}>Finish a workout in the Body tab and it will show up here.</div>
+          ) : (
+            sortedWo.slice(0, 8).map((w, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
+                <span style={{ width: 11, height: 11, borderRadius: "50%", background: THEMES[w.color] ? THEMES[w.color].accent : BASE.terracotta, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{(WO_TYPES.find((t) => t.key === w.type) || { label: w.type }).label}</div>
-                  <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 1 }}>{new Date(w.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+                  <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 1 }}>{new Date(w.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}{w.program ? " · " + (PROG_BY_ID(w.program).name) : ""}</div>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 800, color: THEMES[w.color] ? THEMES[w.color].accent : BASE.terracotta }}>{THEMES[w.color] ? THEMES[w.color].label.split(" ")[0] : ""}</span>
               </div>
             ))
           )}
-        </div>
-      )
-    }
+          {sortedWo.length > 8 && <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", marginTop: 4 }}>Showing your 8 most recent · {sortedWo.length} total</div>}
 
-    if (tab === "progress" && progressView === "trends") {
-      return (
-        <div style={{ padding: "8px 18px 0" }} className="fade-in">
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 6px" }}>Your capacity over time</h2>
-          <p style={{ fontSize: 13, color: BASE.taupe, marginBottom: 22 }}>Patterns, not pressure.</p>
-          {!stats ? (
-            <div style={{ padding: 24, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, color: BASE.taupe, fontSize: 14, lineHeight: 1.6, textAlign: "center" }}>Once you start checking in each day, your capacity history will grow here — and patterns will start to show.</div>
-          ) : (
-            <>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 140, paddingBottom: 8, borderBottom: `0.5px solid ${BASE.border}` }}>
-                {history.map((d, i) => (
-                  <div key={i} title={d.pct + "%"} style={{ flex: 1, height: `${d.pct}%`, borderRadius: 3, background: THEMES[d.color].accent, opacity: 0.85 }} />
-                ))}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "22px 0" }}>
-                <Stat label="Average capacity" value={stats.avg + "%"} accent={T.accent} />
-                <Stat label="Most common day" value={THEMES[stats.top].label.split(" ")[0]} accent={THEMES[stats.top].accent} />
-                <Stat label="Green Days" value={stats.counts.green} accent={THEMES.green.accent} />
-                <Stat label="Yellow Days" value={stats.counts.yellow} accent={THEMES.yellow.accent} />
-                <Stat label="Red Days" value={stats.counts.red} accent={THEMES.red.accent} />
-              </div>
-
-              {report && (
-                <div style={{ padding: 22, borderRadius: 18, background: `linear-gradient(160deg, ${BASE.surface}, ${BASE.bg2})`, border: `1px solid ${BASE.border}`, marginBottom: 16 }}>
-                  <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 30, color: BASE.cream, textAlign: "center", lineHeight: 1 }}>Your {report.monthName} Report</div>
-                  <div style={{ width: 40, height: 2, background: T.accent, margin: "12px auto 18px", borderRadius: 2 }} />
-                  {report.empty ? (
-                    <p style={{ fontSize: 13, color: BASE.creamDim, textAlign: "center", lineHeight: 1.6 }}>No check-ins yet this month. As you log your days, your {report.monthName} report will appear here.</p>
-                  ) : (
-                    <>
-                      <div style={{ textAlign: "center", marginBottom: 18 }}>
-                        <div style={{ fontSize: 11, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1 }}>Average capacity</div>
-                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontWeight: 600, color: THEMES[colorFromPct(report.avg)].accent }}>{report.avg}%</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-                        {[["Green", report.counts.green, THEMES.green.accent], ["Yellow", report.counts.yellow, THEMES.yellow.accent], ["Red", report.counts.red, THEMES.red.accent]].map(([lbl, n, c]) => (
-                          <div key={lbl} style={{ flex: 1, textAlign: "center", padding: "12px 4px", borderRadius: 12, background: BASE.surface2 }}>
-                            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, color: c }}>{n}</div>
-                            <div style={{ fontSize: 11, color: BASE.taupe }}>{lbl} Days</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ borderTop: `0.5px solid ${BASE.border}`, paddingTop: 14 }}>
-                        {report.trigger && <ReportLine label="Most common Red Day trigger" value={report.trigger} />}
-                        {report.recovery && <ReportLine label="Strongest recovery factor" value={report.recovery} />}
-                        {report.bestPhase && <ReportLine label="Highest-capacity phase" value={PHASES[report.bestPhase].emoji + " " + PHASES[report.bestPhase].name} />}
-                      </div>
-                      <p style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.65, marginTop: 16, fontStyle: "italic" }}>{report.empty ? "" : (report.counts.green >= report.counts.red ? "You had at least as many Green Days as Red this month — your patterns are leaning steadier. That's worth noticing." : "Red Days outnumbered Green this month. That's information, not failure — it shows where your system needed more support.")}</p>
-                    </>
-                  )}
-                </div>
-              )}
-            </>
-          )}
+          {/* ===== BIGGEST WIN ===== */}
+          <div style={{ borderRadius: 20, background: "linear-gradient(135deg,#E984B4,#A87BD1)", padding: "22px 22px", margin: "26px 0 20px", position: "relative", overflow: "hidden", boxShadow: "0 12px 30px rgba(168,123,209,0.32)" }}>
+            <div style={{ position: "absolute", right: -16, top: -16, fontSize: 80, opacity: 0.14 }}>✨</div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(255,255,255,0.9)", position: "relative" }}>✨ Biggest Win</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: "#fff", lineHeight: 1.35, marginTop: 8, position: "relative" }}>{pd.biggestWin}</div>
+          </div>
         </div>
       )
     }
@@ -3632,13 +3824,6 @@ export default function App() {
             <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
               {[["gym", "Train", "\ud83d\udcaa"], ["nourish", "Nourish", "\ud83c\udf7d\ufe0f"], ["cycle", "Cycle", "\ud83c\udf19"]].map(([k, lbl, ic]) => (
                 <button key={k} onClick={() => setBodyView(k)} style={{ flex: 1, padding: "10px 4px", borderRadius: 16, cursor: "pointer", fontSize: 12, fontWeight: 700, background: bodyView === k ? T.accent : BASE.surface, color: bodyView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${bodyView === k ? T.accent : BASE.border}` }}><span style={{ fontSize: 16, display: "block", marginBottom: 2 }}>{ic}</span>{lbl}</button>
-              ))}
-            </div>
-          )}
-          {tab === "progress" && (
-            <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
-              {[["trends", "Trends"], ["workouts", "Workouts"]].map(([k, lbl]) => (
-                <button key={k} onClick={() => setProgressView(k)} style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: progressView === k ? T.accent : BASE.surface, color: progressView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${progressView === k ? T.accent : BASE.border}` }}>{lbl}</button>
               ))}
             </div>
           )}
