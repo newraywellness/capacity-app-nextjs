@@ -1259,10 +1259,12 @@ export default function App() {
 
   const [woColor, setWoColor] = useState(null)
   const [woType, setWoType] = useState("full")
+  const [woKey, setWoKey] = useState(null)
+  const [forceTrainMenu, setForceTrainMenu] = useState(false)
   const [woDone, setWoDone] = useState({})
   const [woOpen, setWoOpen] = useState(null)
   const [woLog, setWoLog] = useState([])
-  const [manualWo, setManualWo] = useState(null)
+  const [selectedWoKey, setSelectedWoKey] = useState(null)
   const [woLogged, setWoLogged] = useState(false)
   const [bodyView, setBodyView] = useState("gym")
   const [progressView, setProgressView] = useState("trends")
@@ -1305,6 +1307,12 @@ export default function App() {
   }, [])
 
   useEffect(() => { checkAuth() }, [])
+
+  useEffect(() => {
+    // Clear any manual workout selection when the program changes (selection is per-program, per-session).
+    setSelectedWoKey(null)
+    setForceTrainMenu(false)
+  }, [programId])
 
   useEffect(() => {
     // Lock background scroll only for the cycle editor modal (a true overlay).
@@ -2137,10 +2145,23 @@ export default function App() {
       const _coachBank = (PROGRAM_COACH_LINES[programId] && PROGRAM_COACH_LINES[programId][recovery ? "recovery" : cur]) || COACH_LINES[recovery ? "recovery" : cur] || []
       const coachLine = _coachBank[sched.week % _coachBank.length] || ""
       const version = CAP_VERSION[recovery ? "red" : cur]
-      const scheduleKey = (PROGRAM_SCHEDULE[programId] || [])[sched.weekday] || "recovery"
-      const isRest = scheduleKey === "recovery"
-      const woType2 = session.slots[0] ? session.slots[0].pattern : "walk"
-      const typeLabel = session.title
+      // --- Workout selection: recommendation vs. manual selection ---
+      // recommendedWorkout = today's scheduled template key (never overwritten)
+      const recommendedWorkout = (PROGRAM_SCHEDULE[programId] || [])[sched.weekday] || "recovery"
+      // A manual selection only applies if it's a real, non-recovery template in this program
+      const validSelected = selectedWoKey && WORKOUT_TEMPLATES[selectedWoKey] ? selectedWoKey : null
+      // activeWorkout = selectedWorkout ?? recommendedWorkout
+      // In "train anyway" mode where the recommendation is recovery, fall back to the first real workout.
+      const firstRealKey = (PROGRAM_SCHEDULE[programId] || []).find((k) => k !== "recovery" && WORKOUT_TEMPLATES[k])
+      const activeWorkout = validSelected || (recommendedWorkout === "recovery" ? (firstRealKey || recommendedWorkout) : recommendedWorkout)
+      const scheduleKey = recommendedWorkout
+      const isRest = activeWorkout === "recovery"
+      // Build the session from the ACTIVE workout template, not just the weekday
+      const activeTpl = WORKOUT_TEMPLATES[activeWorkout] || null
+      const activeSession = activeTpl ? { slots: activeTpl.slots, title: activeTpl.title, focus: activeTpl.focus } : session
+      const woType2 = activeSession.slots[0] ? activeSession.slots[0].pattern : "walk"
+      const typeLabel = activeSession.title
+      const isManual = !!validSelected && validSelected !== recommendedWorkout
       const mins = version.mins
       const heroGrad = recovery ? "linear-gradient(135deg,#8A6FA8,#5E4578)" : HERO_GRAD[cur]
       const pctThroughWeeks = Math.round((sched.week / prog.weeks) * 100)
@@ -2202,7 +2223,7 @@ export default function App() {
               <div style={{ height: 20 }} />
             </div>
             )
-          })() : (recovery || isRest) ? (
+          })() : ((recovery || isRest) && !forceTrainMenu) ? (
             <>
               <div style={{ borderRadius: 22, padding: "26px 22px", background: "linear-gradient(135deg,#B9A0CE,#7E5E9E)", color: "#fff", boxShadow: "0 14px 32px rgba(120,80,130,0.3)", marginBottom: 16, position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", right: -28, top: -28, width: 110, height: 110, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
@@ -2247,7 +2268,7 @@ export default function App() {
 
               <button onClick={() => { setRecoveryDone(true) }} style={{ width: "100%", marginTop: 6, padding: 16, borderRadius: 16, border: "none", cursor: "pointer", background: recoveryDone ? "rgba(168,123,209,0.15)" : "linear-gradient(135deg,#B9A0CE,#8A6FA8)", color: recoveryDone ? "#8A6FA8" : "#fff", fontSize: 15.5, fontWeight: 800, boxShadow: recoveryDone ? "none" : "0 10px 26px rgba(138,111,168,0.35)" }}>{recoveryDone ? "Recovery logged \u2713 well done" : "Start Recovery"}</button>
 
-              <div onClick={() => { setWoColor(cur); setWoType(recovery ? "walk" : "full"); setTrainView("workout") }} style={{ textAlign: "center", marginTop: 14, fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>Train anyway {"\u2192"}</div>
+              <div onClick={() => { setForceTrainMenu(true); setSelectedWoKey(null) }} style={{ textAlign: "center", marginTop: 14, fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>Train anyway {"\u2192"}</div>
               <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", marginTop: 4, fontStyle: "italic", lineHeight: 1.5 }}>No shame in it — recovery is just today's recommendation, not a rule.</div>
               <div style={{ height: 18 }} />
             </>
@@ -2266,9 +2287,9 @@ export default function App() {
 
               <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "16px 18px", marginBottom: 14 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 3 }}>Today's session</div>
-                <div style={{ fontSize: 12.5, color: BASE.creamDim, fontStyle: "italic", marginBottom: 12 }}>{session.focus}</div>
-                {session.slots.map((sl, i) => { const m = MOVEMENTS.find((x) => x.id === sl.pattern) || { pattern: sl.pattern, group: "" }; return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < session.slots.length - 1 ? `1px solid ${BASE.border}` : "none" }}>
+                <div style={{ fontSize: 12.5, color: BASE.creamDim, fontStyle: "italic", marginBottom: 12 }}>{activeSession.focus}</div>
+                {activeSession.slots.map((sl, i) => { const m = MOVEMENTS.find((x) => x.id === sl.pattern) || { pattern: sl.pattern, group: "" }; return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < activeSession.slots.length - 1 ? `1px solid ${BASE.border}` : "none" }}>
                     <span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(168,123,209,0.15)", color: "#A87BD1", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
                     <span style={{ flex: 1, fontSize: 13.5, color: BASE.cream, fontWeight: 600 }}>{m.pattern}</span>
                     <span style={{ fontSize: 10, color: BASE.taupe, textTransform: "capitalize" }}>{sl.role}</span>
@@ -2283,23 +2304,22 @@ export default function App() {
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: BASE.cream, lineHeight: 1.5, position: "relative" }}>{insightMsg}</div>
               </div>
 
-              <button onClick={() => { setManualWo(null); setWoColor(cur); setWoType(woType2); setTrainView("workout") }} style={{ width: "100%", padding: 18, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.4)", marginBottom: 16 }}>Start Recommended Workout</button>
+              <button onClick={() => { setWoColor(cur); setWoKey(activeWorkout); setWoType(woType2); setTrainView("workout") }} style={{ width: "100%", padding: 18, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.4)", marginBottom: 16 }}>{isManual ? `Start ${typeLabel}` : `Start Recommended: ${typeLabel}`}</button>
 
               <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>Or choose another workout</div>
               <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 12, lineHeight: 1.5 }}>Today's recommendation fits your capacity best, but your life is yours. Pick anything in your program — you won't fall behind.</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
                 {manualOptions.map((mo) => {
-                  const isRec = mo.key === scheduleKey
+                  const isRec = mo.key === recommendedWorkout
+                  const isSel = mo.key === activeWorkout
                   return (
-                    <div key={mo.key} onClick={() => { setWoColor(cur); setWoType(mo.pattern || "full"); setTrainView("workout") }} style={{ padding: "13px 14px", borderRadius: 13, background: BASE.surface, border: `1px solid ${isRec ? "#C9558E" : BASE.border}`, cursor: "pointer" }}>
+                    <div key={mo.key} onClick={() => { setSelectedWoKey(mo.key === recommendedWorkout ? null : mo.key) }} style={{ padding: "13px 14px", borderRadius: 13, background: isSel ? "linear-gradient(135deg,rgba(233,132,180,0.16),rgba(168,123,209,0.16))" : BASE.surface, border: `1px solid ${isSel ? "#C9558E" : BASE.border}`, cursor: "pointer" }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>{mo.title}</div>
                       {isRec && <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: "#C9558E", textTransform: "uppercase", marginTop: 2 }}>Recommended</div>}
+                      {isSel && !isRec && <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: "#C9558E", textTransform: "uppercase", marginTop: 2 }}>Selected</div>}
                     </div>
                   )
                 })}
-                <div onClick={() => { setWoColor(cur); setWoType("walk"); setTrainView("workout") }} style={{ padding: "13px 14px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, cursor: "pointer" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>Walk / Mobility</div>
-                </div>
               </div>
 
               <div onClick={() => setWhyOpen(!whyOpen)} style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 16px", cursor: "pointer", marginBottom: 16 }}>
@@ -2908,7 +2928,9 @@ export default function App() {
       const _sched = progSchedule(_prog, programStart)
       const _capKey = pct < 15 ? "recovery" : gymColor
       const _phase = phaseFor(programId, _sched.week)
-      const _session = buildSession(programId, _sched.weekday, _capKey)
+      // Build from the explicitly chosen workout (woKey) when present; otherwise today's scheduled session.
+      const _tpl = woKey && WORKOUT_TEMPLATES[woKey] ? WORKOUT_TEMPLATES[woKey] : null
+      const _session = _tpl ? { slots: _tpl.slots, title: _tpl.title, focus: _tpl.focus } : buildSession(programId, _sched.weekday, _capKey)
       const _resolved = resolveSession(_session, woEnv, _capKey, _phase, programId)
       const _fallback = { title: _session.title || "Workout", note: _session.focus || "", exercises: [] }
       const wo = (_resolved && _resolved.length)
