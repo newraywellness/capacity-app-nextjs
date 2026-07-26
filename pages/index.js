@@ -1024,26 +1024,43 @@ const ACTIVITY_LEVELS = [
   { k: "very", label: "Very active", note: "Training 5+ times a week, or a physically demanding job", mult: 1.725 },
 ]
 const CAL_FLOOR = 1500 // we never estimate below this without provider involvement
+// Rate of change options (fat loss only). Deliberately gentle — no aggressive deficits offered.
+const RATE_OPTIONS = [
+  { k: "gentle", label: "Gentle", note: "About 0.5 lb per week", perDay: 250 },
+  { k: "steady", label: "Steady", note: "About 1 lb per week", perDay: 500 },
+]
+// Mifflin-St Jeor BMR -> activity multiplier -> maintenance -> plan-adjusted target -> macros.
+// Kept UI-free so the logic can be reviewed or replaced independently.
 const calcTargets = (inp) => {
-  // inp: { age, heightIn, weightLb, activity, planId, nursing }
   const age = Number(inp.age) || 30
   const hIn = Number(inp.heightIn) || 65
   const wLb = Number(inp.weightLb) || 150
   const kg = wLb * 0.453592, cm = hIn * 2.54
-  const bmr = Math.round(10 * kg + 6.25 * cm - 5 * age - 161)
+  const sexConst = inp.sex === "male" ? 5 : -161
+  const bmr = Math.round(10 * kg + 6.25 * cm - 5 * age + sexConst)
   const act = (ACTIVITY_LEVELS.find((a) => a.k === inp.activity) || ACTIVITY_LEVELS[1]).mult
   let maintenance = Math.round(bmr * act)
   const plan = PLAN_BY_ID(inp.planId)
   const flags = []
   // Nursing adds real energy needs and rules out a deficit entirely.
   if (inp.nursing) { maintenance += 400; flags.push("nursing") }
-  let adj = plan ? plan.deficit : 0
-  if (inp.nursing && adj < 0) { adj = 0; flags.push("noDeficitNursing") }
-  let cal = Math.round((maintenance * (1 + adj)) / 10) * 10
+  let cal = maintenance
+  const wantsDeficit = plan && plan.deficit < 0
+  if (wantsDeficit && inp.nursing) { flags.push("noDeficitNursing") }
+  else if (wantsDeficit) {
+    const rate = (RATE_OPTIONS.find((r) => r.k === inp.rate) || RATE_OPTIONS[0]).perDay
+    // Cap the deficit at 20% of maintenance no matter which rate is chosen.
+    const capped = Math.min(rate, Math.round(maintenance * 0.2))
+    if (capped < rate) flags.push("rateCapped")
+    cal = maintenance - capped
+  } else if (plan && plan.deficit > 0) {
+    cal = Math.round(maintenance * (1 + plan.deficit))
+  }
+  cal = Math.round(cal / 10) * 10
   // Safety floor: never estimate below BMR or the general floor.
   const floor = Math.max(bmr, CAL_FLOOR)
   if (cal < floor) { cal = Math.round(floor / 10) * 10; flags.push("floored") }
-  // Protein from plan; fat ~27% of calories; carbs fill the rest.
+  // Protein from plan; fat ~27% of calories; carbs fill the remainder.
   const perLb = plan ? plan.proteinPerLb : 0.75
   const p = Math.round((wLb * perLb) / 5) * 5
   const f = Math.round((cal * 0.27) / 9 / 5) * 5
@@ -1055,6 +1072,89 @@ const proteinSplit = (p) => {
   const b = Math.round((p * 0.25) / 5) * 5, l = Math.round((p * 0.25) / 5) * 5, d = Math.round((p * 0.3) / 5) * 5
   return { b, l, d, s: Math.max(0, p - b - l - d) }
 }
+// ============ FOOD LOGGING ENGINE ============
+// Real serving-size math. Every food stores nutrition per 100 g plus the gram weight of
+// each household unit it supports, so any quantity/unit combination converts correctly.
+// This layer is deliberately UI-free so it can be reviewed, tested, or swapped independently.
+const MASS_UNITS = { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 }
+const foodUnitList = (food) => (food && food.units && food.units.length ? food.units : [{ u: "g", g: 1 }])
+// grams represented by qty of unit for a given food (household units carry their own gram weight)
+const gramsFor = (food, qty, unit) => {
+  const q = Number(qty)
+  if (!isFinite(q) || q <= 0) return null
+  const own = foodUnitList(food).find((x) => x.u === unit)
+  if (own) return q * own.g
+  if (MASS_UNITS[unit]) return q * MASS_UNITS[unit]
+  return null
+}
+const r1 = (n) => Math.round(n * 10) / 10
+// Nutrition for an arbitrary quantity/unit of a food, derived from its per-100g basis.
+const nutrientsFor = (food, qty, unit) => {
+  const g = gramsFor(food, qty, unit)
+  if (g == null || !food || !food.per100) return null
+  const k = g / 100
+  return { cal: Math.round(food.per100.cal * k), p: r1(food.per100.p * k), c: r1(food.per100.c * k), f: r1(food.per100.f * k), grams: Math.round(g) }
+}
+// Sum a list of logged entries into daily/meal totals.
+const sumEntries = (entries) => (entries || []).reduce(
+  (a, e) => ({ cal: a.cal + (e.cal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), f: a.f + (e.f || 0) }),
+  { cal: 0, p: 0, c: 0, f: 0 }
+)
+// ---- STARTER FOOD SET ----
+// A small set of common whole foods using standard reference values (per 100 g edible portion).
+// This is intentionally NOT a comprehensive database — see searchFoods() for the API integration point.
+const STARTER_FOODS = [
+  { id: "egg", name: "Egg, whole", per100: { cal: 143, p: 12.6, c: 0.7, f: 9.5 }, units: [{ u: "large egg", g: 50 }, { u: "g", g: 1 }, { u: "oz", g: 28.35 }] },
+  { id: "eggwhite", name: "Egg white", per100: { cal: 52, p: 10.9, c: 0.7, f: 0.2 }, units: [{ u: "large white", g: 33 }, { u: "g", g: 1 }] },
+  { id: "chicken", name: "Chicken breast, cooked", per100: { cal: 165, p: 31, c: 0, f: 3.6 }, units: [{ u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "turkeyg", name: "Ground turkey 93%, cooked", per100: { cal: 203, p: 27, c: 0, f: 10 }, units: [{ u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "beefg", name: "Ground beef 90%, cooked", per100: { cal: 217, p: 26, c: 0, f: 11.8 }, units: [{ u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "salmon", name: "Salmon, cooked", per100: { cal: 208, p: 22.1, c: 0, f: 13.4 }, units: [{ u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "shrimp", name: "Shrimp, cooked", per100: { cal: 99, p: 24, c: 0.2, f: 0.3 }, units: [{ u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "tuna", name: "Tuna, canned in water", per100: { cal: 116, p: 25.5, c: 0, f: 0.8 }, units: [{ u: "can", g: 142 }, { u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "turkeydeli", name: "Turkey, deli sliced", per100: { cal: 104, p: 17, c: 3, f: 2.5 }, units: [{ u: "slice", g: 28 }, { u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "tofu", name: "Tofu, firm", per100: { cal: 144, p: 17, c: 2.8, f: 8.7 }, units: [{ u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "gyogurt", name: "Greek yogurt, plain nonfat", per100: { cal: 59, p: 10.3, c: 3.6, f: 0.4 }, units: [{ u: "cup", g: 245 }, { u: "container", g: 170 }, { u: "g", g: 1 }] },
+  { id: "cottage", name: "Cottage cheese, 2%", per100: { cal: 84, p: 11, c: 4.3, f: 2.3 }, units: [{ u: "cup", g: 226 }, { u: "g", g: 1 }] },
+  { id: "milk", name: "Milk, 2%", per100: { cal: 50, p: 3.3, c: 4.8, f: 2 }, units: [{ u: "cup", g: 244 }, { u: "g", g: 1 }] },
+  { id: "cheddar", name: "Cheddar cheese", per100: { cal: 403, p: 23, c: 3.1, f: 33 }, units: [{ u: "slice", g: 28 }, { u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "whey", name: "Whey protein powder", per100: { cal: 400, p: 80, c: 8, f: 5 }, units: [{ u: "scoop", g: 30 }, { u: "g", g: 1 }] },
+  { id: "oats", name: "Oats, dry", per100: { cal: 389, p: 16.9, c: 66.3, f: 6.9 }, units: [{ u: "cup", g: 81 }, { u: "g", g: 1 }] },
+  { id: "rice", name: "White rice, cooked", per100: { cal: 130, p: 2.7, c: 28, f: 0.3 }, units: [{ u: "cup", g: 158 }, { u: "g", g: 1 }] },
+  { id: "quinoa", name: "Quinoa, cooked", per100: { cal: 120, p: 4.4, c: 21.3, f: 1.9 }, units: [{ u: "cup", g: 185 }, { u: "g", g: 1 }] },
+  { id: "pasta", name: "Pasta, cooked", per100: { cal: 131, p: 5, c: 25, f: 1.1 }, units: [{ u: "cup", g: 140 }, { u: "g", g: 1 }] },
+  { id: "bread", name: "Bread, whole wheat", per100: { cal: 247, p: 13, c: 41, f: 3.4 }, units: [{ u: "slice", g: 32 }, { u: "g", g: 1 }] },
+  { id: "tortilla", name: "Tortilla, flour", per100: { cal: 306, p: 8.2, c: 51, f: 7.6 }, units: [{ u: "tortilla", g: 45 }, { u: "g", g: 1 }] },
+  { id: "potato", name: "Potato, cooked", per100: { cal: 87, p: 1.9, c: 20.1, f: 0.1 }, units: [{ u: "medium", g: 173 }, { u: "cup", g: 156 }, { u: "g", g: 1 }] },
+  { id: "sweetpot", name: "Sweet potato, cooked", per100: { cal: 90, p: 2, c: 20.7, f: 0.1 }, units: [{ u: "medium", g: 130 }, { u: "cup", g: 200 }, { u: "g", g: 1 }] },
+  { id: "blackbeans", name: "Black beans, cooked", per100: { cal: 132, p: 8.9, c: 23.7, f: 0.5 }, units: [{ u: "cup", g: 172 }, { u: "g", g: 1 }] },
+  { id: "banana", name: "Banana", per100: { cal: 89, p: 1.1, c: 22.8, f: 0.3 }, units: [{ u: "medium", g: 118 }, { u: "g", g: 1 }] },
+  { id: "apple", name: "Apple", per100: { cal: 52, p: 0.3, c: 13.8, f: 0.2 }, units: [{ u: "medium", g: 182 }, { u: "g", g: 1 }] },
+  { id: "orange", name: "Orange", per100: { cal: 47, p: 0.9, c: 11.8, f: 0.1 }, units: [{ u: "medium", g: 131 }, { u: "g", g: 1 }] },
+  { id: "blueberry", name: "Blueberries", per100: { cal: 57, p: 0.7, c: 14.5, f: 0.3 }, units: [{ u: "cup", g: 148 }, { u: "g", g: 1 }] },
+  { id: "strawberry", name: "Strawberries", per100: { cal: 32, p: 0.7, c: 7.7, f: 0.3 }, units: [{ u: "cup", g: 152 }, { u: "g", g: 1 }] },
+  { id: "broccoli", name: "Broccoli, cooked", per100: { cal: 35, p: 2.4, c: 7.2, f: 0.4 }, units: [{ u: "cup", g: 156 }, { u: "g", g: 1 }] },
+  { id: "spinach", name: "Spinach, raw", per100: { cal: 23, p: 2.9, c: 3.6, f: 0.4 }, units: [{ u: "cup", g: 30 }, { u: "g", g: 1 }] },
+  { id: "avocado", name: "Avocado", per100: { cal: 160, p: 2, c: 8.5, f: 14.7 }, units: [{ u: "medium", g: 150 }, { u: "half", g: 75 }, { u: "g", g: 1 }] },
+  { id: "almonds", name: "Almonds", per100: { cal: 579, p: 21.2, c: 21.6, f: 49.9 }, units: [{ u: "oz", g: 28.35 }, { u: "g", g: 1 }] },
+  { id: "pb", name: "Peanut butter", per100: { cal: 588, p: 25, c: 20, f: 50 }, units: [{ u: "tbsp", g: 16 }, { u: "g", g: 1 }] },
+  { id: "oliveoil", name: "Olive oil", per100: { cal: 884, p: 0, c: 0, f: 100 }, units: [{ u: "tbsp", g: 13.5 }, { u: "tsp", g: 4.5 }, { u: "g", g: 1 }] },
+  { id: "butter", name: "Butter", per100: { cal: 717, p: 0.9, c: 0.1, f: 81 }, units: [{ u: "tbsp", g: 14 }, { u: "g", g: 1 }] },
+  { id: "honey", name: "Honey", per100: { cal: 304, p: 0.3, c: 82.4, f: 0 }, units: [{ u: "tbsp", g: 21 }, { u: "g", g: 1 }] },
+  { id: "coffee", name: "Coffee, black", per100: { cal: 1, p: 0.1, c: 0, f: 0 }, units: [{ u: "cup", g: 237 }, { u: "g", g: 1 }] },
+]
+// ---- FOOD SEARCH ADAPTER ----
+// INTEGRATION POINT: replace the body of this function with a call to a real nutrition API
+// (see notes in the summary). It must return objects shaped like STARTER_FOODS entries:
+//   { id, name, per100: { cal, p, c, f }, units: [{ u: <label>, g: <grams per 1 unit> }] }
+// Everything downstream (serving math, logging, totals) already works with that shape.
+const searchFoods = (query) => {
+  const q = String(query || "").trim().toLowerCase()
+  if (!q) return []
+  return STARTER_FOODS.filter((f) => f.name.toLowerCase().indexOf(q) >= 0)
+}
+// New Ray recipe meals exposed as loggable "foods" (nutrition already stored with each meal).
+const mealAsFood = (m) => ({ id: "nr:" + m.n, name: m.n, newRay: true, per100: null, fixed: { cal: m.cal, p: m.p, c: m.c, f: m.f }, units: [{ u: "serving", g: 0 }] })
 // ============ CYCLE PHASE PRESENTATION (Phase 1: colors + education) ============
 // Reuses computeCycle/PHASES engine; adds the spec's calendar colors + education content.
 const CYCLE_PHASES = {
@@ -1445,8 +1545,19 @@ export default function App() {
   const [suppOpen, setSuppOpen] = useState(null)
   const [planView, setPlanView] = useState(null)
   const [nutrition, setNutrition] = useState(null)
-  const [foodLog, setFoodLog] = useState([])
-  const [water, setWater] = useState(0)
+  const [foodDays, setFoodDays] = useState({})
+  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [savedFoods, setSavedFoods] = useState([])
+  const [myMeals, setMyMeals] = useState([])
+  const [recentFoods, setRecentFoods] = useState([])
+  const [addFoodFor, setAddFoodFor] = useState(null)
+  const [addTab, setAddTab] = useState("search")
+  const [foodQuery, setFoodQuery] = useState("")
+  const [foodPick, setFoodPick] = useState(null)
+  const [entryEdit, setEntryEdit] = useState(null)
+  const [quickAdd, setQuickAdd] = useState({ name: "", cal: "", p: "", c: "", f: "" })
+  const [saveMealName, setSaveMealName] = useState("")
+  const [mealEdit, setMealEdit] = useState(null)
   const [calcInputs, setCalcInputs] = useState(null)
   const [calcResult, setCalcResult] = useState(null)
   const [mealType, setMealType] = useState("breakfast")
@@ -1476,10 +1587,17 @@ export default function App() {
     try { const wk = localStorage.getItem("nr_week_plan"); if (wk) setWeekPlan(JSON.parse(wk)) } catch (e) {}
     try { const gm = localStorage.getItem("nr_grocery_manual"); if (gm) setGroceryManual(JSON.parse(gm)) } catch (e) {}
     try { const gc = localStorage.getItem("nr_grocery_checked"); if (gc) setGroceryChecked(JSON.parse(gc)) } catch (e) {}
+    try { const fd = localStorage.getItem("nr_food_days"); if (fd) setFoodDays(JSON.parse(fd)) } catch (e) {}
+    try { const sf = localStorage.getItem("nr_saved_foods"); if (sf) setSavedFoods(JSON.parse(sf)) } catch (e) {}
+    try { const mm = localStorage.getItem("nr_my_meals"); if (mm) setMyMeals(JSON.parse(mm)) } catch (e) {}
+    try { const rf = localStorage.getItem("nr_recent_foods"); if (rf) setRecentFoods(JSON.parse(rf)) } catch (e) {}
     try {
-      const fl = JSON.parse(localStorage.getItem("nr_food_log") || "null")
-      const td = new Date().toISOString().slice(0, 10)
-      if (fl && fl.date === td) { setFoodLog(fl.items || []); setWater(fl.water || 0) }
+      // migrate the previous single-day log format, if present
+      const legacy = JSON.parse(localStorage.getItem("nr_food_log") || "null")
+      if (legacy && legacy.date) {
+        setFoodDays((prev) => prev[legacy.date] ? prev : { ...prev, [legacy.date]: { items: (legacy.items || []).map((i) => ({ ...i, meal: i.meal || "snack", name: i.name || i.n })), water: legacy.water || 0 } })
+        localStorage.removeItem("nr_food_log")
+      }
     } catch (e) {}
     try { setGlowLog(JSON.parse(localStorage.getItem("nr_glow_log") || "{}")) } catch (e) {}
     try { setBloomNotes(JSON.parse(localStorage.getItem("nr_bloom_notes") || "{}")) } catch (e) {}
@@ -1649,13 +1767,13 @@ export default function App() {
   const handleLogout = async () => {
     await db.auth.signOut()
     setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
-    setNutrition(null); setFoodLog([]); setWater(0); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
+    setNutrition(null); setFoodDays({}); setSavedFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
     setPct(50); setFactors([]); setSupports([]); setOneThing("")
     setProgramId(null); setWoLog([]); setSetupData(null); setFirstName("")
     setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
     setTab("today"); setBodyView("gym")
     try {
-      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_food_log", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
+      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_food_days", "nr_saved_foods", "nr_my_meals", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
     } catch (e) {}
   }
 
@@ -1697,17 +1815,46 @@ export default function App() {
     try { localStorage.setItem("nr_nutrition", JSON.stringify(n)) } catch (e) {}
     try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), nutrition: n } }).eq("id", user.id).then(() => {}) } catch (e) {}
   }
-  const persistFoodLog = (items, w) => {
-    const td = new Date().toISOString().slice(0, 10)
-    try { localStorage.setItem("nr_food_log", JSON.stringify({ date: td, items, water: w })) } catch (e) {}
+  // ---- Food log: persistent, per-date, per-meal ----
+  const persistDays = (days) => { setFoodDays(days); try { localStorage.setItem("nr_food_days", JSON.stringify(days)) } catch (e) {} }
+  const dayFor = (d) => foodDays[d] || { items: [], water: 0 }
+  const setDay = (d, patch) => persistDays({ ...foodDays, [d]: { ...dayFor(d), ...patch } })
+  const addEntries = (entries, d) => {
+    const date = d || logDate
+    const cur = dayFor(date)
+    setDay(date, { items: [...cur.items, ...entries] })
   }
-  const logMeal = (meal) => {
-    const entry = { id: Date.now(), n: meal.n, cal: meal.cal, p: meal.p, c: meal.c, f: meal.f }
-    const next = [...foodLog, entry]
-    setFoodLog(next); persistFoodLog(next, water)
+  const updateEntry = (id, patch, d) => {
+    const date = d || logDate
+    const cur = dayFor(date)
+    setDay(date, { items: cur.items.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
   }
-  const removeMeal = (id) => { const next = foodLog.filter((x) => x.id !== id); setFoodLog(next); persistFoodLog(next, water) }
-  const setWaterCount = (n) => { const v = Math.max(0, n); setWater(v); persistFoodLog(foodLog, v) }
+  const deleteEntry = (id, d) => {
+    const date = d || logDate
+    const cur = dayFor(date)
+    setDay(date, { items: cur.items.filter((x) => x.id !== id) })
+  }
+  const setWaterCount = (n) => { const v = Math.max(0, n); setDay(logDate, { water: v }) }
+  const newId = () => Date.now() + Math.floor(Math.random() * 1000)
+  // Build a log entry from a food + quantity/unit (real serving math), or from fixed nutrition.
+  const makeEntry = (food, qty, unit, meal) => {
+    const base = food.fixed ? { cal: food.fixed.cal * qty, p: food.fixed.p * qty, c: food.fixed.c * qty, f: food.fixed.f * qty } : nutrientsFor(food, qty, unit)
+    if (!base) return null
+    return { id: newId(), meal, name: food.name, foodId: food.id, qty: Number(qty), unit, cal: Math.round(base.cal), p: r1(base.p), c: r1(base.c), f: r1(base.f), partial: !!food.partial }
+  }
+  const rememberRecent = (food, qty, unit) => {
+    const key = food.id + "|" + unit
+    const next = [{ food, qty, unit, key }, ...recentFoods.filter((r) => r.key !== key)].slice(0, 20)
+    setRecentFoods(next); try { localStorage.setItem("nr_recent_foods", JSON.stringify(next)) } catch (e) {}
+  }
+  const toggleFavorite = (food) => {
+    const on = savedFoods.some((x) => x.id === food.id)
+    const next = on ? savedFoods.filter((x) => x.id !== food.id) : [...savedFoods, food]
+    setSavedFoods(next); try { localStorage.setItem("nr_saved_foods", JSON.stringify(next)) } catch (e) {}
+  }
+  const saveMyMeals = (arr) => { setMyMeals(arr); try { localStorage.setItem("nr_my_meals", JSON.stringify(arr)) } catch (e) {} }
+  // Log a New Ray recipe meal straight into a meal slot
+  const logMeal = (m, slot) => { const e = makeEntry(mealAsFood(m), 1, "serving", slot || "snack"); if (e) addEntries([e]) }
   const saveWeekPlan = (wp) => { setWeekPlan(wp); try { localStorage.setItem("nr_week_plan", JSON.stringify(wp)) } catch (e) {} }
   const saveGroceryManual = (arr) => { setGroceryManual(arr); try { localStorage.setItem("nr_grocery_manual", JSON.stringify(arr)) } catch (e) {} }
   const saveGroceryChecked = (obj) => { setGroceryChecked(obj); try { localStorage.setItem("nr_grocery_checked", JSON.stringify(obj)) } catch (e) {} }
@@ -3137,7 +3284,14 @@ export default function App() {
       const nc = NOURISH_CAP[capKey]
       const plan = nutrition && nutrition.planId ? PLAN_BY_ID(nutrition.planId) : null
       const targets = nutrition && nutrition.targets ? nutrition.targets : null
-      const eaten = foodLog.reduce((a, m) => ({ cal: a.cal + m.cal, p: a.p + m.p, c: a.c + m.c, f: a.f + m.f }), { cal: 0, p: 0, c: 0, f: 0 })
+      const today0 = new Date().toISOString().slice(0, 10)
+      const dayRec = foodDays[logDate] || { items: [], water: 0 }
+      const dayItems = dayRec.items || []
+      const water = dayRec.water || 0
+      const eaten = sumEntries(dayItems)
+      const isToday = logDate === today0
+      const shiftDate = (n) => { const d = new Date(logDate + "T12:00:00"); d.setDate(d.getDate() + n); const iso = d.toISOString().slice(0, 10); if (iso <= today0) { setLogDate(iso); setAddFoodFor(null); setEntryEdit(null) } }
+      const dateLabel = isToday ? "Today" : new Date(logDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
       const rem = targets ? { cal: targets.cal - eaten.cal, p: targets.p - eaten.p, c: targets.c - eaten.c, f: targets.f - eaten.f } : null
       const hour = new Date().getHours()
       const nextType = hour < 10 ? "breakfast" : hour < 15 ? "lunch" : hour < 20 ? "dinner" : "snack"
@@ -3199,12 +3353,19 @@ export default function App() {
             </div>
           )}
 
-          {nourishView === "today" && targets && (
+          {nourishView === "today" && targets && !addFoodFor && !entryEdit && !mealEdit && (
             <div className="fade-in">
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 2 }}>Today's Nourishment</div>
               <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 18 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: BASE.taupe, textTransform: "uppercase" }}>Today's plan</span>
                 <span style={{ fontSize: 13, fontWeight: 800, color: "#C9558E" }}>{plan ? plan.emoji + " " + plan.name : "Custom"}</span>
+              </div>
+
+              {/* Date navigation */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderRadius: 999, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 16 }}>
+                <span onClick={() => shiftDate(-1)} style={{ fontSize: 17, color: BASE.creamDim, cursor: "pointer", padding: "0 6px" }}>{"\u2039"}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: isToday ? "#C9558E" : BASE.cream }}>{dateLabel}</span>
+                <span onClick={() => shiftDate(1)} style={{ fontSize: 17, color: isToday ? BASE.border : BASE.creamDim, cursor: isToday ? "default" : "pointer", padding: "0 6px" }}>{"\u203a"}</span>
               </div>
 
               {/* Protein hero */}
@@ -3265,7 +3426,7 @@ export default function App() {
                     <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{m.n}</div>
                     <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2 }}><span style={{ color: "#E984B4", fontWeight: 700 }}>~{m.p}g protein</span> · {m.cal} cal · {m.min} min</div>
                   </div>
-                  <span onClick={() => logMeal(m)} style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg,#E984B4,#A87BD1)", padding: "7px 13px", borderRadius: 999, cursor: "pointer", flexShrink: 0 }}>Log</span>
+                  <span onClick={() => logMeal(m, nextType)} style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg,#E984B4,#A87BD1)", padding: "7px 13px", borderRadius: 999, cursor: "pointer", flexShrink: 0 }}>Log</span>
                 </div>
               ))}
               <div onClick={() => { setNourishView("plan"); setPlanView("meals") }} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer", margin: "4px 2px 20px" }}>See all meal ideas {"\u203a"}</div>
@@ -3286,25 +3447,274 @@ export default function App() {
                 <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
               </div>
 
-              {/* Logged today */}
-              {foodLog.length > 0 && (
-                <>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>Logged today</div>
-                  {foodLog.map((m) => (
-                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 12, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 7 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: BASE.cream }}>{m.n}</div>
-                        <div style={{ fontSize: 11, color: BASE.taupe }}>{m.p}g protein · {m.cal} cal</div>
-                      </div>
-                      <span onClick={() => removeMeal(m.id)} style={{ fontSize: 16, color: BASE.taupe, cursor: "pointer" }}>{"\u00d7"}</span>
-                    </div>
-                  ))}
-                  <div style={{ height: 12 }} />
-                </>
+              {/* Today's Food — grouped by meal */}
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>{isToday ? "Today's food" : "Food logged"}</div>
+              {!dayItems.length && (
+                <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "22px 20px", textAlign: "center", marginBottom: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream, marginBottom: 4 }}>Nothing logged yet.</div>
+                  <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6, marginBottom: 14 }}>Start wherever you are. There's no wrong place to begin.</div>
+                  <button onClick={() => { setAddFoodFor("breakfast"); setAddTab("search") }} style={{ padding: "11px 20px", borderRadius: 999, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 13, fontWeight: 800 }}>+ Add breakfast</button>
+                </div>
               )}
+              {MEAL_TYPES.map(([slot, lbl]) => {
+                const items = dayItems.filter((x) => x.meal === slot)
+                const tot = sumEntries(items)
+                return (
+                  <div key={slot} style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 16px", marginBottom: 9 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: items.length ? 10 : 6 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: 0.5, color: BASE.cream, textTransform: "uppercase" }}>{lbl}</span>
+                      <span style={{ fontSize: 11.5, color: BASE.taupe }}>{items.length ? `${Math.round(tot.cal)} cal · ${r1(tot.p)}g protein` : "Not logged"}</span>
+                    </div>
+                    {items.map((it) => (
+                      <div key={it.id} onClick={() => setEntryEdit(it)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: `0.5px solid ${BASE.border}`, cursor: "pointer" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: BASE.cream }}>{it.name}</div>
+                          <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 1 }}>{it.qty} {it.unit}{it.qty > 1 && it.unit !== "g" && it.unit !== "oz" ? "s" : ""} · {Math.round(it.cal)} cal · {r1(it.p)}g protein{it.partial ? " · partial entry" : ""}</div>
+                        </div>
+                        <span style={{ color: BASE.taupe, fontSize: 16 }}>{"\u203a"}</span>
+                      </div>
+                    ))}
+                    <div onClick={() => { setAddFoodFor(slot); setAddTab("search"); setFoodQuery("") }} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer", paddingTop: items.length ? 10 : 0, borderTop: items.length ? `0.5px solid ${BASE.border}` : "none" }}>+ Add food</div>
+                  </div>
+                )
+              })}
+              {dayItems.length > 0 && (
+                <div onClick={() => { setSaveMealName(""); setMealEdit({ from: logDate }) }} style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: BASE.taupe, cursor: "pointer", margin: "10px 0 4px" }}>Save a meal from today's food</div>
+              )}
+              <div style={{ height: 12 }} />
               <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, marginBottom: 18 }}>These targets are estimates to guide you, not rules to obey. Some days you'll need more. That's information, not failure.</div>
             </div>
           )}
+
+
+          {/* ---- ADD FOOD ---- */}
+          {nourishView === "today" && targets && addFoodFor && !foodPick && (() => {
+            const slotLabel = (MEAL_TYPES.find((m) => m[0] === addFoodFor) || ["", "Meal"])[1]
+            const TABS = [["search", "Search"], ["recent", "Recent"], ["favorites", "Favorites"], ["mymeals", "My Meals"], ["newray", "New Ray"], ["quick", "Quick Add"]]
+            const openPick = (food, qty, unit) => setFoodPick({ food, qty: qty || 1, unit: unit || foodUnitList(food)[0].u })
+            return (
+              <div className="fade-in">
+                <Back to={() => { setAddFoodFor(null); setFoodQuery("") }} label={dateLabel} />
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginBottom: 12 }}>Add to {slotLabel.toLowerCase()}</div>
+                <div style={{ display: "flex", gap: 5, overflowX: "auto", marginBottom: 14, paddingBottom: 2 }}>
+                  {TABS.map(([k, lbl]) => (
+                    <button key={k} onClick={() => setAddTab(k)} style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 11.5, fontWeight: 700, background: addTab === k ? "#C9558E" : BASE.surface, color: addTab === k ? "#fff" : BASE.creamDim }}>{lbl}</button>
+                  ))}
+                </div>
+
+                {addTab === "search" && (
+                  <>
+                    <input value={foodQuery} onChange={(e) => setFoodQuery(e.target.value)} placeholder="Search foods…" style={{ width: "100%", padding: "13px 15px", borderRadius: 13, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14.5, outline: "none", marginBottom: 12 }} />
+                    {searchFoods(foodQuery).map((fd) => (
+                      <div key={fd.id} onClick={() => openPick(fd)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 7, cursor: "pointer" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: BASE.cream }}>{fd.name}</div>
+                          <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 1 }}>{fd.per100.cal} cal · {fd.per100.p}g protein per 100g</div>
+                        </div>
+                        <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
+                      </div>
+                    ))}
+                    {foodQuery.trim() && !searchFoods(foodQuery).length && (
+                      <div style={{ padding: 20, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, textAlign: "center" }}>
+                        <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 10 }}>Not in the starter food list yet.</div>
+                        <div onClick={() => setAddTab("quick")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer" }}>Use Quick Add instead {"\u203a"}</div>
+                      </div>
+                    )}
+                    {!foodQuery.trim() && (
+                      <div style={{ padding: "14px 16px", borderRadius: 14, background: "rgba(233,184,75,0.08)", border: "1px solid rgba(233,184,75,0.25)", fontSize: 12, color: BASE.creamDim, lineHeight: 1.6 }}>Search covers a starter set of {STARTER_FOODS.length} common whole foods for now. For packaged and restaurant foods, use Quick Add or New Ray meals — a full food database is coming.</div>
+                    )}
+                  </>
+                )}
+
+                {addTab === "recent" && (
+                  recentFoods.length ? recentFoods.map((r) => (
+                    <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 7 }}>
+                      <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openPick(r.food, r.qty, r.unit)}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: BASE.cream }}>{r.food.name}</div>
+                        <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 1 }}>{r.qty} {r.unit}</div>
+                      </div>
+                      <span onClick={() => { const en = makeEntry(r.food, r.qty, r.unit, addFoodFor); if (en) { addEntries([en]); rememberRecent(r.food, r.qty, r.unit); setAddFoodFor(null) } }} style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg,#E984B4,#A87BD1)", padding: "7px 13px", borderRadius: 999, cursor: "pointer" }}>Add</span>
+                    </div>
+                  )) : <div style={{ padding: 22, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, textAlign: "center", fontSize: 13, color: BASE.taupe }}>Foods you log will show up here for one-tap repeat logging.</div>
+                )}
+
+                {addTab === "favorites" && (
+                  savedFoods.length ? savedFoods.map((fd) => (
+                    <div key={fd.id} onClick={() => openPick(fd)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 7, cursor: "pointer" }}>
+                      <span style={{ fontSize: 14 }}>💗</span>
+                      <div style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: BASE.cream }}>{fd.name}</div>
+                      <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
+                    </div>
+                  )) : <div style={{ padding: 22, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, textAlign: "center", fontSize: 13, color: BASE.taupe, lineHeight: 1.6 }}>Tap the heart when adding a food to save it here for quick access.</div>
+                )}
+
+                {addTab === "mymeals" && (
+                  myMeals.length ? myMeals.map((mm) => {
+                    const tot = sumEntries(mm.items)
+                    return (
+                      <div key={mm.id} style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "13px 15px", marginBottom: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{mm.name}</span>
+                          <span onClick={() => saveMyMeals(myMeals.filter((x) => x.id !== mm.id))} style={{ fontSize: 15, color: BASE.taupe, cursor: "pointer" }}>{"\u00d7"}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: BASE.taupe, marginBottom: 6 }}>{mm.items.map((i) => i.name).join(", ")}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ flex: 1, fontSize: 11.5, color: BASE.creamDim }}>{Math.round(tot.cal)} cal · {r1(tot.p)}g protein</span>
+                          <span onClick={() => { addEntries(mm.items.map((i) => ({ ...i, id: newId(), meal: addFoodFor }))); setAddFoodFor(null) }} style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg,#E984B4,#A87BD1)", padding: "7px 13px", borderRadius: 999, cursor: "pointer" }}>Add</span>
+                        </div>
+                      </div>
+                    )
+                  }) : <div style={{ padding: 22, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, textAlign: "center", fontSize: 13, color: BASE.taupe, lineHeight: 1.6 }}>Log a few foods, then use "Save a meal from today's food" to turn them into a reusable meal.</div>
+                )}
+
+                {addTab === "newray" && MEAL_TYPES.map(([t, lbl]) => (
+                  <div key={t} style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 7 }}>{lbl}</div>
+                    {MEALS.filter((m) => m.t === t).slice(0, 4).map((m) => (
+                      <div key={m.n} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 6 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: BASE.cream }}>{m.n}</div>
+                          <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 1 }}>{m.cal} cal · {m.p}g protein</div>
+                        </div>
+                        <span onClick={() => { logMeal(m, addFoodFor); setAddFoodFor(null) }} style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg,#E984B4,#A87BD1)", padding: "7px 13px", borderRadius: 999, cursor: "pointer" }}>Add</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+
+                {addTab === "quick" && (() => {
+                  const q = quickAdd
+                  const st = { width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14, outline: "none", marginBottom: 10 }
+                  const hasCal = q.cal !== "" && Number(q.cal) >= 0
+                  const incomplete = q.c === "" || q.f === ""
+                  return (
+                    <>
+                      <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6, marginBottom: 12 }}>Already know the numbers? Enter what you have — calories alone is enough.</div>
+                      <input value={q.name} onChange={(e) => setQuickAdd({ ...q, name: e.target.value })} placeholder="Name (optional)" style={st} />
+                      <input value={q.cal} onChange={(e) => setQuickAdd({ ...q, cal: e.target.value })} type="number" inputMode="numeric" placeholder="Calories" style={st} />
+                      <input value={q.p} onChange={(e) => setQuickAdd({ ...q, p: e.target.value })} type="number" inputMode="numeric" placeholder="Protein (g)" style={st} />
+                      <input value={q.c} onChange={(e) => setQuickAdd({ ...q, c: e.target.value })} type="number" inputMode="numeric" placeholder="Carbs (g) — optional" style={st} />
+                      <input value={q.f} onChange={(e) => setQuickAdd({ ...q, f: e.target.value })} type="number" inputMode="numeric" placeholder="Fat (g) — optional" style={st} />
+                      {hasCal && incomplete && <div style={{ fontSize: 11.5, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.55, marginBottom: 12 }}>Leaving carbs or fat blank is fine — those daily totals will just be a little incomplete.</div>}
+                      <button onClick={() => { if (!hasCal) return; addEntries([{ id: newId(), meal: addFoodFor, name: q.name.trim() || "Quick add", qty: 1, unit: "entry", cal: Math.round(Number(q.cal)), p: Number(q.p) || 0, c: Number(q.c) || 0, f: Number(q.f) || 0, partial: incomplete }]); setQuickAdd({ name: "", cal: "", p: "", c: "", f: "" }); setAddFoodFor(null) }} disabled={!hasCal} style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: hasCal ? "pointer" : "default", background: hasCal ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface2, color: hasCal ? "#fff" : BASE.taupe, fontSize: 14.5, fontWeight: 800 }}>Add to {slotLabel.toLowerCase()}</button>
+                    </>
+                  )
+                })()}
+                <div style={{ height: 20 }} />
+              </div>
+            )
+          })()}
+
+          {/* ---- SERVING EDITOR ---- */}
+          {nourishView === "today" && targets && foodPick && (() => {
+            const { food, qty, unit } = foodPick
+            const n = food.fixed ? { cal: food.fixed.cal * qty, p: food.fixed.p * qty, c: food.fixed.c * qty, f: food.fixed.f * qty, grams: 0 } : nutrientsFor(food, qty, unit)
+            const slotLabel = (MEAL_TYPES.find((m) => m[0] === addFoodFor) || ["", "Meal"])[1]
+            const fav = savedFoods.some((x) => x.id === food.id)
+            return (
+              <div className="fade-in">
+                <Back to={() => setFoodPick(null)} label="Add food" />
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 16 }}>
+                  <div style={{ flex: 1, fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, lineHeight: 1.2 }}>{food.name}</div>
+                  <span onClick={() => toggleFavorite(food)} style={{ fontSize: 20, cursor: "pointer", opacity: fav ? 1 : 0.35 }}>💗</span>
+                </div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 7 }}>Amount</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                  <input value={qty} onChange={(e) => setFoodPick({ ...foodPick, qty: e.target.value })} type="number" inputMode="decimal" step="0.25" style={{ width: 92, padding: "12px 14px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, outline: "none" }} />
+                  <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {foodUnitList(food).map((u) => (
+                      <div key={u.u} onClick={() => setFoodPick({ ...foodPick, unit: u.u })} style={{ padding: "9px 13px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: unit === u.u ? "#A87BD1" : "transparent", color: unit === u.u ? "#fff" : BASE.creamDim, border: `1px solid ${unit === u.u ? "#A87BD1" : BASE.border}` }}>{u.u}</div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                  {[["Calories", n ? Math.round(n.cal) : "—", "#E8B84B"], ["Protein", n ? r1(n.p) + "g" : "—", "#E984B4"], ["Carbs", n ? r1(n.c) + "g" : "—", "#7FA054"], ["Fat", n ? r1(n.f) + "g" : "—", "#9B6BC3"]].map(([l, v, col]) => (
+                    <div key={l} style={{ borderRadius: 12, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 4px", textAlign: "center" }}>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: col }}>{v}</div>
+                      <div style={{ fontSize: 9.5, color: BASE.taupe, marginTop: 2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                {n && n.grams > 0 && <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", marginBottom: 16 }}>about {n.grams} g</div>}
+                <button onClick={() => { const en = makeEntry(food, Number(qty), unit, addFoodFor || "snack"); if (en) { addEntries([en]); rememberRecent(food, Number(qty), unit); setFoodPick(null); setAddFoodFor(null) } }} style={{ width: "100%", padding: 16, borderRadius: 15, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 15, fontWeight: 800, marginBottom: 20 }}>Add to {slotLabel.toLowerCase()}</button>
+              </div>
+            )
+          })()}
+
+          {/* ---- ENTRY EDITOR ---- */}
+          {nourishView === "today" && targets && entryEdit && (() => {
+            const it = entryEdit
+            const food = STARTER_FOODS.find((x) => x.id === it.foodId)
+            const live = food ? nutrientsFor(food, Number(it.qty), it.unit) : null
+            return (
+              <div className="fade-in">
+                <Back to={() => setEntryEdit(null)} label={dateLabel} />
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginBottom: 14 }}>{it.name}</div>
+                {food && (
+                  <>
+                    <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 7 }}>Amount</div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                      <input value={it.qty} onChange={(e) => setEntryEdit({ ...it, qty: e.target.value })} type="number" inputMode="decimal" step="0.25" style={{ width: 92, padding: "12px 14px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, outline: "none" }} />
+                      <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {foodUnitList(food).map((u) => (
+                          <div key={u.u} onClick={() => setEntryEdit({ ...it, unit: u.u })} style={{ padding: "9px 13px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: it.unit === u.u ? "#A87BD1" : "transparent", color: it.unit === u.u ? "#fff" : BASE.creamDim, border: `1px solid ${it.unit === u.u ? "#A87BD1" : BASE.border}` }}>{u.u}</div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+                  {[["Calories", live ? Math.round(live.cal) : Math.round(it.cal), "#E8B84B"], ["Protein", (live ? r1(live.p) : r1(it.p)) + "g", "#E984B4"], ["Carbs", (live ? r1(live.c) : r1(it.c)) + "g", "#7FA054"], ["Fat", (live ? r1(live.f) : r1(it.f)) + "g", "#9B6BC3"]].map(([l, v, col]) => (
+                    <div key={l} style={{ borderRadius: 12, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 4px", textAlign: "center" }}>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: col }}>{v}</div>
+                      <div style={{ fontSize: 9.5, color: BASE.taupe, marginTop: 2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 8 }}>Move to</div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+                  {MEAL_TYPES.map(([sl, lbl]) => (
+                    <div key={sl} onClick={() => setEntryEdit({ ...it, meal: sl })} style={{ flex: 1, textAlign: "center", padding: "9px 2px", borderRadius: 999, cursor: "pointer", fontSize: 11.5, fontWeight: 700, background: it.meal === sl ? "#C9558E" : "transparent", color: it.meal === sl ? "#fff" : BASE.creamDim, border: `1px solid ${it.meal === sl ? "#C9558E" : BASE.border}` }}>{lbl}</div>
+                  ))}
+                </div>
+                <button onClick={() => { const patch = live ? { qty: Number(it.qty), unit: it.unit, meal: it.meal, cal: Math.round(live.cal), p: r1(live.p), c: r1(live.c), f: r1(live.f) } : { meal: it.meal }; updateEntry(it.id, patch); setEntryEdit(null) }} style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 14.5, fontWeight: 800, marginBottom: 9 }}>Save changes</button>
+                <button onClick={() => { const c = dayFor(logDate); setDay(logDate, { items: [...c.items, { ...it, id: newId() }] }); setEntryEdit(null) }} style={{ width: "100%", padding: 13, borderRadius: 13, border: `1px solid ${BASE.border}`, cursor: "pointer", background: "transparent", color: BASE.creamDim, fontSize: 13.5, fontWeight: 700, marginBottom: 9 }}>Duplicate</button>
+                <button onClick={() => { deleteEntry(it.id); setEntryEdit(null) }} style={{ width: "100%", padding: 13, borderRadius: 13, border: "none", cursor: "pointer", background: "transparent", color: "#D65C4E", fontSize: 13.5, fontWeight: 700, marginBottom: 20 }}>Remove from log</button>
+              </div>
+            )
+          })()}
+
+          {/* ---- SAVE A MEAL ---- */}
+          {nourishView === "today" && targets && mealEdit && (() => {
+            const items = (foodDays[logDate] || { items: [] }).items
+            const chosen = mealEdit.picked || {}
+            const picked = items.filter((i) => chosen[i.id])
+            const tot = sumEntries(picked)
+            return (
+              <div className="fade-in">
+                <Back to={() => setMealEdit(null)} label={dateLabel} />
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Save a meal</div>
+                <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6, marginBottom: 16 }}>Pick the foods that go together, name it, and you can log the whole thing in one tap next time.</div>
+                {items.map((i) => (
+                  <div key={i.id} onClick={() => setMealEdit({ ...mealEdit, picked: { ...chosen, [i.id]: !chosen[i.id] } })} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 12, background: BASE.surface, border: `1px solid ${chosen[i.id] ? "#C9558E" : BASE.border}`, marginBottom: 7, cursor: "pointer" }}>
+                    <span style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${chosen[i.id] ? "#C9558E" : BASE.border}`, background: chosen[i.id] ? "#C9558E" : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 10, fontWeight: 800 }}>{chosen[i.id] ? "\u2713" : ""}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: BASE.cream }}>{i.name}</div>
+                      <div style={{ fontSize: 11, color: BASE.taupe }}>{Math.round(i.cal)} cal · {r1(i.p)}g protein</div>
+                    </div>
+                  </div>
+                ))}
+                {picked.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 12.5, color: BASE.creamDim, textAlign: "center", margin: "12px 0" }}>{Math.round(tot.cal)} cal · {r1(tot.p)}g protein</div>
+                    <input value={saveMealName} onChange={(e) => setSaveMealName(e.target.value)} placeholder="Name this meal…" style={{ width: "100%", padding: "13px 15px", borderRadius: 13, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14.5, outline: "none", marginBottom: 12 }} />
+                    <button onClick={() => { if (!saveMealName.trim()) return; saveMyMeals([...myMeals, { id: newId(), name: saveMealName.trim(), items: picked.map((i) => ({ ...i })) }]); setMealEdit(null); setSaveMealName("") }} style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 14.5, fontWeight: 800, marginBottom: 20 }}>Save meal</button>
+                  </>
+                )}
+                <div style={{ height: 18 }} />
+              </div>
+            )
+          })()}
 
           {/* ================= PLAN ================= */}
           {nourishView === "plan" && !planView && (
@@ -3383,7 +3793,7 @@ export default function App() {
 
           {/* --- Calculator --- */}
           {nourishView === "plan" && planView === "calc" && (() => {
-            const ci = calcInputs || { age: "", heightFt: "", heightIn: "", weightLb: "", activity: "light", nursing: false, planId: (nutrition && nutrition.planId) || "energy" }
+            const ci = calcInputs || { age: "", heightFt: "", heightIn: "", weightLb: "", activity: "light", nursing: false, sex: "female", rate: "gentle", planId: (nutrition && nutrition.planId) || "energy" }
             const setCI = (k, v) => setCalcInputs({ ...ci, [k]: v })
             const ready = ci.age && ci.heightFt && ci.weightLb
             const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14, outline: "none" }
@@ -3402,6 +3812,12 @@ export default function App() {
                           <div key={p.id} onClick={() => setCI("planId", p.id)} style={{ padding: "7px 12px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: ci.planId === p.id ? "#C9558E" : "transparent", color: ci.planId === p.id ? "#fff" : BASE.creamDim, border: `1px solid ${ci.planId === p.id ? "#C9558E" : BASE.border}` }}>{p.emoji} {p.name}</div>
                         ))}
                       </div>
+                      <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 6 }}>Sex (used by the energy equation)</div>
+                      <div style={{ display: "flex", gap: 7, marginBottom: 14 }}>
+                        {[["female", "Female"], ["male", "Male"]].map(([k, lbl]) => (
+                          <div key={k} onClick={() => setCI("sex", k)} style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 12, cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: ci.sex === k ? "#C9558E" : "transparent", color: ci.sex === k ? "#fff" : BASE.creamDim, border: `1px solid ${ci.sex === k ? "#C9558E" : BASE.border}` }}>{lbl}</div>
+                        ))}
+                      </div>
                       <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 6 }}>Age</div>
                       <input type="number" inputMode="numeric" value={ci.age} onChange={(e) => setCI("age", e.target.value)} placeholder="32" style={{ ...inputStyle, marginBottom: 14 }} />
                       <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 6 }}>Height</div>
@@ -3418,6 +3834,18 @@ export default function App() {
                           <div><div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>{a.label}</div><div style={{ fontSize: 11, color: BASE.taupe }}>{a.note}</div></div>
                         </div>
                       ))}
+                      {(PLAN_BY_ID(ci.planId) && PLAN_BY_ID(ci.planId).deficit < 0) && (
+                        <>
+                          <div style={{ fontSize: 11.5, color: BASE.taupe, margin: "14px 0 8px" }}>Pace that feels sustainable</div>
+                          {RATE_OPTIONS.map((rt) => (
+                            <div key={rt.k} onClick={() => setCI("rate", rt.k)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 13px", borderRadius: 12, marginBottom: 7, cursor: "pointer", background: ci.rate === rt.k ? "rgba(233,132,180,0.12)" : "transparent", border: `1px solid ${ci.rate === rt.k ? "#C9558E" : BASE.border}` }}>
+                              <span style={{ width: 15, height: 15, borderRadius: "50%", border: `2px solid ${ci.rate === rt.k ? "#C9558E" : BASE.border}`, background: ci.rate === rt.k ? "#C9558E" : "transparent", flexShrink: 0 }} />
+                              <div><div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>{rt.label}</div><div style={{ fontSize: 11, color: BASE.taupe }}>{rt.note}</div></div>
+                            </div>
+                          ))}
+                          <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.55, marginBottom: 4 }}>We cap any deficit so it stays supportive — faster isn't better here.</div>
+                        </>
+                      )}
                       <div onClick={() => setCI("nursing", !ci.nursing)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 13px", borderRadius: 12, marginTop: 8, cursor: "pointer", background: ci.nursing ? "rgba(168,123,209,0.12)" : "transparent", border: `1px solid ${ci.nursing ? "#A87BD1" : BASE.border}` }}>
                         <span style={{ width: 15, height: 15, borderRadius: 4, border: `2px solid ${ci.nursing ? "#A87BD1" : BASE.border}`, background: ci.nursing ? "#A87BD1" : "transparent", flexShrink: 0 }} />
                         <span style={{ fontSize: 13, fontWeight: 600, color: BASE.cream }}>I'm currently breastfeeding</span>
@@ -3529,7 +3957,14 @@ export default function App() {
                     <span style={{ fontSize: 11, color: BASE.taupe }}>{cat}</span>
                   </div>
                 ))}
-                <button onClick={() => { logMeal(m); setNourishView("today"); setMealOpen(null) }} style={{ width: "100%", marginTop: 18, padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 14.5, fontWeight: 800 }}>Log this meal today</button>
+                <div style={{ marginTop: 18 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 9 }}>Add to today</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {MEAL_TYPES.map(([sl, lbl]) => (
+                      <button key={sl} onClick={() => { logMeal(m, sl); setNourishView("today"); setMealOpen(null); setPlanView(null) }} style={{ flex: 1, padding: "13px 2px", borderRadius: 13, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 12, fontWeight: 800 }}>{lbl}</button>
+                    ))}
+                  </div>
+                </div>
                 <div style={{ height: 20 }} />
               </div>
             )
