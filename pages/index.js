@@ -1548,6 +1548,8 @@ export default function App() {
   const [foodDays, setFoodDays] = useState({})
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [savedFoods, setSavedFoods] = useState([])
+  const [myFoods, setMyFoods] = useState([])
+  const [saveFoodName, setSaveFoodName] = useState("")
   const [myMeals, setMyMeals] = useState([])
   const [recentFoods, setRecentFoods] = useState([])
   const [addFoodFor, setAddFoodFor] = useState(null)
@@ -1558,6 +1560,8 @@ export default function App() {
   const [quickAdd, setQuickAdd] = useState({ name: "", cal: "", p: "", c: "", f: "" })
   const [saveMealName, setSaveMealName] = useState("")
   const [mealEdit, setMealEdit] = useState(null)
+  const [myFoods, setMyFoods] = useState([])
+  const [saveFoodName, setSaveFoodName] = useState(null)
   const [calcInputs, setCalcInputs] = useState(null)
   const [calcResult, setCalcResult] = useState(null)
   const [mealType, setMealType] = useState("breakfast")
@@ -1589,7 +1593,9 @@ export default function App() {
     try { const gc = localStorage.getItem("nr_grocery_checked"); if (gc) setGroceryChecked(JSON.parse(gc)) } catch (e) {}
     try { const fd = localStorage.getItem("nr_food_days"); if (fd) setFoodDays(JSON.parse(fd)) } catch (e) {}
     try { const sf = localStorage.getItem("nr_saved_foods"); if (sf) setSavedFoods(JSON.parse(sf)) } catch (e) {}
+    try { const mf = localStorage.getItem("nr_my_foods"); if (mf) setMyFoods(JSON.parse(mf)) } catch (e) {}
     try { const mm = localStorage.getItem("nr_my_meals"); if (mm) setMyMeals(JSON.parse(mm)) } catch (e) {}
+    try { const mf = localStorage.getItem("nr_my_foods"); if (mf) setMyFoods(JSON.parse(mf)) } catch (e) {}
     try { const rf = localStorage.getItem("nr_recent_foods"); if (rf) setRecentFoods(JSON.parse(rf)) } catch (e) {}
     try {
       // migrate the previous single-day log format, if present
@@ -1767,13 +1773,13 @@ export default function App() {
   const handleLogout = async () => {
     await db.auth.signOut()
     setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
-    setNutrition(null); setFoodDays({}); setSavedFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
+    setNutrition(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setMyFoods([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
     setPct(50); setFactors([]); setSupports([]); setOneThing("")
     setProgramId(null); setWoLog([]); setSetupData(null); setFirstName("")
     setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
     setTab("today"); setBodyView("gym")
     try {
-      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_food_days", "nr_saved_foods", "nr_my_meals", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
+      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_food_days", "nr_saved_foods", "nr_my_foods", "nr_my_meals", "nr_my_foods", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
     } catch (e) {}
   }
 
@@ -1837,11 +1843,32 @@ export default function App() {
   const setWaterCount = (n) => { const v = Math.max(0, n); setDay(logDate, { water: v }) }
   const newId = () => Date.now() + Math.floor(Math.random() * 1000)
   // Build a log entry from a food + quantity/unit (real serving math), or from fixed nutrition.
-  const makeEntry = (food, qty, unit, meal) => {
-    const base = food.fixed ? { cal: food.fixed.cal * qty, p: food.fixed.p * qty, c: food.fixed.c * qty, f: food.fixed.f * qty } : nutrientsFor(food, qty, unit)
-    if (!base) return null
-    return { id: newId(), meal, name: food.name, foodId: food.id, qty: Number(qty), unit, cal: Math.round(base.cal), p: r1(base.p), c: r1(base.c), f: r1(base.f), partial: !!food.partial }
+  // Nutrition for exactly 1 unit of a food, unrounded (rounding only happens on displayed totals).
+  const perUnitOf = (food, unit) => {
+    if (!food) return null
+    if (food.fixed) return { cal: food.fixed.cal, p: food.fixed.p, c: food.fixed.c, f: food.fixed.f }
+    const g = gramsFor(food, 1, unit)
+    if (g == null || !food.per100) return null
+    const k = g / 100
+    return { cal: food.per100.cal * k, p: food.per100.p * k, c: food.per100.c * k, f: food.per100.f * k }
   }
+  // A logged entry always stores `per` (per 1 unit). Daily totals = per x qty, so quantity
+  // changes stay consistent whether nutrition came from the database or the user corrected it.
+  const entryPer = (e) => {
+    if (e.per) return e.per
+    const q = Number(e.qty) || 1
+    return { cal: (e.cal || 0) / q, p: (e.p || 0) / q, c: (e.c || 0) / q, f: (e.f || 0) / q }
+  }
+  const totalsFrom = (per, qty) => ({ cal: Math.round(per.cal * qty), p: r1(per.p * qty), c: r1(per.c * qty), f: r1(per.f * qty) })
+  const makeEntry = (food, qty, unit, meal) => {
+    const q = Number(qty) || 0
+    const per = perUnitOf(food, unit)
+    if (!per) return null
+    return { id: newId(), meal, name: food.name, foodId: food.id, qty: q, unit, per, ...totalsFrom(per, q), partial: !!food.partial }
+  }
+  const saveMyFoods = (arr) => { setMyFoods(arr); try { localStorage.setItem("nr_my_foods", JSON.stringify(arr)) } catch (e) {} }
+  // Look up a source food across the starter set and the user's own corrected foods.
+  const findFood = (id) => myFoods.find((x) => x.id === id) || STARTER_FOODS.find((x) => x.id === id) || null
   const rememberRecent = (food, qty, unit) => {
     const key = food.id + "|" + unit
     const next = [{ food, qty, unit, key }, ...recentFoods.filter((r) => r.key !== key)].slice(0, 20)
@@ -1852,6 +1879,9 @@ export default function App() {
     const next = on ? savedFoods.filter((x) => x.id !== food.id) : [...savedFoods, food]
     setSavedFoods(next); try { localStorage.setItem("nr_saved_foods", JSON.stringify(next)) } catch (e) {}
   }
+  const saveMyFoods = (arr) => { setMyFoods(arr); try { localStorage.setItem("nr_my_foods", JSON.stringify(arr)) } catch (e) {} }
+  // Resolve a food id across the starter set, the user's own foods, and favorites.
+  const findFood = (id) => STARTER_FOODS.find((x) => x.id === id) || myFoods.find((x) => x.id === id) || savedFoods.find((x) => x.id === id) || null
   const saveMyMeals = (arr) => { setMyMeals(arr); try { localStorage.setItem("nr_my_meals", JSON.stringify(arr)) } catch (e) {} }
   // Log a New Ray recipe meal straight into a meal slot
   const logMeal = (m, slot) => { const e = makeEntry(mealAsFood(m), 1, "serving", slot || "snack"); if (e) addEntries([e]) }
@@ -3417,6 +3447,41 @@ export default function App() {
                 )}
               </div>
 
+              {/* Today's Food — grouped by meal */}
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>{isToday ? "Today's food" : "Food logged"}</div>
+              {!dayItems.length && (
+                <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "22px 20px", textAlign: "center", marginBottom: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream, marginBottom: 4 }}>Nothing logged yet.</div>
+                  <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6, marginBottom: 14 }}>Start wherever you are. There's no wrong place to begin.</div>
+                  <button onClick={() => { setAddFoodFor("breakfast"); setAddTab("search") }} style={{ padding: "11px 20px", borderRadius: 999, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 13, fontWeight: 800 }}>+ Add breakfast</button>
+                </div>
+              )}
+              {MEAL_TYPES.map(([slot, lbl]) => {
+                const items = dayItems.filter((x) => x.meal === slot)
+                const tot = sumEntries(items)
+                return (
+                  <div key={slot} style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 16px", marginBottom: 9 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: items.length ? 10 : 6 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: 0.5, color: BASE.cream, textTransform: "uppercase" }}>{lbl}</span>
+                      <span style={{ fontSize: 11.5, color: BASE.taupe }}>{items.length ? `${Math.round(tot.cal)} cal · ${r1(tot.p)}g protein` : "Not logged"}</span>
+                    </div>
+                    {items.map((it) => (
+                      <div key={it.id} onClick={() => { const src = findFood(it.foodId); setEntryEdit(src || it.custom ? it : { ...it, custom: { unit: it.unit, per: { cal: it.cal / (Number(it.qty) || 1), p: it.p / (Number(it.qty) || 1), c: it.c / (Number(it.qty) || 1), f: it.f / (Number(it.qty) || 1) } } }); setSaveFoodName("") }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: `0.5px solid ${BASE.border}`, cursor: "pointer" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: BASE.cream }}>{it.name}</div>
+                          <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 1 }}>{it.qty} {it.unit}{it.qty > 1 && it.unit !== "g" && it.unit !== "oz" ? "s" : ""} · {Math.round(it.cal)} cal · {r1(it.p)}g protein{it.partial ? " · partial entry" : ""}</div>
+                        </div>
+                        <span style={{ color: BASE.taupe, fontSize: 16 }}>{"\u203a"}</span>
+                      </div>
+                    ))}
+                    <div onClick={() => { setAddFoodFor(slot); setAddTab("search"); setFoodQuery("") }} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer", paddingTop: items.length ? 10 : 0, borderTop: items.length ? `0.5px solid ${BASE.border}` : "none" }}>+ Add food</div>
+                  </div>
+                )
+              })}
+              {dayItems.length > 0 && (
+                <div onClick={() => { setSaveMealName(""); setMealEdit({ from: logDate }) }} style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: BASE.taupe, cursor: "pointer", margin: "10px 0 4px" }}>Save a meal from today's food</div>
+              )}
+              <div style={{ height: 12 }} />
               {/* What should I eat next */}
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 8px" }}>What should I eat next?</div>
               <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.55, marginBottom: 12 }}>{rem.p > 5 ? `You have about ${Math.round(rem.p)}g of protein left today. Here are ${nextTypeLabel.toLowerCase()} ideas that would help:` : `You're doing well on your targets. A few ${nextTypeLabel.toLowerCase()} ideas if you're hungry:`}</div>
@@ -3447,41 +3512,6 @@ export default function App() {
                 <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
               </div>
 
-              {/* Today's Food — grouped by meal */}
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>{isToday ? "Today's food" : "Food logged"}</div>
-              {!dayItems.length && (
-                <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "22px 20px", textAlign: "center", marginBottom: 12 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream, marginBottom: 4 }}>Nothing logged yet.</div>
-                  <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6, marginBottom: 14 }}>Start wherever you are. There's no wrong place to begin.</div>
-                  <button onClick={() => { setAddFoodFor("breakfast"); setAddTab("search") }} style={{ padding: "11px 20px", borderRadius: 999, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 13, fontWeight: 800 }}>+ Add breakfast</button>
-                </div>
-              )}
-              {MEAL_TYPES.map(([slot, lbl]) => {
-                const items = dayItems.filter((x) => x.meal === slot)
-                const tot = sumEntries(items)
-                return (
-                  <div key={slot} style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 16px", marginBottom: 9 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: items.length ? 10 : 6 }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: 0.5, color: BASE.cream, textTransform: "uppercase" }}>{lbl}</span>
-                      <span style={{ fontSize: 11.5, color: BASE.taupe }}>{items.length ? `${Math.round(tot.cal)} cal · ${r1(tot.p)}g protein` : "Not logged"}</span>
-                    </div>
-                    {items.map((it) => (
-                      <div key={it.id} onClick={() => setEntryEdit(it)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: `0.5px solid ${BASE.border}`, cursor: "pointer" }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: BASE.cream }}>{it.name}</div>
-                          <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 1 }}>{it.qty} {it.unit}{it.qty > 1 && it.unit !== "g" && it.unit !== "oz" ? "s" : ""} · {Math.round(it.cal)} cal · {r1(it.p)}g protein{it.partial ? " · partial entry" : ""}</div>
-                        </div>
-                        <span style={{ color: BASE.taupe, fontSize: 16 }}>{"\u203a"}</span>
-                      </div>
-                    ))}
-                    <div onClick={() => { setAddFoodFor(slot); setAddTab("search"); setFoodQuery("") }} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer", paddingTop: items.length ? 10 : 0, borderTop: items.length ? `0.5px solid ${BASE.border}` : "none" }}>+ Add food</div>
-                  </div>
-                )
-              })}
-              {dayItems.length > 0 && (
-                <div onClick={() => { setSaveMealName(""); setMealEdit({ from: logDate }) }} style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: BASE.taupe, cursor: "pointer", margin: "10px 0 4px" }}>Save a meal from today's food</div>
-              )}
-              <div style={{ height: 12 }} />
               <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, marginBottom: 18 }}>These targets are estimates to guide you, not rules to obey. Some days you'll need more. That's information, not failure.</div>
             </div>
           )}
@@ -3496,25 +3526,35 @@ export default function App() {
               <div className="fade-in">
                 <Back to={() => { setAddFoodFor(null); setFoodQuery("") }} label={dateLabel} />
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginBottom: 12 }}>Add to {slotLabel.toLowerCase()}</div>
-                <div style={{ display: "flex", gap: 5, overflowX: "auto", marginBottom: 14, paddingBottom: 2 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                   {TABS.map(([k, lbl]) => (
-                    <button key={k} onClick={() => setAddTab(k)} style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 11.5, fontWeight: 700, background: addTab === k ? "#C9558E" : BASE.surface, color: addTab === k ? "#fff" : BASE.creamDim }}>{lbl}</button>
+                    <button key={k} onClick={() => setAddTab(k)} style={{ flex: "1 1 30%", padding: "9px 6px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 11.5, fontWeight: 700, background: addTab === k ? "#C9558E" : BASE.surface, color: addTab === k ? "#fff" : BASE.creamDim }}>{lbl}</button>
                   ))}
                 </div>
 
                 {addTab === "search" && (
                   <>
                     <input value={foodQuery} onChange={(e) => setFoodQuery(e.target.value)} placeholder="Search foods…" style={{ width: "100%", padding: "13px 15px", borderRadius: 13, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 14.5, outline: "none", marginBottom: 12 }} />
-                    {searchFoods(foodQuery).map((fd) => (
-                      <div key={fd.id} onClick={() => openPick(fd)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 7, cursor: "pointer" }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 600, color: BASE.cream }}>{fd.name}</div>
-                          <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 1 }}>{fd.per100.cal} cal · {fd.per100.p}g protein per 100g</div>
+                    {(() => {
+                      const q = foodQuery.trim().toLowerCase()
+                      // Your saved/corrected foods come first, then the starter set.
+                      const mine = myFoods.filter((x) => !q || x.name.toLowerCase().indexOf(q) >= 0)
+                      const std = q ? searchFoods(foodQuery) : []
+                      const rows = [...mine, ...std]
+                      return rows.map((fd) => (
+                        <div key={fd.id} onClick={() => openPick(fd)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", borderRadius: 13, background: BASE.surface, border: `1px solid ${fd.mine ? "rgba(233,132,180,0.4)" : BASE.border}`, marginBottom: 7, cursor: "pointer" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 13.5, fontWeight: 600, color: BASE.cream }}>{fd.name}</span>
+                              {fd.mine && <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, color: "#C9558E", background: "rgba(233,132,180,0.14)", padding: "2px 7px", borderRadius: 999 }}>YOURS</span>}
+                            </div>
+                            <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 1 }}>{fd.per100 ? `${fd.per100.cal} cal · ${fd.per100.p}g protein per 100g` : `${fd.fixed.cal} cal · ${fd.fixed.p}g protein per ${foodUnitList(fd)[0].u}`}</div>
+                          </div>
+                          <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
                         </div>
-                        <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
-                      </div>
-                    ))}
-                    {foodQuery.trim() && !searchFoods(foodQuery).length && (
+                      ))
+                    })()}
+                    {foodQuery.trim() && !searchFoods(foodQuery).length && !myFoods.some((x) => x.name.toLowerCase().indexOf(foodQuery.trim().toLowerCase()) >= 0) && (
                       <div style={{ padding: 20, borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, textAlign: "center" }}>
                         <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 10 }}>Not in the starter food list yet.</div>
                         <div onClick={() => setAddTab("quick")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer" }}>Use Quick Add instead {"\u203a"}</div>
@@ -3644,42 +3684,94 @@ export default function App() {
           {/* ---- ENTRY EDITOR ---- */}
           {nourishView === "today" && targets && entryEdit && (() => {
             const it = entryEdit
-            const food = STARTER_FOODS.find((x) => x.id === it.foodId)
-            const live = food ? nutrientsFor(food, Number(it.qty), it.unit) : null
+            const food = findFood(it.foodId)
+            const q = Number(it.qty) || 0
+            // Nutrition shown is always FOR THE CURRENT AMOUNT.
+            // Priority: a manual override for this unit > the source food's math > the stored values.
+            const live = (() => {
+              if (it.custom && it.custom.unit === it.unit) {
+                const p = it.custom.per
+                return { cal: p.cal * q, p: p.p * q, c: p.c * q, f: p.f * q }
+              }
+              if (food) {
+                if (food.fixed) return { cal: food.fixed.cal * q, p: food.fixed.p * q, c: food.fixed.c * q, f: food.fixed.f * q }
+                const n = nutrientsFor(food, q, it.unit)
+                if (n) return n
+              }
+              return { cal: it.cal, p: it.p, c: it.c, f: it.f }
+            })()
+            const overridden = !!(it.custom && it.custom.unit === it.unit)
+            // Editing a value sets a per-unit override so later amount changes scale correctly.
+            const editNutr = (k, val) => {
+              const num = Number(val)
+              const next = { cal: live.cal, p: live.p, c: live.c, f: live.f }
+              next[k] = isFinite(num) ? Math.max(0, num) : 0
+              const div = q > 0 ? q : 1
+              setEntryEdit({ ...it, custom: { unit: it.unit, per: { cal: next.cal / div, p: next.p / div, c: next.c / div, f: next.f / div } } })
+            }
+            const nutrField = (k, label, color) => (
+              <div key={k} style={{ flex: 1 }}>
+                <input value={k === "cal" ? Math.round(live.cal) : r1(live[k])} onChange={(e) => editNutr(k, e.target.value)} type="number" inputMode="decimal" style={{ width: "100%", padding: "12px 4px", borderRadius: 12, background: BASE.surface, border: `1px solid ${overridden ? "#C9558E" : BASE.border}`, color: color, fontSize: 16, fontWeight: 800, outline: "none", textAlign: "center" }} />
+                <div style={{ fontSize: 9.5, color: BASE.taupe, marginTop: 3, textAlign: "center" }}>{label}</div>
+              </div>
+            )
             return (
               <div className="fade-in">
-                <Back to={() => setEntryEdit(null)} label={dateLabel} />
+                <Back to={() => { setEntryEdit(null); setSaveFoodName("") }} label={dateLabel} />
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, marginBottom: 14 }}>{it.name}</div>
-                {food && (
-                  <>
-                    <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 7 }}>Amount</div>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                      <input value={it.qty} onChange={(e) => setEntryEdit({ ...it, qty: e.target.value })} type="number" inputMode="decimal" step="0.25" style={{ width: 92, padding: "12px 14px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, outline: "none" }} />
-                      <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {foodUnitList(food).map((u) => (
-                          <div key={u.u} onClick={() => setEntryEdit({ ...it, unit: u.u })} style={{ padding: "9px 13px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: it.unit === u.u ? "#A87BD1" : "transparent", color: it.unit === u.u ? "#fff" : BASE.creamDim, border: `1px solid ${it.unit === u.u ? "#A87BD1" : BASE.border}` }}>{u.u}</div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {[["Calories", live ? Math.round(live.cal) : Math.round(it.cal), "#E8B84B"], ["Protein", (live ? r1(live.p) : r1(it.p)) + "g", "#E984B4"], ["Carbs", (live ? r1(live.c) : r1(it.c)) + "g", "#7FA054"], ["Fat", (live ? r1(live.f) : r1(it.f)) + "g", "#9B6BC3"]].map(([l, v, col]) => (
-                    <div key={l} style={{ borderRadius: 12, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "14px 4px", textAlign: "center" }}>
-                      <div style={{ fontSize: 17, fontWeight: 800, color: col }}>{v}</div>
-                      <div style={{ fontSize: 9.5, color: BASE.taupe, marginTop: 2 }}>{l}</div>
-                    </div>
-                  ))}
+
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 7 }}>Amount</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                  <input value={it.qty} onChange={(e) => setEntryEdit({ ...it, qty: e.target.value })} type="number" inputMode="decimal" step="0.25" style={{ width: 92, padding: "12px 14px", borderRadius: 12, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 15, outline: "none" }} />
+                  <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start" }}>
+                    {food ? foodUnitList(food).map((u) => (
+                      <div key={u.u} onClick={() => setEntryEdit({ ...it, unit: u.u, custom: it.custom && it.custom.unit === u.u ? it.custom : null })} style={{ padding: "9px 13px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, background: it.unit === u.u ? "#A87BD1" : "transparent", color: it.unit === u.u ? "#fff" : BASE.creamDim, border: `1px solid ${it.unit === u.u ? "#A87BD1" : BASE.border}` }}>{u.u}</div>
+                    )) : <div style={{ padding: "10px 13px", fontSize: 12.5, color: BASE.taupe }}>{it.unit}</div>}
+                  </div>
                 </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 }}>
+                  <span style={{ fontSize: 11.5, color: BASE.taupe }}>Nutrition for {it.qty || 0} {it.unit}</span>
+                  {overridden && <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: "#C9558E" }}>EDITED</span>}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  {nutrField("cal", "Calories", "#E8B84B")}
+                  {nutrField("p", "Protein", "#E984B4")}
+                  {nutrField("c", "Carbs", "#7FA054")}
+                  {nutrField("f", "Fat", "#9B6BC3")}
+                </div>
+                <div style={{ fontSize: 11, color: BASE.taupe, lineHeight: 1.55, marginBottom: 16, fontStyle: "italic" }}>
+                  {overridden
+                    ? `Your values apply to this entry only. Changing the amount scales them from ${r1(it.custom.per.cal)} cal per ${it.unit}.`
+                    : "These update automatically with the amount. Edit any of them to match your actual label."}
+                </div>
+
+                {overridden && (
+                  <div style={{ borderRadius: 14, background: "rgba(233,132,180,0.07)", border: "1px solid rgba(233,132,180,0.28)", padding: "14px 16px", marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#C9558E", textTransform: "uppercase", marginBottom: 7 }}>Save this version?</div>
+                    <div style={{ fontSize: 12, color: BASE.creamDim, lineHeight: 1.55, marginBottom: 10 }}>Keep your corrected numbers so you never have to fix this food again.</div>
+                    <input value={saveFoodName} onChange={(e) => setSaveFoodName(e.target.value)} placeholder={"My " + it.name} style={{ width: "100%", padding: "11px 13px", borderRadius: 11, background: BASE.bg2, border: `1px solid ${BASE.border}`, color: BASE.cream, fontSize: 13.5, outline: "none", marginBottom: 9 }} />
+                    <button onClick={() => {
+                      const nm = (saveFoodName.trim() || ("My " + it.name))
+                      const fd = { id: "my:" + newId(), name: nm, mine: true, fixed: { cal: Math.round(it.custom.per.cal), p: r1(it.custom.per.p), c: r1(it.custom.per.c), f: r1(it.custom.per.f) }, units: [{ u: it.unit, g: 0 }] }
+                      saveMyFoods([...myFoods, fd])
+                      rememberRecent(fd, 1, it.unit)
+                      updateEntry(it.id, { name: nm, foodId: fd.id, qty: q, unit: it.unit, meal: it.meal, cal: Math.round(live.cal), p: r1(live.p), c: r1(live.c), f: r1(live.f), custom: it.custom })
+                      setEntryEdit(null); setSaveFoodName("")
+                    }} style={{ width: "100%", padding: 12, borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 13, fontWeight: 800 }}>Save as my food</button>
+                  </div>
+                )}
+
                 <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 8 }}>Move to</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
                   {MEAL_TYPES.map(([sl, lbl]) => (
                     <div key={sl} onClick={() => setEntryEdit({ ...it, meal: sl })} style={{ flex: 1, textAlign: "center", padding: "9px 2px", borderRadius: 999, cursor: "pointer", fontSize: 11.5, fontWeight: 700, background: it.meal === sl ? "#C9558E" : "transparent", color: it.meal === sl ? "#fff" : BASE.creamDim, border: `1px solid ${it.meal === sl ? "#C9558E" : BASE.border}` }}>{lbl}</div>
                   ))}
                 </div>
-                <button onClick={() => { const patch = live ? { qty: Number(it.qty), unit: it.unit, meal: it.meal, cal: Math.round(live.cal), p: r1(live.p), c: r1(live.c), f: r1(live.f) } : { meal: it.meal }; updateEntry(it.id, patch); setEntryEdit(null) }} style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 14.5, fontWeight: 800, marginBottom: 9 }}>Save changes</button>
-                <button onClick={() => { const c = dayFor(logDate); setDay(logDate, { items: [...c.items, { ...it, id: newId() }] }); setEntryEdit(null) }} style={{ width: "100%", padding: 13, borderRadius: 13, border: `1px solid ${BASE.border}`, cursor: "pointer", background: "transparent", color: BASE.creamDim, fontSize: 13.5, fontWeight: 700, marginBottom: 9 }}>Duplicate</button>
-                <button onClick={() => { deleteEntry(it.id); setEntryEdit(null) }} style={{ width: "100%", padding: 13, borderRadius: 13, border: "none", cursor: "pointer", background: "transparent", color: "#D65C4E", fontSize: 13.5, fontWeight: 700, marginBottom: 20 }}>Remove from log</button>
+
+                <button onClick={() => { updateEntry(it.id, { qty: q, unit: it.unit, meal: it.meal, cal: Math.round(live.cal), p: r1(live.p), c: r1(live.c), f: r1(live.f), custom: it.custom || null }); setEntryEdit(null); setSaveFoodName("") }} style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 14.5, fontWeight: 800, marginBottom: 9 }}>Save changes</button>
+                <button onClick={() => { const cd = dayFor(logDate); setDay(logDate, { items: [...cd.items, { ...it, qty: q, id: newId(), cal: Math.round(live.cal), p: r1(live.p), c: r1(live.c), f: r1(live.f) }] }); setEntryEdit(null); setSaveFoodName("") }} style={{ width: "100%", padding: 13, borderRadius: 13, border: `1px solid ${BASE.border}`, cursor: "pointer", background: "transparent", color: BASE.creamDim, fontSize: 13.5, fontWeight: 700, marginBottom: 9 }}>Duplicate</button>
+                <button onClick={() => { deleteEntry(it.id); setEntryEdit(null); setSaveFoodName("") }} style={{ width: "100%", padding: 13, borderRadius: 13, border: "none", cursor: "pointer", background: "transparent", color: "#D65C4E", fontSize: 13.5, fontWeight: 700, marginBottom: 20 }}>Remove from log</button>
               </div>
             )
           })()}
