@@ -1,5 +1,5 @@
 import { PHASES } from './cycle'
-import { MOVEMENTS, pickExercise } from './exercises'
+import { ALL_PROGRAMS, MOVEMENTS, pickExercise } from './exercises'
 import { dayIndex } from '../lib/theme'
 
 const WO_TYPES = [
@@ -20,8 +20,6 @@ const CAPACITY_RULES = {
   red: { label: "Red", note: "Simplify the movement, fewer sets, prioritize confidence.", color: "#D65C4E" },
   recovery: { label: "Recovery", note: "Mobility, walking, breathing, gentle movement only.", color: "#A87BD1" },
 }
-
-const ALL_PROGRAMS = ["foundations", "strength", "mama", "move", "balanced"]
 
 // ============ PROGRAM TEMPLATE ENGINE ============
 // A workout = a list of movement-pattern SLOTS (not exercises). The Exercise Selection Engine
@@ -410,4 +408,4 @@ const RECOVERY_OPTIONS = [
   { key: "breath", icon: "\ud83c\udf2c\ufe0f", name: "Breathwork & reset", mins: "5 min", how: ["Breathe in for 4, out for 8, for two minutes.", "The long exhale calms your nervous system.", "Then sit quietly for a few breaths.", "This counts. Rest is training too."] },
 ]
 
-export { WO_TYPES, CAPACITY_RULES, ALL_PROGRAMS, WORKOUT_TEMPLATES, PROGRAM_SCHEDULE, PROGRESSION, CAPACITY_SLOT_RULE, buildSession, resolveSession, PROGRAMS, COMPLETION, PROGRAM_PHASES, PROGRAM_COACH_LINES, phaseFor, COACH_LINES, COACH_OVERRIDES, coachData, PROG_BY_ID, progSchedule, COACH_INSIGHT_TITLE, COACH_INSIGHTS, bodyAreaOf, CAP_VERSION, RECOVERY_OPTIONS }
+export { WO_TYPES, CAPACITY_RULES, WORKOUT_TEMPLATES, PROGRAM_SCHEDULE, PROGRESSION, CAPACITY_SLOT_RULE, buildSession, resolveSession, PROGRAMS, COMPLETION, PROGRAM_PHASES, PROGRAM_COACH_LINES, phaseFor, COACH_LINES, COACH_OVERRIDES, coachData, PROG_BY_ID, progSchedule, COACH_INSIGHT_TITLE, COACH_INSIGHTS, bodyAreaOf, CAP_VERSION, RECOVERY_OPTIONS }
