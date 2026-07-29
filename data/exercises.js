@@ -1,4 +1,4 @@
-import { ALL_PROGRAMS } from './train'
+const ALL_PROGRAMS = ["foundations", "strength", "mama", "move", "balanced"]
 
 // Movement pattern = the reusable unit. Each holds level-tiered exercise options with equipment + subs + cues.
 const MOVEMENTS = [
@@ -390,4 +390,4 @@ const pickExercise = (patternId, env, idx, progId) => {
   return null
 }
 
-export { MOVEMENTS, MOVE_GROUPS, LEVEL_LABEL, EXERCISES, EXERCISES_UPPER, PROGRAM_ENV_DEFAULT, PROGRAM_EXERCISE_PREF, pickExercise }
+export { ALL_PROGRAMS, MOVEMENTS, MOVE_GROUPS, LEVEL_LABEL, EXERCISES, EXERCISES_UPPER, PROGRAM_ENV_DEFAULT, PROGRAM_EXERCISE_PREF, pickExercise }
