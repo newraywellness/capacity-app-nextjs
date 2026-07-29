@@ -106,8 +106,6 @@ export default function App() {
   const [quickAdd, setQuickAdd] = useState({ name: "", cal: "", p: "", c: "", f: "" })
   const [saveMealName, setSaveMealName] = useState("")
   const [mealEdit, setMealEdit] = useState(null)
-  const [myFoods, setMyFoods] = useState([])
-  const [saveFoodName, setSaveFoodName] = useState(null)
   const [calcInputs, setCalcInputs] = useState(null)
   const [calcResult, setCalcResult] = useState(null)
   const [mealType, setMealType] = useState("breakfast")
@@ -425,9 +423,6 @@ export default function App() {
     const next = on ? savedFoods.filter((x) => x.id !== food.id) : [...savedFoods, food]
     setSavedFoods(next); try { localStorage.setItem("nr_saved_foods", JSON.stringify(next)) } catch (e) {}
   }
-  const saveMyFoods = (arr) => { setMyFoods(arr); try { localStorage.setItem("nr_my_foods", JSON.stringify(arr)) } catch (e) {} }
-  // Resolve a food id across the starter set, the user's own foods, and favorites.
-  const findFood = (id) => STARTER_FOODS.find((x) => x.id === id) || myFoods.find((x) => x.id === id) || savedFoods.find((x) => x.id === id) || null
   const saveMyMeals = (arr) => { setMyMeals(arr); try { localStorage.setItem("nr_my_meals", JSON.stringify(arr)) } catch (e) {} }
   // Log a True Reverie recipe meal straight into a meal slot
   const logMeal = (m, slot) => { const e = makeEntry(mealAsFood(m), 1, "serving", slot || "snack"); if (e) addEntries([e]) }
@@ -1142,3 +1137,4 @@ export default function App() {
     </>
   )
 }
+
