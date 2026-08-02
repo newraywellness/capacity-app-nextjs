@@ -205,10 +205,12 @@ export function renderHome(ctx) {
         )}
 
         {/* ────────── FOR TODAY ────────── */}
-        <div style={{ height: 116 }} />
-        <div style={{ textAlign: "center", paddingBottom: 36 }}>
-          <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: faint }}>For today</div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, lineHeight: 1.45, color: mut, marginTop: 14 }}>{FOR_TODAY[dayIndex(FOR_TODAY.length)]}</div>
+        <div style={{ height: 46 }} />
+        <div style={{ textAlign: "center", paddingBottom: 106, position: "relative" }}>
+          <div style={{ position: "absolute", left: -34, right: -34, top: -30, height: 122, pointerEvents: "none",
+            background: `radial-gradient(ellipse 62% 100% at 50% 50%, ${env.dark ? "rgba(28,19,46,0.72)" : "rgba(253,249,247,0.78)"} 0%, ${env.dark ? "rgba(28,19,46,0)" : "rgba(253,249,247,0)"} 72%)` }} />
+          <div style={{ position: "relative", fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: faint }}>For today</div>
+          <div style={{ position: "relative", fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, lineHeight: 1.45, color: mut, marginTop: 14 }}>{FOR_TODAY[dayIndex(FOR_TODAY.length)]}</div>
         </div>
 
       </div>
