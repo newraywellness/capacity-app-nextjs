@@ -120,7 +120,7 @@ export function renderHome(ctx) {
       <div style={{ padding: "0 24px" }}>
 
         {/* ────────── GREETING ────────── */}
-        <div style={{ paddingTop: 30, textAlign: "center" }}>
+        <div style={{ paddingTop: 26, textAlign: "center" }}>
           <div className="fade-in" style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 21, color: ink, lineHeight: 1.1 }}>{greetWord}{nm ? ", " + nm : ""}</div>
           <div style={{ fontSize: 8.5, letterSpacing: 2.6, color: mut, textTransform: "uppercase", marginTop: 8 }}>{dateStr}</div>
         </div>
@@ -165,30 +165,30 @@ export function renderHome(ctx) {
           /* ══════════ AFTER CHECK-IN ══════════ */
           <>
             {/* ────────── TODAY'S CAPACITY ────────── */}
-            <div style={{ height: 56 }} />
+            <div style={{ height: 40 }} />
             <div className="fade-in" style={{ textAlign: "center" }}>
               <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: mut }}>Today's capacity</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 76, color: ink, lineHeight: 0.86, letterSpacing: -1, marginTop: 18 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 76, color: ink, lineHeight: 0.86, letterSpacing: -1, marginTop: 14 }}>
                 {pct}<span style={{ fontSize: 19, color: mut, verticalAlign: "super", marginLeft: 2 }}>%</span>
               </div>
-              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.9, textTransform: "uppercase", color: tier === "recovery" ? "#A87BD1" : THEMES[cur].accent, marginTop: 16 }}>{tier === "recovery" ? "Recovery day" : THEMES[cur].label}</div>
+              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.9, textTransform: "uppercase", color: tier === "recovery" ? "#A87BD1" : THEMES[cur].accent, marginTop: 13 }}>{tier === "recovery" ? "Recovery day" : THEMES[cur].label}</div>
               {factors && factors.length > 0 && (
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: mut, marginTop: 14 }}>{factors.join(" \u00b7 ")}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: mut, marginTop: 12 }}>{factors.join(" \u00b7 ")}</div>
               )}
-              <div style={{ marginTop: 16 }}>
+              <div style={{ marginTop: 14 }}>
                 <span onClick={() => setCheckedIn(false)} style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.5, color: mut, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>Adjust</span>
               </div>
             </div>
 
             {/* ────────── TODAY'S FOCUS ────────── */}
-            <div style={{ height: 68 }} />
-            <div className="fade-in" style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18.5, lineHeight: 1.55, color: ink, textAlign: "center" }}>{focusText}</div>
+            <div style={{ height: 40 }} />
+            <div className="fade-in" style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 20, lineHeight: 1.5, color: ink, textAlign: "center" }}>{focusText}</div>
 
             {/* ────────── YOUR DAY ────────── */}
-            <div style={{ height: 68 }} />
+            <div style={{ height: 44 }} />
             <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: mut, textAlign: "center" }}>Your day</div>
-            <div style={{ height: 26 }} />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", columnGap: bubble ? 10 : 12, rowGap: bubble ? 10 : 30 }}>
+            <div style={{ height: 20 }} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", columnGap: bubble ? 11 : 12, rowGap: bubble ? 11 : 30 }}>
               {CARDS.map((c) => (
                 <div key={c.label} onClick={c.go} style={cellStyle}>
                   <div style={{ fontSize: 17, lineHeight: 1 }}>{c.ic}</div>
@@ -205,8 +205,8 @@ export function renderHome(ctx) {
         )}
 
         {/* ────────── FOR TODAY ────────── */}
-        <div style={{ height: 60 }} />
-        <div style={{ textAlign: "center", paddingBottom: 30 }}>
+        <div style={{ height: 116 }} />
+        <div style={{ textAlign: "center", paddingBottom: 36 }}>
           <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: faint }}>For today</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, lineHeight: 1.45, color: mut, marginTop: 14 }}>{FOR_TODAY[dayIndex(FOR_TODAY.length)]}</div>
         </div>
