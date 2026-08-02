@@ -98,7 +98,7 @@ const NOURISH_RECOVERY = {
     { emoji: "💪", title: "Muscle Recovery", body: "Resistance training creates a small, healthy stress on your muscles. With rest and protein, your body rebuilds them a little stronger than before." },
     { emoji: "😴", title: "Sleep + Recovery", body: "A lot of recovery happens while you sleep. Rest is when your body does much of its repair work, which is why sleep matters as much as training." },
     { emoji: "💧", title: "Hydration", body: "Fluids support nearly every process in your body. Electrolytes can help when you've sweated a lot or on hotter days." },
-    { emoji: "🚶", title: "Gentle Recovery Movement", body: "Walking, mobility, stretching, and lower-intensity movement all support recovery. You'll find these in Train on your recovery days." },
+    { emoji: "🚶", title: "Gentle Recovery Movement", body: "Walking, mobility, stretching, and lower-intensity movement all support recovery. You'll find these in Move on your recovery days." },
   ],
   close: "Your body does not only become stronger during the workout. It becomes stronger when you recover.",
 }
