@@ -6,6 +6,7 @@ import { STARTER_FOODS, gramsFor, mealAsFood, r1 } from '../data/nourish'
 import { WO_TYPES } from '../data/train'
 import { db } from '../lib/supabase'
 import { BASE, ENV, THEMES, colorFromPct, dayIndex } from '../lib/theme'
+import { Sky, Garden } from '../lib/atmosphere'
 import { renderHome } from '../views/home'
 import { renderTrain } from '../views/train'
 import { renderCycle } from '../views/cycle'
@@ -529,6 +530,12 @@ export default function App() {
       @keyframes flicker { 0%,100% { opacity: .35; } 50% { opacity: .95; } }
       @keyframes mistfloat { 0%,100% { transform: translateX(0); } 50% { transform: translateX(18px); } }
       @keyframes twinkle { 0%,100% { opacity: .4; } 50% { opacity: .9; } }
+      @keyframes crossing { 0% { transform: translateX(-46px) translateY(0); } 50% { transform: translateX(210px) translateY(-24px); } 100% { transform: translateX(470px) translateY(6px); } }
+      @keyframes flutter { 0%,100% { transform: rotate(-4deg) scaleX(1); } 50% { transform: rotate(4deg) scaleX(.88); } }
+      @keyframes pollen { 0% { transform: translate(0,0); opacity: 0; } 25% { opacity: .55; } 75% { opacity: .35; } 100% { transform: translate(24px,-96px); opacity: 0; } }
+      @keyframes firefly { 0%,100% { opacity: .12; transform: translate(0,0); } 50% { opacity: .95; transform: translate(11px,-9px); } }
+      @keyframes sway { 0%,100% { transform: rotate(-1.1deg); } 50% { transform: rotate(1.1deg); } }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
       .fade-in { animation: fadeIn 0.5s ease both; }
       .glow-breathe { animation: breathe 6s ease-in-out infinite; }
     `}</style>
@@ -1077,37 +1084,8 @@ export default function App() {
   return (
     <><Fonts /><GlobalStyle />
       <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : BASE.bg, transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
-        {tab === "today" && (
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 420, pointerEvents: "none" }}>
-            {envRoot.mode === "morning" && (
-              <>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 220, background: "linear-gradient(180deg,rgba(240,200,120,0.18),rgba(240,200,120,0))" }} />
-                <div style={{ position: "absolute", top: 92, left: "50%", marginLeft: -50, width: 100, height: 100, borderRadius: "50%", background: "radial-gradient(circle,#FFE7B8 28%,rgba(255,220,155,0.5) 58%,rgba(255,220,155,0) 76%)", animation: "breathe 6s ease-in-out infinite" }} />
-                <div style={{ position: "absolute", top: 150, left: -20, right: -20, height: 90, borderRadius: "50%", background: "rgba(255,255,255,0.26)", animation: "mistfloat 10s ease-in-out infinite" }} />
-                <div style={{ position: "absolute", top: 182, left: 70, right: -20, height: 90, borderRadius: "50%", background: "rgba(255,255,255,0.2)", animation: "mistfloat 13s ease-in-out infinite" }} />
-                <svg style={{ position: "absolute", top: 200, right: 64, opacity: 0.55, animation: "drift 11s ease-in-out infinite" }} width="30" height="23" viewBox="0 0 34 26"><path d="M17 13 C 10 2, 1 4, 3 12 C 4 18, 12 18, 17 13" fill="#C489E0" /><path d="M17 13 C 24 2, 33 4, 31 12 C 30 18, 22 18, 17 13" fill="#E984B4" /></svg>
-              </>
-            )}
-            {envRoot.mode === "afternoon" && (
-              <>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 260, background: "linear-gradient(180deg,rgba(240,170,90,0.22),rgba(240,170,90,0))" }} />
-                <div style={{ position: "absolute", top: 200, right: -50, width: 190, height: 190, borderRadius: "50%", background: "rgba(255,255,255,0.16)", animation: "mistfloat 12s ease-in-out infinite" }} />
-                <div style={{ position: "absolute", top: 120, left: 30, width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.7)", animation: "drift 9s ease-in-out infinite" }} />
-                <div style={{ position: "absolute", top: 260, left: 90, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.6)", animation: "drift 14s ease-in-out infinite" }} />
-              </>
-            )}
-            {envRoot.mode === "evening" && (
-              <>
-                <svg style={{ position: "absolute", top: 58, right: 54 }} width="40" height="40" viewBox="0 0 40 40"><path d="M28 4 A 16 16 0 1 0 36 22 A 12.5 12.5 0 0 1 28 4 Z" fill="#F0E3B8" opacity="0.9" /></svg>
-                <div style={{ position: "absolute", top: 40, left: 60, color: "#F0C879", fontSize: 9, animation: "twinkle 3s ease-in-out infinite" }}>{"✦"}</div>
-                <div style={{ position: "absolute", top: 110, left: 150, color: "#F0C879", fontSize: 7, animation: "twinkle 4.4s ease-in-out infinite" }}>{"✦"}</div>
-                <div style={{ position: "absolute", top: 84, right: 130, color: "#F0C879", fontSize: 8, animation: "twinkle 3.7s ease-in-out infinite" }}>{"✦"}</div>
-                <div style={{ position: "absolute", top: 210, left: 36, width: 6, height: 6, borderRadius: "50%", background: "#F0C879", boxShadow: "0 0 10px 4px rgba(240,200,121,0.5)", animation: "flicker 3.2s ease-in-out infinite" }} />
-                <div style={{ position: "absolute", top: 300, right: 44, width: 5, height: 5, borderRadius: "50%", background: "#F0C879", boxShadow: "0 0 9px 3px rgba(240,200,121,0.45)", animation: "flicker 4.6s ease-in-out infinite" }} />
-              </>
-            )}
-          </div>
-        )}
+        {tab === "today" && <Sky mode={envRoot.mode} tint={envRoot.tint} />}
+        {tab === "today" && <Garden mode={envRoot.mode} />}
         <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
             <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
