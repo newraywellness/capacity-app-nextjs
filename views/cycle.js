@@ -235,7 +235,7 @@ export function renderCycle(ctx) {
               </div>
             )
           })}
-          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "8px 0 20px", lineHeight: 1.6 }}>Cycle context can appear in Train and Nourish over time — but your capacity always decides today. You can always train.</div>
+          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "8px 0 20px", lineHeight: 1.6 }}>Cycle context can appear in Move and Nourish over time — but your capacity always decides today. You can always train.</div>
           <div style={{ height: 10 }} />
         </div>
       )
