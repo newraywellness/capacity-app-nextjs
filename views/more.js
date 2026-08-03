@@ -1,9 +1,10 @@
 import { CYCLEPREF, EQUIP, HOPES, LEVELS, SEASONS, SHARE_LEVELS, SHARE_NEED, SHARE_TRUE, ShopItems } from '../data/checkin'
 import { db } from '../lib/supabase'
 import { BASE, THEMES } from '../lib/theme'
+import { BLOOM_PILLARS, BLOOM_TRENDING } from '../data/bloom'
 
 export function renderMore(ctx) {
-  const { Chips, Label, T, cycleNow, editLife, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, setBodyView, setEditCycle, setEditLife, setFirstName, setLifeMsg, setMoreView, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, user } = ctx
+  const { Chips, Label, T, cycleNow, editLife, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, savedBloom, setBloomArticle, setBodyView, setEditCycle, setEditLife, setFirstName, setLifeMsg, setMoreView, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
     if (tab === "more" && moreView === "menu") {
       const nm = (setupData && setupData.name) || "friend"
       const season = (setupData && setupData.season) || "Your season"
@@ -37,6 +38,7 @@ export function renderMore(ctx) {
             <Row label="Cycle settings" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setTab("body"); setBodyView("cycle"); setEditCycle(true) }} />
           </Group>
           <Group title="True Reverie">
+            <Row label="Saved Ideas" onClick={() => setMoreView("saved")} />
             <Row label="Share with a partner" onClick={() => setMoreView("share")} />
             <Row label="Shop" onClick={() => setMoreView("shop")} />
             <Row label="The Capacity Method" onClick={() => setMoreView("about")} />
@@ -193,6 +195,45 @@ export function renderMore(ctx) {
         </div>
       )
     }
+    if (tab === "more" && moreView === "saved") {
+      const items = (savedBloom || []).map((id) => {
+        if (id.indexOf("article:") === 0) {
+          const a = BLOOM_TRENDING.find((x) => x.id === id.slice(8))
+          return a ? { id, kind: "Article", ic: a.ic, name: a.title, open: () => { setBloomArticle(a); setTab("bloom") } } : null
+        }
+        const n = id.slice(6)
+        for (const P of BLOOM_PILLARS) {
+          const c = P.cards.find((x) => x.n === n)
+          if (c) return { id, kind: P.name, ic: c.ic, name: c.n, open: () => { openBloomCard(c); setTab("bloom") } }
+        }
+        return null
+      }).filter(Boolean)
+
+      return (
+        <div className="fade-in">
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Saved Ideas</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 20 }}>Everything you've kept from Bloom, in one place.</div>
+          {items.length === 0 ? (
+            <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "26px 22px", textAlign: "center" }}>
+              <div style={{ fontSize: 24, marginBottom: 10 }}>{"\u2661"}</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Nothing saved yet. Tap the heart on anything in Bloom and it will wait for you here.</div>
+            </div>
+          ) : items.map((it) => (
+            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
+              <span onClick={it.open} style={{ fontSize: 20, cursor: "pointer" }}>{it.ic}</span>
+              <div onClick={it.open} style={{ flex: 1, cursor: "pointer" }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: BASE.cream, lineHeight: 1.3 }}>{it.name}</div>
+                <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 2, letterSpacing: 0.4, textTransform: "uppercase" }}>{it.kind}</div>
+              </div>
+              <span onClick={() => toggleSaveBloom(it.id)} style={{ fontSize: 17, color: "#C9558E", cursor: "pointer" }}>{"\u2665"}</span>
+            </div>
+          ))}
+          <div style={{ height: 20 }} />
+        </div>
+      )
+    }
+
     if (tab === "more" && moreView === "about") {
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
