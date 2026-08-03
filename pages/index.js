@@ -1089,7 +1089,7 @@ export default function App() {
         {tab === "today" && <Sky mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "today" && <Garden mode={envRoot.mode} />}
         {tab === "body" && bodyView === "nourish" && <NourishAir mode={envRoot.mode} tint={envRoot.tint} />}
-        {tab === "body" && bodyView === "nourish" && <HerbGarden mode={envRoot.mode} />}
+        {tab === "body" && bodyView === "nourish" && <HerbGarden mode={envRoot.mode} subtle={!!planView || nourishView === "supps" || !!addFoodFor || !!foodPick || !!entryEdit} />}
         <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
             <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
