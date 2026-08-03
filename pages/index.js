@@ -122,6 +122,9 @@ export default function App() {
   const [quickFilter, setQuickFilter] = useState(null)
   const [weekPick, setWeekPick] = useState(null)
   const [pulse, setPulse] = useState(null)
+  const [bloomPillar, setBloomPillar] = useState(null)
+  const [bloomArticle, setBloomArticle] = useState(null)
+  const [savedBloom, setSavedBloom] = useState([])
   const [cycleMonth, setCycleMonth] = useState(0)
   const [eduPhase, setEduPhase] = useState(null)
   const [woEnv, setWoEnv] = useState("gym")
@@ -135,6 +138,7 @@ export default function App() {
   useEffect(() => {
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
     try { const n = localStorage.getItem("nr_nutrition"); if (n) setNutrition(JSON.parse(n)) } catch (e) {}
+    try { const sb = localStorage.getItem("nr_bloom_saved"); if (sb) setSavedBloom(JSON.parse(sb)) } catch (e) {}
     try { const wk = localStorage.getItem("nr_week_plan"); if (wk) setWeekPlan(JSON.parse(wk)) } catch (e) {}
     try { const gm = localStorage.getItem("nr_grocery_manual"); if (gm) setGroceryManual(JSON.parse(gm)) } catch (e) {}
     try { const gc = localStorage.getItem("nr_grocery_checked"); if (gc) setGroceryChecked(JSON.parse(gc)) } catch (e) {}
@@ -232,6 +236,7 @@ export default function App() {
             setSetupData(sd)
             if (sd.name) { setFirstName(sd.name); try { localStorage.setItem("nr_name", sd.name) } catch (e) {} }
             if (sd.nutrition) { setNutrition(sd.nutrition); try { localStorage.setItem("nr_nutrition", JSON.stringify(sd.nutrition)) } catch (e) {} }
+            if (Array.isArray(sd.savedBloom)) { setSavedBloom(sd.savedBloom); try { localStorage.setItem("nr_bloom_saved", JSON.stringify(sd.savedBloom)) } catch (e) {} }
             try { localStorage.setItem("nr_setup", JSON.stringify(sd)) } catch (e) {}
           } else if (p.data.first_name) {
             setFirstName(p.data.first_name)
@@ -320,13 +325,13 @@ export default function App() {
   const handleLogout = async () => {
     await db.auth.signOut()
     setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
-    setNutrition(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setMyFoods([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
+    setNutrition(null); setSavedBloom([]); setBloomPillar(null); setBloomArticle(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
     setPct(50); setFactors([]); setSupports([]); setOneThing("")
     setProgramId(null); setWoLog([]); setSetupData(null); setFirstName("")
     setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
     setTab("today"); setBodyView("gym")
     try {
-      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_food_days", "nr_saved_foods", "nr_my_foods", "nr_my_meals", "nr_my_foods", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
+      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_bloom_saved", "nr_food_days", "nr_saved_foods", "nr_my_foods", "nr_my_meals", "nr_my_foods", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
     } catch (e) {}
   }
 
@@ -363,6 +368,26 @@ export default function App() {
   }
 
   // ---- Nourish: plan + food log persistence ----
+  // Private Bloom saves. Mirrors how nutrition persists: localStorage for speed,
+  // profiles.setup for cross-device. No schema change, no shared write.
+  // The anonymous aggregate counter is deliberately NOT called from here yet —
+  // see the note in the summary before that ships.
+  const isSavedBloom = (id) => savedBloom.indexOf(id) >= 0
+  const toggleSaveBloom = (id) => {
+    const wasSaved = isSavedBloom(id)
+    const next = wasSaved ? savedBloom.filter((x) => x !== id) : [...savedBloom, id]
+    setSavedBloom(next)
+    try { localStorage.setItem("nr_bloom_saved", JSON.stringify(next)) } catch (e) {}
+    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), savedBloom: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    // Anonymous aggregate count — fires ONLY on the unsaved -> saved transition.
+    // Not on unsave, not on reload, not on cross-device sync: those paths never
+    // reach here, they only ever call setSavedBloom directly. Signed-in only,
+    // because EXECUTE is granted to authenticated alone.
+    if (!wasSaved && user) {
+      try { db.rpc("bump_bloom_save", { item: id }).then(() => {}, () => {}) } catch (e) {}
+    }
+  }
+
   const saveNutrition = (n) => {
     setNutrition(n)
     try { localStorage.setItem("nr_nutrition", JSON.stringify(n)) } catch (e) {}
@@ -1079,7 +1104,7 @@ export default function App() {
 
 
   const renderContent = () => {
-    const ctx = { Chips, Label, ReportLine, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomCard, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycleLength, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, entryEdit, factors, findFood, foodDays, foodPick, foodQuery, forceTrainMenu, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progressData, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, report, restLeft, saveCheckin, saveCycle, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFoodPick, setFoodQuery, setForceTrainMenu, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setRestLeft, setSaveFoodName, setSaveMealName, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, tab, tmpLen, tmpStart, toggle, toggleFavorite, trainView, updateEntry, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    const ctx = { Chips, Label, ReportLine, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycleLength, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, entryEdit, factors, findFood, foodDays, foodPick, foodQuery, forceTrainMenu, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progressData, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, report, restLeft, saveCheckin, saveCycle, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFoodPick, setFoodQuery, setForceTrainMenu, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setRestLeft, setSaveFoodName, setSaveMealName, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
     return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderProgress(ctx) || renderMore(ctx) || null
   }
 
