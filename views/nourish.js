@@ -192,9 +192,11 @@ export function renderNourish(ctx) {
 
                 {/* ── reflection ── */}
                 <div style={{ height: 56 }} />
-                <div style={{ textAlign: "center", paddingBottom: 40 }}>
-                  <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe, opacity: 0.7 }}>Nourish yourself</div>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, lineHeight: 1.45, color: BASE.taupe, marginTop: 14 }}>{NOURISH_LINES[dayIndex(NOURISH_LINES.length)]}</div>
+                <div style={{ textAlign: "center", paddingBottom: 40, position: "relative" }}>
+                  <div style={{ position: "absolute", left: -30, right: -30, top: -26, height: 108, pointerEvents: "none",
+                    background: "radial-gradient(ellipse 62% 100% at 50% 50%, rgba(255,252,247,0.82) 0%, rgba(255,252,247,0) 72%)" }} />
+                  <div style={{ position: "relative", fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe, opacity: 0.7 }}>Nourish yourself</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, lineHeight: 1.45, color: BASE.taupe, marginTop: 14, position: "relative" }}>{NOURISH_LINES[dayIndex(NOURISH_LINES.length)]}</div>
                 </div>
               </div>
             )
