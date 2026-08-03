@@ -139,4 +139,82 @@ const BLOOM_PROMPTS = [
   "What's one small promise I can keep to myself tomorrow?",
 ]
 
-export { BLOOM_INVITATIONS, BLOOM_SECTIONS, BLOOM_PROMPTS }
+
+// ── PILLARS ─────────────────────────────────────────────────────────────────
+// The same 31 topics, regrouped by purpose. Card content is untouched — this
+// only changes which world each one lives in.
+const _card = (n) => BLOOM_SECTIONS.reduce((f, s) => f || s.cards.find((c) => c.n === n), null)
+const _pick = (names) => names.map(_card).filter(Boolean)
+
+const BLOOM_PILLARS = [
+  { key: "glow", ic: "\u2728", name: "Glow", sub: "Feel beautiful.",
+    grad: "linear-gradient(135deg,#F0B7D4,#C97BA8)",
+    cards: _pick(["Skincare", "Hair", "Makeup", "Perfume", "Jewelry", "Nails", "Wardrobe", "Facials", "Brows", "Lips", "Body Care"]) },
+  { key: "reset", ic: "🌙", name: "Reset", sub: "Find your way back to yourself.",
+    grad: "linear-gradient(135deg,#C6A3E0,#8A5EB0)",
+    cards: _pick(["Spa Night", "Journaling", "Breathing", "Quiet Time", "Music", "Gratitude", "Visualization", "Reflection", "Flowers", "Date Yourself", "Farmer's Market", "Sunrise Walk"]) },
+  { key: "flourish", ic: "📖", name: "Flourish", sub: "Learn, grow, and become her.",
+    grad: "linear-gradient(135deg,#B9D4A8,#7FA054)",
+    cards: _pick(["Reading", "Learning", "Creating", "Baking", "Photography", "Violin", "Gardening", "Creative Hobby"]) },
+]
+
+// ── TRENDING ────────────────────────────────────────────────────────────────
+// One featured discovery per day, rotating by dayIndex. Six at launch; the hero
+// repeats weekly until the library reaches fourteen.
+const BLOOM_TRENDING = [
+  { id: "vitamin-d", ic: "\u2600\uFE0F", title: "Why vitamin D affects your mood",
+    desc: "The nutrient most women are low in \u2014 and what that has to do with how you feel in February.",
+    body: [
+      "Vitamin D behaves less like a vitamin and more like a hormone. Receptors for it sit throughout the body, including in areas of the brain involved in mood regulation \u2014 which is part of why low levels and low mood so often turn up together.",
+      "Most of it is made in your skin from sunlight, which is why levels tend to drift down through winter, and why they fall further the further you live from the equator. Long sleeves, sunscreen and working indoors all reduce what you make, and none of those are things to feel guilty about.",
+      "Food contributes some \u2014 oily fish, egg yolks, fortified milk \u2014 but rarely enough on its own to correct a real deficiency.",
+    ],
+    note: "If you feel flat every winter, a vitamin D level is one of the simplest blood tests to ask for. Don't start a high-dose supplement without knowing your number \u2014 more is not better here." },
+
+  { id: "caffeine-half-life", ic: "\u2615", title: "Caffeine's 3\u20137 hour half-life",
+    desc: "Why your three o'clock coffee is still with you at bedtime.",
+    body: [
+      "Half-life means the time it takes your body to clear half of what you took in. For caffeine that's roughly three to seven hours, depending on your genetics, your liver, hormonal contraception and pregnancy \u2014 all of which slow it down.",
+      "Take the middle of that range. A 200mg coffee at 3pm leaves around 100mg in you at 8pm and 50mg near midnight. That is enough to reduce deep sleep even in people who insist they fall asleep fine \u2014 falling asleep and sleeping well are not the same measurement.",
+      "The practical move isn't quitting. It's moving your last cup earlier and seeing what changes over a week.",
+    ],
+    note: "If you're exhausted and drinking coffee later to cope, it's worth checking whether the coffee is protecting the tiredness it's meant to fix." },
+
+  { id: "satin-pillowcase", ic: "🛏\uFE0F", title: "Satin pillowcases and hair breakage",
+    desc: "What actually changes overnight, and what doesn't.",
+    body: [
+      "Cotton has a high-friction surface and is absorbent. Over a night of movement that means more mechanical friction on the hair shaft, and moisture drawn out of both hair and skin.",
+      "Satin and silk are smoother and far less absorbent. Hair slides rather than snags, so you tend to see less breakage, fewer tangles and less frizz \u2014 particularly if your hair is curly, fine, colour-treated or already fragile.",
+      "What it will not do is make hair grow faster or repair damage that has already happened. It reduces new mechanical damage. That is a real benefit, just a modest one.",
+    ],
+    note: "Silk and satin behave similarly here \u2014 satin is a weave, not a fibre, so a polyester satin case gives you most of the benefit at a fraction of the price." },
+
+  { id: "glycolic-underarms", ic: "🧴", title: "Glycolic acid under your arms",
+    desc: "The unglamorous use nobody mentions.",
+    body: [
+      "Glycolic acid is an alpha hydroxy acid that loosens the bonds between dead skin cells. On the face that's used for texture and tone. Underarm skin builds up the same dead cells, which trap pigment and odour-causing bacteria.",
+      "Used a few times a week, it can gradually soften darkening from shaving and friction, and reduce odour \u2014 which is why some people find they need less deodorant, not more.",
+      "It is not a hair removal method and not a deodorant. It also makes freshly shaved skin sting, so apply on a non-shaving night and always patch test first.",
+    ],
+    note: "Skip it entirely on broken, irritated or freshly waxed skin, and stop if you get persistent burning rather than mild tingling." },
+
+  { id: "walk-after-meals", ic: "🚶\u200D\u2640\uFE0F", title: "Walking after meals",
+    desc: "Ten minutes, and what it does to your blood sugar.",
+    body: [
+      "After eating, glucose rises in the blood. Muscle is the largest place that glucose can go, and contracting muscle takes it up without needing much insulin to do it.",
+      "A short walk soon after a meal \u2014 ten to fifteen minutes is enough in most studies \u2014 measurably blunts that rise. It tends to matter most after the largest meal of the day, and after meals heavier in carbohydrate.",
+      "It is one of very few interventions that costs nothing, needs no equipment, and works the first time you do it.",
+    ],
+    note: "This is general wellbeing information, not diabetes management. If you're monitoring your blood sugar under a provider, follow their guidance first." },
+
+  { id: "protein-before-coffee", ic: "🍳", title: "Protein before coffee",
+    desc: "Whether the order genuinely matters.",
+    body: [
+      "The popular claim is that coffee on an empty stomach spikes cortisol and causes an energy crash. The evidence is thinner than the confidence with which it's repeated \u2014 cortisol is already peaking in the morning regardless of what you drink.",
+      "What does hold up is more ordinary: eating protein early improves fullness and reduces how much you eat later in the day, and drinking coffee alongside food reduces the jittery, hollow feeling many people get on an empty stomach.",
+      "So the order isn't the point. Whether you ate at all is.",
+    ],
+    note: "If mornings are hard, aiming for thirty grams of protein before you feel like eating is a big ask. Something is genuinely better than nothing." },
+]
+
+export { BLOOM_INVITATIONS, BLOOM_SECTIONS, BLOOM_PROMPTS, BLOOM_PILLARS, BLOOM_TRENDING }
