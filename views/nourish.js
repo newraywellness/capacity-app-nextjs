@@ -1,8 +1,22 @@
 import { ACTIVITY_LEVELS, EATING_OUT, GROCERY_CATS2, LEARN_TOPICS, MACRO_PLAIN, MEALS, MEAL_FILTERS, MEAL_TYPES, NOURISH_CAP, NOURISH_RECOVERY, NOURISH_TIMING, NUTRITION_PLANS, PLAN_BY_ID, QUICK_HELP, RATE_OPTIONS, STARTER_FOODS, SUPPLEMENTS, calcTargets, foodUnitList, nutrientsFor, proteinSplit, r1, searchFoods, sumEntries } from '../data/nourish'
-import { BASE } from '../lib/theme'
+import { BASE, dayIndex } from '../lib/theme'
+
+// Closing lines for Nourish. Sufficiency, not perfection.
+const NOURISH_LINES = [
+  "Protein first. Perfection never.",
+  "Fed is the baseline, not the goal.",
+  "Eating enough is not a setback.",
+  "A fed day is a good day.",
+  "Something is always better than nothing.",
+  "Your body is not a math problem.",
+  "Nourishment is not a reward you earn.",
+  "Good enough, eaten, beats perfect, skipped.",
+  "You are allowed to be hungry.",
+  "Consistency over accuracy.",
+]
 
 export function renderNourish(ctx) {
-  const { addEntries, addFoodFor, addTab, baseline, bodyView, calcInputs, calcResult, checkedIn, cur, dayFor, deleteEntry, entryEdit, findFood, foodDays, foodPick, foodQuery, groceryAdd, groceryChecked, groceryManual, learnOpen, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, myFoods, myMeals, newId, nourishView, nutrition, pct, planView, quickAdd, recentFoods, recovery, rememberRecent, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedFoods, setAddFoodFor, setAddTab, setCalcInputs, setCalcResult, setDay, setEntryEdit, setFoodPick, setFoodQuery, setGroceryAdd, setLearnOpen, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setNourishView, setPlanView, setQuickAdd, setQuickFilter, setSaveFoodName, setSaveMealName, setSuppOpen, setWaterCount, setWeekPick, setupData, suppOpen, tab, toggleFavorite, updateEntry, weekPick, weekPlan } = ctx
+  const { addEntries, addFoodFor, addTab, baseline, bodyView, calcInputs, calcResult, checkedIn, cur, dateStr, dayFor, deleteEntry, entryEdit, findFood, foodDays, foodPick, foodQuery, groceryAdd, groceryChecked, groceryManual, learnOpen, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, myFoods, myMeals, newId, nourishView, nutrition, pct, planView, pulse, quickAdd, recentFoods, recovery, rememberRecent, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedFoods, setAddFoodFor, setAddTab, setCalcInputs, setCalcResult, setDay, setEntryEdit, setFoodPick, setFoodQuery, setGroceryAdd, setLearnOpen, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setNourishView, setPlanView, setPulse, setQuickAdd, setQuickFilter, setSaveFoodName, setSaveMealName, setSuppOpen, setWaterCount, setWeekPick, setupData, suppOpen, tab, toggleFavorite, updateEntry, weekPick, weekPlan } = ctx
     if (tab === "body" && bodyView === "nourish") {
       const capKey = checkedIn ? (pct < 15 ? "recovery" : cur) : "yellow"
       const nc = NOURISH_CAP[capKey]
@@ -55,92 +69,160 @@ export function renderNourish(ctx) {
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div style={{ display: "flex", gap: 6, padding: 4, background: "rgba(255,255,255,0.05)", borderRadius: 999, marginBottom: 18 }}>
-            {[["today", "🍽 Today"], ["plan", "📋 Plan"], ["supps", "✨ Supps"]].map(([k, lbl]) => (
+            {[["today", "🍽 Nourish"], ["supps", "✨ Supps"]].map(([k, lbl]) => (
               <button key={k} onClick={() => { setNourishView(k); setPlanView(null); setSuppOpen(null); setMealOpen(null); setQuickFilter(null) }} style={{ flex: 1, padding: "8px 3px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: nourishView === k ? "#fff" : "transparent", color: nourishView === k ? "#C9558E" : BASE.taupe, boxShadow: nourishView === k ? "0 2px 8px rgba(120,80,130,0.12)" : "none" }}>{lbl}</button>
             ))}
           </div>
 
-          {/* ================= TODAY ================= */}
-          {nourishView === "today" && !targets && (
-            <div className="fade-in">
-              <div style={{ borderRadius: 22, background: "linear-gradient(160deg,#FBEEF4,#EFE7F6)", padding: "34px 24px", textAlign: "center", marginBottom: 18, position: "relative", overflow: "hidden" }}>
-                <div style={{ position: "absolute", top: -16, right: -10, fontSize: 88, opacity: 0.14 }}>🍽</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: "#3D2545", lineHeight: 1.2, position: "relative" }}>Let's make nourishment easier.</div>
-                <div style={{ fontSize: 14, color: "#5A4458", lineHeight: 1.65, marginTop: 12, position: "relative" }}>We'll help you figure out your targets, choose a goal, and turn it into food you can actually eat.</div>
-              </div>
-              <button onClick={() => { setNourishView("plan"); setPlanView("choose") }} style={{ width: "100%", padding: 17, borderRadius: 16, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#fff", fontSize: 16, fontWeight: 800, boxShadow: "0 10px 26px rgba(168,123,209,0.35)", marginBottom: 16 }}>Build My Plan</button>
-              <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "16px 18px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", marginBottom: 8 }}>{nc.emoji} {nc.dayTitle}</div>
-                <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginBottom: 10 }}>{nc.reminder}</div>
-                <div onClick={() => { setNourishView("plan"); setPlanView("meals") }} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer" }}>Browse meal ideas {"\u203a"}</div>
-              </div>
-            </div>
-          )}
+          {/* ══════════════ NOURISH LANDING ══════════════ */}
+          {nourishView === "today" && !planView && !addFoodFor && !foodPick && !entryEdit && !mealEdit && (() => {
+            const nm = (setupData && setupData.name) || ""
+            const greetWord = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
+            const waterOz = water * 8
+            const goalOz = 64
 
-          {nourishView === "today" && targets && !addFoodFor && !entryEdit && !mealEdit && (
-            <div className="fade-in">
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 2 }}>Today's Nourishment</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 18 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: BASE.taupe, textTransform: "uppercase" }}>Today's plan</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "#C9558E" }}>{plan ? plan.emoji + " " + plan.name : "Custom"}</span>
-              </div>
+            // Meal Ideas shows the recommendation, never the capacity label.
+            const capKey2 = !checkedIn ? "yellow" : pct < 15 ? "red" : cur
+            const IDEA = {
+              green: { breakfast: "Quick breakfast", lunch: "High-protein lunch", dinner: "Batch-cook dinners", snack: "High-protein snacks" },
+              yellow: { breakfast: "Quick breakfast", lunch: "Easy lunches", dinner: "Easy dinners", snack: "Easy snacks" },
+              red: { breakfast: "5-minute breakfast", lunch: "No-cook lunches", dinner: "10-minute dinners", snack: "No-cook snacks" },
+            }
+            const ideaLine = (IDEA[capKey2] || IDEA.yellow)[nextType]
 
-              {/* Date navigation */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderRadius: 999, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 16 }}>
+            const favs = (savedFoods || []).slice(0, 2)
+            const quickLog = (fd) => {
+              const u = foodUnitList(fd)[0].u
+              const en = makeEntry(fd, 1, u, nextType)
+              if (en) { addEntries([en]); setPulse("fav:" + fd.id); setTimeout(() => setPulse(null), 900) }
+            }
+            const addWater = () => { setWaterCount(water + 1); setPulse("water"); setTimeout(() => setPulse(null), 900) }
+
+            const CARD = { background: BASE.surface, border: `1px solid ${BASE.border}`, borderRadius: 18, padding: "14px 8px 12px", minHeight: 108, cursor: "pointer", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center" }
+            const ICON = { fontSize: 17, lineHeight: 1 }
+            const NAME = { fontSize: 11.5, fontWeight: 700, color: BASE.cream, marginTop: 8, letterSpacing: 0.1 }
+            const SUB = { fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 11, color: BASE.taupe, marginTop: 3, textAlign: "center", lineHeight: 1.3 }
+            const Ripple = () => <span style={{ position: "absolute", left: "50%", top: "50%", width: 10, height: 10, marginLeft: -5, marginTop: -5, borderRadius: "50%", background: "rgba(233,132,180,0.5)", animation: "nrRipple 0.9s ease-out forwards", pointerEvents: "none" }} />
+
+            return (
+              <div className="fade-in">
+                <style>{`@keyframes nrRipple { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(16); opacity: 0; } }`}</style>
+
+                {/* ── greeting ── */}
+                <div style={{ paddingTop: 4, textAlign: "center" }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 21, color: BASE.cream, lineHeight: 1.1 }}>{greetWord}{nm ? ", " + nm : ""}</div>
+                  <div style={{ fontSize: 8.5, letterSpacing: 2.6, color: BASE.taupe, textTransform: "uppercase", marginTop: 8 }}>{dateStr}</div>
+                </div>
+
+                {/* ── FUEL TODAY — whole hero opens Nutrition Targets ── */}
+                <div style={{ height: 40 }} />
+                <div onClick={() => setPlanView("targets")} style={{ textAlign: "center", cursor: "pointer" }}>
+                  <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe }}>Fuel today</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 76, color: BASE.cream, lineHeight: 0.86, letterSpacing: -1, marginTop: 14 }}>
+                    {Math.round(eaten.p)}<span style={{ fontSize: 26, color: BASE.taupe }}>g</span>
+                  </div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13.5, color: BASE.taupe, marginTop: 10 }}>
+                    {targets ? `of ${targets.p}g today` : "Set your targets"}
+                  </div>
+                  <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe, marginTop: 16 }}>Protein</div>
+                  <div style={{ display: "flex", justifyContent: "center", gap: 44, marginTop: 18 }}>
+                    <span style={{ fontSize: 13, color: BASE.creamDim }}>{Math.round(eaten.cal).toLocaleString()} cal</span>
+                    <span style={{ fontSize: 13, color: BASE.creamDim }}>{waterOz} oz</span>
+                  </div>
+                </div>
+
+                {/* ── YOUR DAY grid ── */}
+                <div style={{ height: 44 }} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 11 }}>
+
+                  {/* 1 · Log Food */}
+                  <div onClick={() => setPlanView("log")} style={CARD}>
+                    <div style={ICON}>🍽</div>
+                    <div style={NAME}>Log Food</div>
+                    <div style={SUB}>Search {"\u00b7"} Recent</div>
+                  </div>
+
+                  {/* 2 · Water — quick-add embedded in the card */}
+                  <div onClick={() => setPlanView("water")} style={CARD}>
+                    {pulse === "water" && <Ripple />}
+                    <div style={ICON}>💧</div>
+                    <div style={NAME}>Water</div>
+                    <div style={{ ...SUB, fontStyle: "normal", fontFamily: "inherit", fontSize: 12.5, color: BASE.creamDim, fontWeight: 600, marginTop: 6 }}>{waterOz} oz</div>
+                    <div onClick={(e) => { e.stopPropagation(); addWater() }} style={{ position: "absolute", right: 0, bottom: 0, width: 46, height: 46, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 12px 9px 0", cursor: "pointer" }}>
+                      <span style={{ fontSize: 19, lineHeight: 1, color: "#7FB3D5", fontWeight: 300 }}>+</span>
+                    </div>
+                  </div>
+
+                  {/* 3 · Favorites — two quick-log rows */}
+                  <div onClick={() => { setAddFoodFor(nextType); setAddTab("favorites") }} style={{ ...CARD, padding: "14px 6px 10px" }}>
+                    <div style={ICON}>⭐</div>
+                    <div style={NAME}>Favorites</div>
+                    {favs.length === 0 ? (
+                      <div style={SUB}>Heart a food to save it</div>
+                    ) : favs.map((fd) => (
+                      <div key={fd.id} onClick={(e) => { e.stopPropagation(); quickLog(fd) }} style={{ position: "relative", width: "100%", display: "flex", alignItems: "center", gap: 3, marginTop: 6, padding: "1px 3px" }}>
+                        {pulse === "fav:" + fd.id && <Ripple />}
+                        <span style={{ flex: 1, fontSize: 9.5, color: BASE.creamDim, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fd.name}</span>
+                        <span style={{ fontSize: 14, color: "#C9558E", lineHeight: 1, paddingRight: 2 }}>+</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 4 · Meal Ideas */}
+                  <div onClick={() => { setPlanView("meals"); setMealFilter(null); setMealType(nextType) }} style={CARD}>
+                    <div style={ICON}>🍴</div>
+                    <div style={NAME}>Meal Ideas</div>
+                    <div style={SUB}>{ideaLine}</div>
+                  </div>
+
+                  {/* 5 · Recipes */}
+                  <div onClick={() => setPlanView("recipes")} style={CARD}>
+                    <div style={ICON}>📖</div>
+                    <div style={NAME}>Recipes</div>
+                    <div style={SUB}>Browse the library</div>
+                  </div>
+
+                  {/* 6 · Grocery */}
+                  <div onClick={() => setPlanView("grocery")} style={CARD}>
+                    <div style={ICON}>🛒</div>
+                    <div style={NAME}>Grocery</div>
+                    <div style={SUB}>Build this week's list</div>
+                  </div>
+                </div>
+
+                {/* ── reflection ── */}
+                <div style={{ height: 56 }} />
+                <div style={{ textAlign: "center", paddingBottom: 40 }}>
+                  <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe, opacity: 0.7 }}>Nourish yourself</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, lineHeight: 1.45, color: BASE.taupe, marginTop: 14 }}>{NOURISH_LINES[dayIndex(NOURISH_LINES.length)]}</div>
+                </div>
+              </div>
+            )
+          })()}
+
+
+          {/* ══════════════ LOG FOOD ══════════════ */}
+          {nourishView === "today" && planView === "log" && !addFoodFor && !foodPick && !entryEdit && !mealEdit && (
+            <div className="fade-in">
+              <Back to={() => setPlanView(null)} label="Nourish" />
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, marginBottom: 12 }}>Log Food</div>
+
+              {/* date navigation */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderRadius: 999, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 18 }}>
                 <span onClick={() => shiftDate(-1)} style={{ fontSize: 17, color: BASE.creamDim, cursor: "pointer", padding: "0 6px" }}>{"\u2039"}</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: isToday ? "#C9558E" : BASE.cream }}>{dateLabel}</span>
                 <span onClick={() => shiftDate(1)} style={{ fontSize: 17, color: isToday ? BASE.border : BASE.creamDim, cursor: isToday ? "default" : "pointer", padding: "0 6px" }}>{"\u203a"}</span>
               </div>
 
-              {/* Protein hero */}
-              <div style={{ borderRadius: 20, background: "linear-gradient(160deg,rgba(233,132,180,0.12),rgba(168,123,209,0.1))", border: "1px solid rgba(233,132,180,0.3)", padding: "20px 22px", marginBottom: 14 }}>
-                <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", marginBottom: 4 }}>Protein — your priority</div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontWeight: 700, color: BASE.cream, lineHeight: 1 }}>{Math.round(eaten.p)}</span>
-                  <span style={{ fontSize: 17, color: BASE.taupe }}>/ {targets.p}g</span>
-                </div>
-                <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.09)", overflow: "hidden", margin: "12px 0 7px" }}>
-                  <div style={{ width: Math.min(100, Math.round((eaten.p / targets.p) * 100)) + "%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#E984B4,#A87BD1)", transition: "width 0.4s ease" }} />
-                </div>
-                <div style={{ fontSize: 13, color: BASE.creamDim, fontWeight: 600 }}>{rem.p > 0 ? `${Math.round(rem.p)}g to go` : "You've hit your protein today \u2713"}</div>
-              </div>
-
-              {/* Calories + macros */}
-              <div style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 20px", marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>Calories</span>
-                  <span style={{ fontSize: 13, color: BASE.taupe }}><span style={{ color: BASE.cream, fontWeight: 700 }}>{Math.round(eaten.cal)}</span> / {targets.cal}</span>
-                </div>
-                <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.07)", overflow: "hidden", marginBottom: 6 }}>
-                  <div style={{ width: Math.min(100, Math.round((eaten.cal / targets.cal) * 100)) + "%", height: "100%", borderRadius: 999, background: "#E8B84B" }} />
-                </div>
-                <div style={{ fontSize: 11, color: BASE.taupe, marginBottom: 18 }}>{rem.cal > 0 ? `About ${Math.round(rem.cal)} left today` : "You've reached your estimate for today"}</div>
-                <MacroRow label="Carbohydrates" have={eaten.c} goal={targets.c} unit="g" color="#7FA054" />
-                <MacroRow label="Fat" have={eaten.f} goal={targets.f} unit="g" color="#9B6BC3" />
-                <div style={{ borderTop: `0.5px solid ${BASE.border}`, paddingTop: 14, marginTop: 4 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: BASE.cream }}>💧 Water</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span onClick={() => setWaterCount(water - 1)} style={{ width: 26, height: 26, borderRadius: "50%", background: BASE.surface2, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: BASE.creamDim, fontSize: 16 }}>{"\u2212"}</span>
-                      <span style={{ fontSize: 13, color: BASE.cream, fontWeight: 700, minWidth: 54, textAlign: "center" }}>{water} / 8</span>
-                      <span onClick={() => setWaterCount(water + 1)} style={{ width: 26, height: 26, borderRadius: "50%", background: BASE.surface2, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: BASE.creamDim, fontSize: 16 }}>+</span>
-                    </div>
+              {/* running totals for the day being viewed */}
+              <div style={{ display: "flex", justifyContent: "space-around", padding: "14px 8px", borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 18 }}>
+                {[["Protein", Math.round(eaten.p) + "g", "#E984B4"], ["Calories", Math.round(eaten.cal), "#E8B84B"], ["Carbs", Math.round(eaten.c) + "g", "#7FA054"], ["Fat", Math.round(eaten.f) + "g", "#9B6BC3"]].map(([l, v, col]) => (
+                  <div key={l} style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: col }}>{v}</div>
+                    <div style={{ fontSize: 9.5, color: BASE.taupe, marginTop: 2 }}>{l}</div>
                   </div>
-                </div>
-                <div onClick={() => setMacrosOpen(!macrosOpen)} style={{ fontSize: 12, fontWeight: 700, color: "#C9558E", cursor: "pointer", marginTop: 14 }}>{macrosOpen ? "\u2212" : "+"} What are macros?</div>
-                {macrosOpen && (
-                  <div className="fade-in" style={{ marginTop: 10 }}>
-                    {MACRO_PLAIN.map((m) => (
-                      <div key={m.name} style={{ display: "flex", gap: 9, marginBottom: 8 }}>
-                        <span style={{ fontSize: 16 }}>{m.emoji}</span>
-                        <div><span style={{ fontSize: 12.5, fontWeight: 700, color: BASE.cream }}>{m.name}. </span><span style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.5 }}>{m.body}</span></div>
-                      </div>
-                    ))}
-                    <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.5 }}>Calories are the total energy these three provide. You don't need to understand any of this to use Nourish.</div>
-                  </div>
-                )}
+                ))}
               </div>
-
               {/* Today's Food — grouped by meal */}
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>{isToday ? "Today's food" : "Food logged"}</div>
               {!dayItems.length && (
@@ -176,43 +258,122 @@ export function renderNourish(ctx) {
                 <div onClick={() => { setSaveMealName(""); setMealEdit({ from: logDate }) }} style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: BASE.taupe, cursor: "pointer", margin: "10px 0 4px" }}>Save a meal from today's food</div>
               )}
               <div style={{ height: 12 }} />
-              {/* What should I eat next */}
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 8px" }}>What should I eat next?</div>
-              <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.55, marginBottom: 12 }}>{rem.p > 5 ? `You have about ${Math.round(rem.p)}g of protein left today. Here are ${nextTypeLabel.toLowerCase()} ideas that would help:` : `You're doing well on your targets. A few ${nextTypeLabel.toLowerCase()} ideas if you're hungry:`}</div>
-              {(() => { const goal = Math.min(45, Math.max(15, rem.p)); return MEALS.filter((m) => m.t === nextType).sort((a, b) => Math.abs(a.p - goal) - Math.abs(b.p - goal)).slice(0, 3) })().map((m) => (
-                <div key={m.n} style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "13px 15px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{m.n}</div>
-                    <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2 }}><span style={{ color: "#E984B4", fontWeight: 700 }}>~{m.p}g protein</span> · {m.cal} cal · {m.min} min</div>
-                  </div>
-                  <span onClick={() => logMeal(m, nextType)} style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg,#E984B4,#A87BD1)", padding: "7px 13px", borderRadius: 999, cursor: "pointer", flexShrink: 0 }}>Log</span>
-                </div>
-              ))}
-              <div onClick={() => { setNourishView("plan"); setPlanView("meals") }} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer", margin: "4px 2px 20px" }}>See all meal ideas {"\u203a"}</div>
-
-              {/* Quick help */}
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>Quick help</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
-                {QUICK_HELP.slice(0, 6).map((q) => (
-                  <div key={q.label} onClick={() => { setNourishView("plan"); setPlanView("meals"); setMealFilter(q.filter) }} style={{ borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "12px 13px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>{q.emoji}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: BASE.cream }}>{q.label}</span>
-                  </div>
-                ))}
-              </div>
-              <div onClick={() => { setNourishView("plan"); setPlanView("eatout") }} style={{ borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "13px 15px", cursor: "pointer", display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
-                <span style={{ fontSize: 17 }}>🍴</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, flex: 1 }}>Eating out?</span>
-                <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
-              </div>
-
-              <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, marginBottom: 18 }}>These targets are estimates to guide you, not rules to obey. Some days you'll need more. That's information, not failure.</div>
+              <div style={{ height: 18 }} />
             </div>
           )}
 
+          {/* ══════════════ WATER ══════════════ */}
+          {nourishView === "today" && planView === "water" && (() => {
+            const oz = water * 8
+            const goalOz = 64
+            const pctFill = Math.min(100, Math.round((oz / goalOz) * 100))
+            return (
+              <div className="fade-in">
+                <Back to={() => setPlanView(null)} label="Nourish" />
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, marginBottom: 6 }}>Water</div>
+                <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>One glass is 8 oz. Thirst, tiredness and hunger can feel the same — this is often the quickest thing to rule out.</div>
+
+                <div style={{ textAlign: "center", padding: "8px 0 20px" }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 66, color: BASE.cream, lineHeight: 0.9 }}>{oz}<span style={{ fontSize: 20, color: BASE.taupe }}> oz</span></div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.taupe, marginTop: 8 }}>of {goalOz} oz today</div>
+                </div>
+
+                <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.07)", overflow: "hidden", marginBottom: 24 }}>
+                  <div style={{ width: pctFill + "%", height: "100%", borderRadius: 999, background: "#7FB3D5", transition: "width 0.4s ease" }} />
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginBottom: 26 }}>
+                  <button onClick={() => setWaterCount(water - 1)} style={{ flex: 1, padding: 15, borderRadius: 14, border: `1px solid ${BASE.border}`, cursor: "pointer", background: "transparent", color: BASE.creamDim, fontSize: 15, fontWeight: 700 }}>{"\u2212"} 8 oz</button>
+                  <button onClick={() => setWaterCount(water + 1)} style={{ flex: 2, padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#7FB3D5,#A87BD1)", color: "#fff", fontSize: 15, fontWeight: 800 }}>+ 8 oz</button>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "center", gap: 7, flexWrap: "wrap", marginBottom: 20 }}>
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <span key={i} onClick={() => setWaterCount(i + 1)} style={{ width: 26, height: 34, borderRadius: "4px 4px 9px 9px", cursor: "pointer", background: i < water ? "#7FB3D5" : "transparent", border: `1.5px solid ${i < water ? "#7FB3D5" : BASE.border}`, transition: "background 0.25s ease" }} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, marginBottom: 20 }}>If you're nursing, your needs are noticeably higher than this.</div>
+              </div>
+            )
+          })()}
+
+          {/* ══════════════ NUTRITION TARGETS (hero destination) ══════════════ */}
+          {nourishView === "today" && planView === "targets" && (
+            <div className="fade-in">
+              <Back to={() => setPlanView(null)} label="Nourish" />
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, marginBottom: 4 }}>Nutrition Targets</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 20 }}>What today is built around. Change any of it whenever your season changes.</div>
+
+              {targets ? (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+                    {[["Protein", targets.p + "g", "#E984B4"], ["Calories", targets.cal.toLocaleString(), "#E8B84B"], ["Carbs", targets.c + "g", "#7FA054"], ["Fat", targets.f + "g", "#9B6BC3"]].map(([l, v, col]) => (
+                      <div key={l} style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "16px 10px", textAlign: "center" }}>
+                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 600, color: col, lineHeight: 1 }}>{v}</div>
+                        <div style={{ fontSize: 11, color: BASE.taupe, marginTop: 5 }}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "15px 17px", marginBottom: 18 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 13, color: BASE.creamDim }}>💧 Water goal</span>
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: "#7FB3D5" }}>64 oz</span>
+                    </div>
+                  </div>
+                  {plan && (
+                    <div style={{ borderRadius: 16, background: plan.grad, padding: "15px 18px", marginBottom: 18 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.85)", textTransform: "uppercase" }}>Active plan</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: "#fff", marginTop: 2 }}>{plan.name}</div>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>What this means</div>
+                  {MACRO_PLAIN.map((m) => (
+                    <div key={m.name} style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                      <span style={{ fontSize: 16 }}>{m.emoji}</span>
+                      <div><span style={{ fontSize: 12.5, fontWeight: 700, color: BASE.cream }}>{m.name}. </span><span style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.5 }}>{m.body}</span></div>
+                    </div>
+                  ))}
+                  <div style={{ height: 8 }} />
+                </>
+              ) : (
+                <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "22px 20px", textAlign: "center", marginBottom: 18 }}>
+                  <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.6 }}>You haven't set your targets yet. It takes a minute, and everything in Nourish shapes itself around them.</div>
+                </div>
+              )}
+
+              {[["choose", "🎯", "Choose your nutrition plan", plan ? "Change your active plan" : "Pick the goal that fits this season"],
+                ["calc", "🧮", targets ? "Recalculate my targets" : "Calculate my targets", "Estimate calories and macros"]].map(([k, ic, title, sub]) => (
+                <div key={k} onClick={() => setPlanView(k)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
+                  <span style={{ fontSize: 20 }}>{ic}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{title}</div>
+                    <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 1 }}>{sub}</div>
+                  </div>
+                  <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, margin: "14px 0 20px" }}>These are estimates to guide you, not rules to obey. Some days you'll need more. That's information, not failure.</div>
+            </div>
+          )}
+
+          {/* ══════════════ RECIPES ══════════════ */}
+          {nourishView === "today" && planView === "recipes" && (
+            <div className="fade-in">
+              <Back to={() => setPlanView(null)} label="Nourish" />
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, marginBottom: 4 }}>Recipes</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>A library of True Reverie recipes — written the way you'd actually cook them.</div>
+              <div style={{ borderRadius: 18, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "30px 24px", textAlign: "center" }}>
+                <div style={{ fontSize: 30, marginBottom: 12 }}>📖</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: BASE.cream, marginBottom: 8 }}>Coming soon</div>
+                <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.65 }}>Full recipes with method and timing are being written. In the meantime, Meal Ideas has {MEALS.length} meals with ingredients and macros.</div>
+                <div onClick={() => { setPlanView("meals"); setMealFilter(null) }} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer", marginTop: 16 }}>Browse meal ideas {"\u203a"}</div>
+              </div>
+              <div style={{ height: 20 }} />
+            </div>
+          )}
 
           {/* ---- ADD FOOD ---- */}
-          {nourishView === "today" && targets && addFoodFor && !foodPick && (() => {
+          {nourishView === "today" && addFoodFor && !foodPick && (() => {
             const slotLabel = (MEAL_TYPES.find((m) => m[0] === addFoodFor) || ["", "Meal"])[1]
             const TABS = [["search", "Search"], ["recent", "Recent"], ["favorites", "Favorites"], ["mymeals", "My Meals"], ["newray", "True Reverie"], ["quick", "Quick Add"]]
             const openPick = (food, qty, unit) => setFoodPick({ food, qty: qty || 1, unit: unit || foodUnitList(food)[0].u })
@@ -340,7 +501,7 @@ export function renderNourish(ctx) {
           })()}
 
           {/* ---- SERVING EDITOR ---- */}
-          {nourishView === "today" && targets && foodPick && (() => {
+          {nourishView === "today" && foodPick && (() => {
             const { food, qty, unit } = foodPick
             const n = food.fixed ? { cal: food.fixed.cal * qty, p: food.fixed.p * qty, c: food.fixed.c * qty, f: food.fixed.f * qty, grams: 0 } : nutrientsFor(food, qty, unit)
             const slotLabel = (MEAL_TYPES.find((m) => m[0] === addFoodFor) || ["", "Meal"])[1]
@@ -376,7 +537,7 @@ export function renderNourish(ctx) {
           })()}
 
           {/* ---- ENTRY EDITOR ---- */}
-          {nourishView === "today" && targets && entryEdit && (() => {
+          {nourishView === "today" && entryEdit && (() => {
             const it = entryEdit
             const food = findFood(it.foodId)
             const q = Number(it.qty) || 0
@@ -471,7 +632,7 @@ export function renderNourish(ctx) {
           })()}
 
           {/* ---- SAVE A MEAL ---- */}
-          {nourishView === "today" && targets && mealEdit && (() => {
+          {nourishView === "today" && mealEdit && (() => {
             const items = (foodDays[logDate] || { items: [] }).items
             const chosen = mealEdit.picked || {}
             const picked = items.filter((i) => chosen[i.id])
@@ -502,47 +663,8 @@ export function renderNourish(ctx) {
             )
           })()}
 
-          {/* ================= PLAN ================= */}
-          {nourishView === "plan" && !planView && (
-            <div className="fade-in">
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Your Nourish Plan</div>
-              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 18 }}>This is where you set your direction. Today turns it into food you can actually eat.</div>
-              {plan ? (
-                <div style={{ borderRadius: 18, background: plan.grad, padding: "18px 20px", marginBottom: 8, position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", right: -12, top: -12, fontSize: 62, opacity: 0.16 }}>{plan.emoji}</div>
-                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", position: "relative" }}>Active plan</div>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 700, color: "#fff", marginTop: 2, position: "relative" }}>{plan.name}</div>
-                  {targets && <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.95)", marginTop: 4, position: "relative" }}>{targets.cal} cal · {targets.p}g protein · {targets.c}g carbs · {targets.f}g fat</div>}
-                </div>
-              ) : (
-                <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "18px 20px", marginBottom: 8, textAlign: "center" }}>
-                  <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6 }}>You haven't chosen a plan yet. Start there and everything else falls into place.</div>
-                </div>
-              )}
-              <div style={{ marginTop: 14 }}>
-                {[["choose", "🎯", "Choose your nutrition plan", plan ? "Change your active plan" : "Pick the goal that fits this season"],
-                  ["calc", "🧮", "Calculate my targets", targets ? "Review or edit your daily targets" : "Estimate your daily calories and macros"],
-                  ["meals", "🍳", "Meal ideas", "Breakfast, lunch, dinner and snacks"],
-                  ["week", "📅", "Build my week", "Plan meals for the days ahead"],
-                  ["grocery", "🛒", "Build my grocery list", "From your week, or start from scratch"],
-                  ["eatout", "🍴", "Eating out", "Practical picks, no guilt"],
-                  ["learn", "📖", "Learn", "Protein, carbs, fats, fiber and more"]].map(([k, ic, title, sub]) => (
-                  <div key={k} onClick={() => { setPlanView(k); setMealFilter(null); setMealOpen(null) }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
-                    <span style={{ fontSize: 20 }}>{ic}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{title}</div>
-                      <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 1 }}>{sub}</div>
-                    </div>
-                    <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ height: 18 }} />
-            </div>
-          )}
-
           {/* --- Choose plan --- */}
-          {nourishView === "plan" && planView === "choose" && (
+          {nourishView === "today" && planView === "choose" && (
             <div className="fade-in">
               <Back to={() => setPlanView(null)} label="Plan" />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, marginBottom: 4 }}>Choose your nutrition plan</div>
@@ -578,7 +700,7 @@ export function renderNourish(ctx) {
           )}
 
           {/* --- Calculator --- */}
-          {nourishView === "plan" && planView === "calc" && (() => {
+          {nourishView === "today" && planView === "calc" && (() => {
             const ci = calcInputs || { age: "", heightFt: "", heightIn: "", weightLb: "", activity: "light", nursing: false, sex: "female", rate: "gentle", planId: (nutrition && nutrition.planId) || "energy" }
             const setCI = (k, v) => setCalcInputs({ ...ci, [k]: v })
             const ready = ci.age && ci.heightFt && ci.weightLb
@@ -698,7 +820,7 @@ export function renderNourish(ctx) {
           })()}
 
           {/* --- Meal ideas --- */}
-          {nourishView === "plan" && planView === "meals" && !mealOpen && (
+          {nourishView === "today" && planView === "meals" && !mealOpen && (
             <div className="fade-in">
               <Back to={() => { setPlanView(null); setMealFilter(null) }} label="Plan" />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, marginBottom: 12 }}>Meal ideas</div>
@@ -706,6 +828,35 @@ export function renderNourish(ctx) {
                 {MEAL_TYPES.map(([k, lbl]) => (
                   <button key={k} onClick={() => setMealType(k)} style={{ flex: 1, padding: "8px 2px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 11.5, fontWeight: 700, background: mealType === k ? "#C9558E" : BASE.surface, color: mealType === k ? "#fff" : BASE.creamDim }}>{lbl}</button>
                 ))}
+              </div>
+              {/* What should I eat next */}
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 8px" }}>What should I eat next?</div>
+              <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.55, marginBottom: 12 }}>{rem.p > 5 ? `You have about ${Math.round(rem.p)}g of protein left today. Here are ${nextTypeLabel.toLowerCase()} ideas that would help:` : `You're doing well on your targets. A few ${nextTypeLabel.toLowerCase()} ideas if you're hungry:`}</div>
+              {(() => { const goal = Math.min(45, Math.max(15, rem.p)); return MEALS.filter((m) => m.t === nextType).sort((a, b) => Math.abs(a.p - goal) - Math.abs(b.p - goal)).slice(0, 3) })().map((m) => (
+                <div key={m.n} style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "13px 15px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{m.n}</div>
+                    <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2 }}><span style={{ color: "#E984B4", fontWeight: 700 }}>~{m.p}g protein</span> · {m.cal} cal · {m.min} min</div>
+                  </div>
+                  <span onClick={() => logMeal(m, nextType)} style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg,#E984B4,#A87BD1)", padding: "7px 13px", borderRadius: 999, cursor: "pointer", flexShrink: 0 }}>Log</span>
+                </div>
+              ))}
+              <div onClick={() => { setPlanView("meals") }} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", cursor: "pointer", margin: "4px 2px 20px" }}>See all meal ideas {"\u203a"}</div>
+
+              {/* Quick help */}
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: BASE.taupe, textTransform: "uppercase", margin: "4px 2px 10px" }}>Quick help</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {QUICK_HELP.slice(0, 6).map((q) => (
+                  <div key={q.label} onClick={() => { setPlanView("meals"); setMealFilter(q.filter) }} style={{ borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "12px 13px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>{q.emoji}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: BASE.cream }}>{q.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div onClick={() => { setPlanView("eatout") }} style={{ borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "13px 15px", cursor: "pointer", display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
+                <span style={{ fontSize: 17 }}>🍴</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, flex: 1 }}>Eating out?</span>
+                <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                 {MEAL_FILTERS.map((ft) => (
@@ -721,7 +872,7 @@ export function renderNourish(ctx) {
             </div>
           )}
 
-          {nourishView === "plan" && planView === "meals" && mealOpen && (() => {
+          {nourishView === "today" && planView === "meals" && mealOpen && (() => {
             const m = mealOpen
             return (
               <div className="fade-in">
@@ -757,7 +908,7 @@ export function renderNourish(ctx) {
           })()}
 
           {/* --- Week builder --- */}
-          {nourishView === "plan" && planView === "week" && (() => {
+          {nourishView === "today" && planView === "week" && (() => {
             const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i); return d })
             if (weekPick) {
               const list = MEALS.filter((m) => m.t === weekPick.slot)
@@ -798,7 +949,7 @@ export function renderNourish(ctx) {
           })()}
 
           {/* --- Grocery builder --- */}
-          {nourishView === "plan" && planView === "grocery" && (() => {
+          {nourishView === "today" && planView === "grocery" && (() => {
             // Ingredients from planned meals + manual additions, grouped by category
             const fromPlan = {}
             Object.keys(weekPlan).forEach((d) => {
@@ -847,7 +998,7 @@ export function renderNourish(ctx) {
           })()}
 
           {/* --- Eating out --- */}
-          {nourishView === "plan" && planView === "eatout" && (
+          {nourishView === "today" && planView === "eatout" && (
             <div className="fade-in">
               <Back to={() => setPlanView(null)} label="Plan" />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, marginBottom: 6 }}>Eating out</div>
@@ -879,7 +1030,7 @@ export function renderNourish(ctx) {
           )}
 
           {/* --- Learn --- */}
-          {nourishView === "plan" && planView === "learn" && !learnOpen && (
+          {nourishView === "today" && planView === "learn" && !learnOpen && (
             <div className="fade-in">
               <Back to={() => setPlanView(null)} label="Plan" />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, marginBottom: 4 }}>Learn</div>
@@ -919,7 +1070,7 @@ export function renderNourish(ctx) {
             </div>
           )}
 
-          {nourishView === "plan" && planView === "learn" && learnOpen && (() => {
+          {nourishView === "today" && planView === "learn" && learnOpen && (() => {
             const t = LEARN_TOPICS.find((x) => x.name === learnOpen)
             return (
               <div className="fade-in">
