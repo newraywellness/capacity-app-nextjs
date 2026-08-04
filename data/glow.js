@@ -123,11 +123,11 @@ const HAIR_TYPES = [
 
 // ── HAIR · product guides ───────────────────────────────────────────────────
 const HAIR_GUIDES = [
-  { n: "Shampoo", g: "🚿 Wash Day", i: "Cleans the scalp. Everything else is secondary.",
+  { n: "Shampoo", g: "🚿 Daily Essentials", i: "Cleans the scalp. Everything else is secondary.",
     p: P({ n: "L'Oréal Elvive", w: "Solid, gentle, everywhere." },
           { n: "Olaplex No.4 Bond Maintenance", w: "Best all-rounder if you colour or heat style." },
           { n: "Oribe Gold Lust Repair & Restore", w: "Salon quality, worth it if hair is your thing." }) },
-  { n: "Conditioner", g: "🚿 Wash Day", i: "Slip and moisture for mid-lengths and ends only.",
+  { n: "Conditioner", g: "🚿 Daily Essentials", i: "Slip and moisture for mid-lengths and ends only.",
     p: P({ n: "Garnier Fructis Hair Filler", w: "Cheap and genuinely decent." },
           { n: "Olaplex No.5 Bond Maintenance", w: "Pairs with No.4; keeps damaged hair manageable." },
           { n: "Kérastase Nutritive Masquintense", w: "For thick or very dry hair that eats conditioner." }) },
@@ -139,7 +139,7 @@ const HAIR_GUIDES = [
     p: P({ n: "Mielle Rosemary Mint Oil", w: "Scalp use; the rosemary favourite." },
           { n: "Verb Ghost Oil", w: "Weightless, won't flatten fine hair." },
           { n: "Gisou Honey Infused Hair Oil", w: "Beautiful on thick or wavy hair; the scent is the point." }) },
-  { n: "Heat Protectants", g: "🔥 Styling", i: "Non-negotiable if any hot tool touches your hair.",
+  { n: "Heat Protectants", g: "🚿 Daily Essentials", i: "Non-negotiable if any hot tool touches your hair.",
     p: P({ n: "Tresemmé Thermal Creations", w: "Does the job for a few dollars." },
           { n: "CHI 44 Iron Guard", w: "Rated to iron temperatures, not just blow dryer heat." },
           { n: "Color Wow Dream Coat", w: "Heat plus humidity protection — the frizz solution." }) },
@@ -159,7 +159,7 @@ const HAIR_GUIDES = [
     p: P({ n: "Mielle Rosemary Mint Scalp Oil", w: "Simple, affordable, pleasant to use." },
           { n: "The Ordinary Multi-Peptide Serum for Hair Density", w: "Best evidence-to-price ratio in the category." },
           { n: "Act+Acre Cold Processed Scalp Serum", w: "For persistent flaking, itch or oiliness." }) },
-  { n: "Clarifying Shampoo", g: "🚿 Wash Day", i: "A monthly reset for buildup, hard water and heavy product.",
+  { n: "Clarifying Shampoo", g: "💧 Treatments", i: "A monthly reset for buildup, hard water and heavy product.",
     p: P({ n: "Neutrogena Anti-Residue Shampoo", w: "The classic. Once a fortnight at most." },
           { n: "Malibu C Hard Water Wellness", w: "Specifically for mineral buildup — a real problem if your water is hard." },
           { n: "Christophe Robin Cleansing Purifying Scrub", w: "Physical scrub plus clarifier; feels like a treatment." }) },
