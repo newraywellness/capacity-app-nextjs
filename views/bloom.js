@@ -3,7 +3,7 @@ import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow'
 import { BASE, dayIndex } from '../lib/theme'
 
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomPillar, checkedIn, closeBloom, glowItem, glowSection, glowSheet, glowTopic, isSavedBloom, openBloomCard, pct, setBloomArticle, setBloomPillar, setGlowItem, setGlowSection, setGlowSheet, setGlowTopic, tab, toggleSaveBloom } = ctx
+  const { bloomArticle, bloomCard, bloomPillar, checkedIn, closeBloom, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, openBloomCard, pct, setBloomArticle, setBloomPillar, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, tab, toggleSaveBloom } = ctx
     if (tab === "bloom" && bloomCard) {
       const sec = BLOOM_PILLARS.find((x) => x.cards.some((c) => c.n === bloomCard.n)) || BLOOM_PILLARS[0]
       const card = bloomCard
@@ -117,7 +117,7 @@ export function renderBloom(ctx) {
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "26px 0 10px" }}>Products we love</div>
           <Tier ic="💰" label="Budget" item={w.prod.budget} />
           <Tier ic="🥇" label="Best overall" item={w.prod.best} />
-          <Tier ic="\u2728" label="Luxury" item={w.prod.lux} />
+          <Tier ic="✨" label="Luxury" item={w.prod.lux} />
 
           <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", margin: "18px 0 8px" }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C97BA8", marginBottom: 6 }}>Nurse's tip</div>
@@ -171,7 +171,7 @@ export function renderBloom(ctx) {
               <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "24px 0 10px" }}>Products we love</div>
               <Tier ic="💰" label="Budget" item={it.p.budget} />
               <Tier ic="🥇" label="Best overall" item={it.p.best} />
-              <Tier ic="\u2728" label="Luxury" item={it.p.lux} />
+              <Tier ic="✨" label="Luxury" item={it.p.lux} />
             </>
           )}
 
@@ -193,80 +193,82 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ══════════════ GLOW · a section list ══════════════
-    if (tab === "bloom" && glowTopic && glowSection) {
-      const T = GLOW_BY_KEY(glowTopic)
-      const SEC = { wins: ["\u2728 Quick Wins", T.wins], types: [T.key === "hair" ? "💇‍♀️ Hair Types" : "🧴 Skin Types", T.types],
-                    guides: ["🛍️ Product Guides", T.guides], learn: ["📖 Learn", T.learn],
-                    favs: ["\u2764\uFE0F Women's Favorites", []] }
-      const [title, items] = SEC[glowSection] || ["", []]
-      return (
-        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
-          <div onClick={() => setGlowSection(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 " + T.name}</div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream, marginBottom: 18 }}>{title}</div>
-
-          {glowSection === "favs" ? (
-            <div style={{ borderRadius: 18, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "28px 22px", textAlign: "center" }}>
-              <div style={{ fontSize: 24, marginBottom: 10 }}>{"\u2661"}</div>
-              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Women's Favorites are built from what thousands of women save. As saves gather, the most-loved discoveries in {T.name} will appear here.</div>
-            </div>
-          ) : (() => {
-            // A long list becomes a few calm sections. Grouping is presentation
-            // only — nothing is hidden and nothing is removed.
-            const Row = ({ x }) => (
-              <div onClick={() => (glowSection === "wins" ? setGlowSheet(x) : setGlowItem(x))}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
-                {x.ic && <span style={{ fontSize: 19 }}>{x.ic}</span>}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, lineHeight: 1.3 }}>{x.title || x.name || x.n}</div>
-                  {(x.desc || x.b || x.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.4 }}>{x.desc || x.b || x.i}</div>}
-                </div>
-                <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
-              </div>
-            )
-            const grouped = items.length > 0 && items[0].g
-            if (!grouped) return items.map((x, i) => <Row key={i} x={x} />)
-            const order = []
-            items.forEach((x) => { if (order.indexOf(x.g) < 0) order.push(x.g) })
-            return order.map((gname, gi) => (
-              <div key={gname} style={{ marginBottom: gi < order.length - 1 ? 30 : 0 }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: "#C9558E", marginBottom: 12 }}>{gname}</div>
-                {items.filter((x) => x.g === gname).map((x, i) => <Row key={i} x={x} />)}
-              </div>
-            ))
-          })()}
-          <div style={{ height: 26 }} />
-        </div>
-      )
-    }
-
     // ══════════════ GLOW · a topic ══════════════
+    // Ordered the way she actually arrives: what should I buy, what should I do,
+    // how is my situation different, why does this work, what do others love.
+    // Products and Quick Wins are open on arrival; the rest wait to be asked for.
     if (tab === "bloom" && glowTopic) {
       const T = GLOW_BY_KEY(glowTopic)
-      const SECTIONS = [
-        ["wins", "\u2728", "Quick Wins", T.wins.length + " fast, useful things"],
-        ["types", T.key === "hair" ? "💇‍♀️" : "🧴", T.key === "hair" ? "Hair Types" : "Skin Types", "Advice that fits your " + T.name.toLowerCase()],
-        ["guides", "🛍️", "Product Guides", T.guides.length + " curated collections"],
-        ["learn", "📖", "Learn", "The why, when you want it"],
-        ["favs", "\u2764\uFE0F", "Women's Favorites", "Loved by the community"],
-      ]
+      const isOpen = (k) => glowOpen.indexOf(k) >= 0
+      const toggle = (k) => setGlowOpen(isOpen(k) ? glowOpen.filter((x) => x !== k) : [...glowOpen, k])
+
+      const Row = ({ x, onTap }) => (
+        <div onClick={onTap} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
+          {x.ic && <span style={{ fontSize: 19 }}>{x.ic}</span>}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, lineHeight: 1.3 }}>{x.title || x.name || x.n}</div>
+            {(x.desc || x.b || x.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.4 }}>{x.desc || x.b || x.i}</div>}
+          </div>
+          <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
+        </div>
+      )
+
+      const Grouped = ({ items, onTap }) => {
+        if (!items.length || !items[0].g) return items.map((x, i) => <Row key={i} x={x} onTap={() => onTap(x)} />)
+        const order = []
+        items.forEach((x) => { if (order.indexOf(x.g) < 0) order.push(x.g) })
+        return order.map((gname, gi) => (
+          <div key={gname} style={{ marginBottom: gi < order.length - 1 ? 26 : 0 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: "#C9558E", marginBottom: 10 }}>{gname}</div>
+            {items.filter((x) => x.g === gname).map((x, i) => <Row key={i} x={x} onTap={() => onTap(x)} />)}
+          </div>
+        ))
+      }
+
+      const Section = ({ k, ic, name, sub, children }) => (
+        <div style={{ marginBottom: 14 }}>
+          <div onClick={() => toggle(k)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 4px 12px", cursor: "pointer" }}>
+            <span style={{ fontSize: 19 }}>{ic}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{name}</div>
+              {sub && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 2 }}>{sub}</div>}
+            </div>
+            <span style={{ color: BASE.taupe, fontSize: 15, transform: isOpen(k) ? "rotate(90deg)" : "none", transition: "transform 0.22s ease" }}>{"\u203a"}</span>
+          </div>
+          {isOpen(k) && <div className="fade-in" style={{ paddingBottom: 6 }}>{children}</div>}
+        </div>
+      )
+
       return (
         <div className="fade-in" style={{ padding: "10px 22px 0" }}>
-          <div onClick={() => { setGlowTopic(null); setGlowSection(null) }} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 Glow"}</div>
+          <div onClick={() => setGlowTopic(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 Glow"}</div>
           <div style={{ fontSize: 32 }}>{T.ic}</div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 4 }}>{T.name}</div>
-          <div style={{ height: 22 }} />
-          {SECTIONS.map(([k, ic, name, sub]) => (
-            <div key={k} onClick={() => setGlowSection(k)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "17px 18px", borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, cursor: "pointer" }}>
-              <span style={{ fontSize: 21 }}>{ic}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{name}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 2 }}>{sub}</div>
-              </div>
-              <span style={{ color: BASE.taupe, fontSize: 17 }}>{"\u203a"}</span>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 4, marginBottom: 10 }}>{T.name}</div>
+
+          <Section k="guides" ic="🛍️" name="Products We Love" sub="Curated by True Reverie">
+            <Grouped items={T.guides} onTap={(x) => setGlowItem(x)} />
+          </Section>
+
+          <Section k="wins" ic="✨" name="Quick Wins" sub="Fast, useful, evidence-based">
+            <Grouped items={T.wins} onTap={(x) => setGlowSheet(x)} />
+          </Section>
+
+          <Section k="types" ic={T.key === "hair" ? "💇‍♀️" : "🧴"} name={T.key === "hair" ? "Hair Types" : "Skin Types"} sub={"Advice that fits your " + T.name.toLowerCase()}>
+            <Grouped items={T.types} onTap={(x) => setGlowItem(x)} />
+          </Section>
+
+          <Section k="learn" ic="📖" name="Learn" sub="The why, when you want it">
+            <Grouped items={T.learn} onTap={(x) => setGlowItem(x)} />
+          </Section>
+
+          <Section k="favs" ic="❤️" name="Women's Favorites" sub="Loved by the community">
+            <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "24px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 22, marginBottom: 9 }}>{"\u2661"}</div>
+              <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.65 }}>Built from what thousands of women save. As saves gather, the most-loved discoveries in {T.name} will appear here.</div>
             </div>
-          ))}
-          <div style={{ height: 26 }} />
+          </Section>
+
+          <div style={{ height: 30 }} />
         </div>
       )
     }
@@ -295,7 +297,7 @@ export function renderBloom(ctx) {
                   <span style={{ color: BASE.taupe, fontSize: 15 }}>{"\u203a"}</span>
                 </div>
               ))}
-              <div onClick={() => { setGlowTopic(T.key); setGlowSection(null); setGlowItem(null) }} style={{ textAlign: "right", fontSize: 13, fontWeight: 800, color: "#C9558E", cursor: "pointer", padding: "8px 2px 2px", letterSpacing: 0.3 }}>More {"\u2192"}</div>
+              <div onClick={() => { setGlowTopic(T.key); setGlowOpen(["guides", "wins"]); setGlowItem(null) }} style={{ textAlign: "right", fontSize: 13, fontWeight: 800, color: "#C9558E", cursor: "pointer", padding: "8px 2px 2px", letterSpacing: 0.3 }}>More {"\u2192"}</div>
             </div>
           ))}
 
