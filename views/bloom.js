@@ -199,8 +199,11 @@ export function renderBloom(ctx) {
     // Products and Quick Wins are open on arrival; the rest wait to be asked for.
     if (tab === "bloom" && glowTopic) {
       const T = GLOW_BY_KEY(glowTopic)
-      const isOpen = (k) => glowOpen.indexOf(k) >= 0
-      const toggle = (k) => setGlowOpen(isOpen(k) ? glowOpen.filter((x) => x !== k) : [...glowOpen, k])
+      // Defensive: if this view ever renders before the state that feeds it,
+      // fall back to the intended defaults rather than crashing the page.
+      const open = Array.isArray(glowOpen) ? glowOpen : ["guides", "wins"]
+      const isOpen = (k) => open.indexOf(k) >= 0
+      const toggle = (k) => { if (setGlowOpen) setGlowOpen(isOpen(k) ? open.filter((x) => x !== k) : [...open, k]) }
 
       const Row = ({ x, onTap }) => (
         <div onClick={onTap} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
