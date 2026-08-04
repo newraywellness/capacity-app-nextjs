@@ -8,7 +8,7 @@ import { db } from '../lib/supabase'
 import { BASE, ENV, THEMES, colorFromPct, dayIndex } from '../lib/theme'
 import { Sky, Garden } from '../lib/atmosphere'
 import { NourishAir, HerbGarden, NOURISH_BG } from '../lib/herbs'
-import { BloomAir, BloomScene, BLOOM_BG } from '../lib/bloomair'
+import { BloomAir, BloomAccents, BloomScene, BLOOM_BG } from '../lib/bloomair'
 import { renderHome } from '../views/home'
 import { renderTrain } from '../views/train'
 import { renderCycle } from '../views/cycle'
@@ -1117,6 +1117,7 @@ export default function App() {
         {tab === "body" && bodyView === "nourish" && <NourishAir mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "body" && bodyView === "nourish" && <HerbGarden mode={envRoot.mode} subtle={!!planView || nourishView === "supps" || !!addFoodFor || !!foodPick || !!entryEdit} />}
         {tab === "bloom" && <BloomAir mode={envRoot.mode} tint={envRoot.tint} />}
+        {tab === "bloom" && !bloomCard && !bloomArticle && !bloomPillar && <BloomAccents mode={envRoot.mode} />}
         {tab === "bloom" && <BloomScene mode={envRoot.mode} subtle={!!bloomCard || !!bloomArticle || !!bloomPillar} />}
         <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
