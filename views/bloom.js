@@ -163,6 +163,15 @@ export function renderBloom(ctx) {
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.18 }}>{it.title || it.n}</div>
           {(it.desc || it.b || it.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 8, lineHeight: 1.5 }}>{it.desc || it.b || it.i}</div>}
 
+          {it.when && (
+            <div style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 18, padding: "12px 14px", borderRadius: 13, background: "rgba(255,255,255,0.05)", border: `1px solid ${BASE.border}` }}>
+              <span style={{ fontSize: 14, lineHeight: 1.4 }}>🕰️</span>
+              <div>
+                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: BASE.taupe }}>When to wear it</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13.5, color: BASE.creamDim, marginTop: 3, lineHeight: 1.45 }}>{it.when}</div>
+              </div>
+            </div>
+          )}
           {it.do && <List label="Do this" items={it.do} col="#7FA054" />}
           {it.no && <List label="Skip this" items={it.no} col="#D65C4E" />}
 
@@ -256,7 +265,7 @@ export function renderBloom(ctx) {
             <Grouped items={T.wins} onTap={(x) => setGlowSheet(x)} />
           </Section>
 
-          <Section k="types" ic={T.key === "hair" ? "💇‍♀️" : "🧴"} name={T.key === "hair" ? "Hair Types" : "Skin Types"} sub={"Advice that fits your " + T.name.toLowerCase()}>
+          <Section k="types" ic={T.typesIc} name={T.typesName} sub={T.typesSub}>
             <Grouped items={T.types} onTap={(x) => setGlowItem(x)} />
           </Section>
 
@@ -306,7 +315,7 @@ export function renderBloom(ctx) {
 
           {/* Everything not yet built to that standard keeps its existing card. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
-            {P.cards.filter((c) => !(P.key === "glow" && (c.n === "Hair" || c.n === "Skincare"))).map((c) => (
+            {P.cards.filter((c) => !(P.key === "glow" && ["Hair", "Skincare", "Makeup", "Perfume"].indexOf(c.n) >= 0)).map((c) => (
               <div key={c.n} onClick={() => openBloomCard(c)} style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "20px 12px", textAlign: "center", cursor: "pointer" }}>
                 <div style={{ fontSize: 24 }}>{c.ic}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, marginTop: 8 }}>{c.n}</div>
