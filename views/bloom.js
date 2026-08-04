@@ -1,8 +1,9 @@
 import { BLOOM_INVITATIONS, BLOOM_PILLARS, BLOOM_SECTIONS, BLOOM_TRENDING } from '../data/bloom'
+import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow'
 import { BASE, dayIndex } from '../lib/theme'
 
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomPillar, checkedIn, closeBloom, isSavedBloom, openBloomCard, pct, setBloomArticle, setBloomPillar, tab, toggleSaveBloom } = ctx
+  const { bloomArticle, bloomCard, bloomPillar, checkedIn, closeBloom, glowItem, glowSection, glowSheet, glowTopic, isSavedBloom, openBloomCard, pct, setBloomArticle, setBloomPillar, setGlowItem, setGlowSection, setGlowSheet, setGlowTopic, tab, toggleSaveBloom } = ctx
     if (tab === "bloom" && bloomCard) {
       const sec = BLOOM_PILLARS.find((x) => x.cards.some((c) => c.n === bloomCard.n)) || BLOOM_PILLARS[0]
       const card = bloomCard
@@ -79,6 +80,183 @@ export function renderBloom(ctx) {
       )
     }
 
+
+    // ══════════════ GLOW · quick-win sheet ══════════════
+    if (tab === "bloom" && glowSheet) {
+      const w = glowSheet, sid = "win:" + w.id
+      const Tier = ({ ic, label, item }) => (
+        <div style={{ display: "flex", gap: 11, padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
+          <span style={{ fontSize: 16, lineHeight: 1.3 }}>{ic}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: BASE.taupe }}>{label}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: BASE.cream, marginTop: 3, lineHeight: 1.3 }}>{item.n}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 4, lineHeight: 1.45 }}>{item.w}</div>
+          </div>
+        </div>
+      )
+      return (
+        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <span onClick={() => setGlowSheet(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>{"\u2039 Back"}</span>
+            <span onClick={() => toggleSaveBloom(sid)} style={{ fontSize: 19, cursor: "pointer", color: "#C9558E", opacity: isSavedBloom(sid) ? 1 : 0.4 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
+          </div>
+          <div style={{ fontSize: 30 }}>{w.ic}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.15 }}>{w.name}</div>
+
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "26px 0 10px" }}>Why it works</div>
+          <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.65 }}>{w.why}</div>
+
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "26px 0 10px" }}>How to use</div>
+          {w.how.map((h, i) => (
+            <div key={i} style={{ display: "flex", gap: 9, marginBottom: 7 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#C9558E", marginTop: 8, flexShrink: 0 }} />
+              <span style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.55 }}>{h}</span>
+            </div>
+          ))}
+
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "26px 0 10px" }}>Products we love</div>
+          <Tier ic="\U0001F4B0" label="Budget" item={w.prod.budget} />
+          <Tier ic="\U0001F947" label="Best overall" item={w.prod.best} />
+          <Tier ic="\u2728" label="Luxury" item={w.prod.lux} />
+
+          <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", margin: "18px 0 8px" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C97BA8", marginBottom: 6 }}>Nurse's tip</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.cream, lineHeight: 1.45 }}>{w.tip}</div>
+          </div>
+          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, margin: "16px 0 26px" }}>General education, not medical advice. Patch test anything new.</div>
+        </div>
+      )
+    }
+
+    // ══════════════ GLOW · an item inside a section ══════════════
+    if (tab === "bloom" && glowTopic && glowItem) {
+      const T = GLOW_BY_KEY(glowTopic), it = glowItem
+      const Tier = ({ ic, label, item }) => (
+        <div style={{ display: "flex", gap: 11, padding: "13px 15px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
+          <span style={{ fontSize: 16, lineHeight: 1.3 }}>{ic}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: BASE.taupe }}>{label}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: BASE.cream, marginTop: 3, lineHeight: 1.3 }}>{item.n}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 4, lineHeight: 1.45 }}>{item.w}</div>
+          </div>
+        </div>
+      )
+      const List = ({ label, items, col }) => (
+        <>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: col, margin: "22px 0 10px" }}>{label}</div>
+          {items.map((x, i) => (
+            <div key={i} style={{ display: "flex", gap: 9, marginBottom: 7 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: col, marginTop: 8, flexShrink: 0 }} />
+              <span style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.55 }}>{x}</span>
+            </div>
+          ))}
+        </>
+      )
+      const sid = "glow:" + glowTopic + ":" + (it.id || it.n)
+      return (
+        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <span onClick={() => setGlowItem(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>{"\u2039 Back"}</span>
+            <span onClick={() => toggleSaveBloom(sid)} style={{ fontSize: 19, cursor: "pointer", color: "#C9558E", opacity: isSavedBloom(sid) ? 1 : 0.4 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
+          </div>
+          {it.ic && <div style={{ fontSize: 28 }}>{it.ic}</div>}
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.18 }}>{it.title || it.n}</div>
+          {(it.desc || it.b || it.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 8, lineHeight: 1.5 }}>{it.desc || it.b || it.i}</div>}
+
+          {it.do && <List label="Do this" items={it.do} col="#7FA054" />}
+          {it.no && <List label="Skip this" items={it.no} col="#D65C4E" />}
+
+          {it.p && (
+            <>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "24px 0 10px" }}>Products we love</div>
+              <Tier ic="\U0001F4B0" label="Budget" item={it.p.budget} />
+              <Tier ic="\U0001F947" label="Best overall" item={it.p.best} />
+              <Tier ic="\u2728" label="Luxury" item={it.p.lux} />
+            </>
+          )}
+
+          {it.body && (
+            <div style={{ marginTop: 20 }}>
+              {it.body.map((para, i) => (
+                <div key={i} style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.68, marginBottom: 15 }}>{para}</div>
+              ))}
+            </div>
+          )}
+          {it.note && (
+            <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", marginTop: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C97BA8", marginBottom: 6 }}>A nurse's note</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.cream, lineHeight: 1.45 }}>{it.note}</div>
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, margin: "20px 0 26px" }}>General education, not medical advice.</div>
+        </div>
+      )
+    }
+
+    // ══════════════ GLOW · a section list ══════════════
+    if (tab === "bloom" && glowTopic && glowSection) {
+      const T = GLOW_BY_KEY(glowTopic)
+      const SEC = { wins: ["\u2728 Quick Wins", T.wins], types: [T.key === "hair" ? "\U0001F487\u200D\u2640\uFE0F Hair Types" : "\U0001F9F4 Skin Types", T.types],
+                    guides: ["\U0001F6CD\uFE0F Product Guides", T.guides], learn: ["\U0001F4D6 Learn", T.learn],
+                    favs: ["\u2764\uFE0F Women's Favorites", []] }
+      const [title, items] = SEC[glowSection] || ["", []]
+      return (
+        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <div onClick={() => setGlowSection(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 " + T.name}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream, marginBottom: 18 }}>{title}</div>
+
+          {glowSection === "favs" ? (
+            <div style={{ borderRadius: 18, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "28px 22px", textAlign: "center" }}>
+              <div style={{ fontSize: 24, marginBottom: 10 }}>{"\u2661"}</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Women's Favorites are built from what thousands of women save. As saves gather, the most-loved discoveries in {T.name} will appear here.</div>
+            </div>
+          ) : items.map((x, i) => (
+            <div key={i} onClick={() => (glowSection === "wins" ? setGlowSheet(x) : setGlowItem(x))}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
+              {x.ic && <span style={{ fontSize: 19 }}>{x.ic}</span>}
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, lineHeight: 1.3 }}>{x.title || x.name || x.n}</div>
+                {(x.desc || x.b || x.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.4 }}>{x.desc || x.b || x.i}</div>}
+              </div>
+              <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
+            </div>
+          ))}
+          <div style={{ height: 26 }} />
+        </div>
+      )
+    }
+
+    // ══════════════ GLOW · a topic ══════════════
+    if (tab === "bloom" && glowTopic) {
+      const T = GLOW_BY_KEY(glowTopic)
+      const SECTIONS = [
+        ["wins", "\u2728", "Quick Wins", T.wins.length + " fast, useful things"],
+        ["types", T.key === "hair" ? "\U0001F487\u200D\u2640\uFE0F" : "\U0001F9F4", T.key === "hair" ? "Hair Types" : "Skin Types", "Advice that fits your " + T.name.toLowerCase()],
+        ["guides", "\U0001F6CD\uFE0F", "Product Guides", T.guides.length + " curated collections"],
+        ["learn", "\U0001F4D6", "Learn", "The why, when you want it"],
+        ["favs", "\u2764\uFE0F", "Women's Favorites", "Loved by the community"],
+      ]
+      return (
+        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <div onClick={() => { setGlowTopic(null); setGlowSection(null) }} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 Glow"}</div>
+          <div style={{ fontSize: 32 }}>{T.ic}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 4 }}>{T.name}</div>
+          <div style={{ height: 22 }} />
+          {SECTIONS.map(([k, ic, name, sub]) => (
+            <div key={k} onClick={() => setGlowSection(k)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "17px 18px", borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, cursor: "pointer" }}>
+              <span style={{ fontSize: 21 }}>{ic}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{name}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 2 }}>{sub}</div>
+              </div>
+              <span style={{ color: BASE.taupe, fontSize: 17 }}>{"\u203a"}</span>
+            </div>
+          ))}
+          <div style={{ height: 26 }} />
+        </div>
+      )
+    }
+
     // ── INSIDE A PILLAR ──────────────────────────────────────────────────
     if (tab === "bloom" && bloomPillar) {
       const P = BLOOM_PILLARS.find((x) => x.key === bloomPillar) || BLOOM_PILLARS[0]
@@ -88,8 +266,28 @@ export function renderBloom(ctx) {
           <div style={{ fontSize: 30 }}>{P.ic}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream, marginTop: 4 }}>{P.name}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 4, marginBottom: 22 }}>{P.sub}</div>
+          {/* Built topics lead with value: three tappable quick wins, then More. */}
+          {P.key === "glow" && GLOW_TOPICS.map((T) => (
+            <div key={T.key} style={{ borderRadius: 20, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 18px 14px", marginBottom: 11 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 22 }}>{T.ic}</span>
+                <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, color: BASE.cream }}>{T.name}</span>
+              </div>
+              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.6, textTransform: "uppercase", color: "#C9558E", margin: "14px 0 8px" }}>{"\u2728"} Quick Wins</div>
+              {T.wins.slice(0, 3).map((w) => (
+                <div key={w.id} onClick={() => setGlowSheet(w)} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${BASE.border}`, marginBottom: 6, cursor: "pointer" }}>
+                  <span style={{ fontSize: 14 }}>{w.ic}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: BASE.creamDim }}>{w.name}</span>
+                  <span style={{ color: BASE.taupe, fontSize: 15 }}>{"\u203a"}</span>
+                </div>
+              ))}
+              <div onClick={() => { setGlowTopic(T.key); setGlowSection(null); setGlowItem(null) }} style={{ textAlign: "right", fontSize: 13, fontWeight: 800, color: "#C9558E", cursor: "pointer", padding: "8px 2px 2px", letterSpacing: 0.3 }}>More {"\u2192"}</div>
+            </div>
+          ))}
+
+          {/* Everything not yet built to that standard keeps its existing card. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
-            {P.cards.map((c) => (
+            {P.cards.filter((c) => !(P.key === "glow" && (c.n === "Hair" || c.n === "Skincare"))).map((c) => (
               <div key={c.n} onClick={() => openBloomCard(c)} style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "20px 12px", textAlign: "center", cursor: "pointer" }}>
                 <div style={{ fontSize: 24 }}>{c.ic}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, marginTop: 8 }}>{c.n}</div>
