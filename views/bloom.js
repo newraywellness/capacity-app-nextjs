@@ -152,7 +152,8 @@ export function renderBloom(ctx) {
           <div style={{ height: 52 }} />
           <div style={{ textAlign: "center", paddingBottom: 48 }}>
             <div style={LABEL}>Today's invitation</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 20, color: BASE.cream, lineHeight: 1.45, marginTop: 16 }}>{invite}</div>
+            <div style={{ fontSize: 22, marginTop: 16 }}>{invite.emoji}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 20, color: BASE.cream, lineHeight: 1.45, marginTop: 10 }}>{invite.text}</div>
           </div>
 
         </div>
