@@ -115,8 +115,8 @@ export function renderBloom(ctx) {
           ))}
 
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "26px 0 10px" }}>Products we love</div>
-          <Tier ic="\U0001F4B0" label="Budget" item={w.prod.budget} />
-          <Tier ic="\U0001F947" label="Best overall" item={w.prod.best} />
+          <Tier ic="💰" label="Budget" item={w.prod.budget} />
+          <Tier ic="🥇" label="Best overall" item={w.prod.best} />
           <Tier ic="\u2728" label="Luxury" item={w.prod.lux} />
 
           <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", margin: "18px 0 8px" }}>
@@ -169,8 +169,8 @@ export function renderBloom(ctx) {
           {it.p && (
             <>
               <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "24px 0 10px" }}>Products we love</div>
-              <Tier ic="\U0001F4B0" label="Budget" item={it.p.budget} />
-              <Tier ic="\U0001F947" label="Best overall" item={it.p.best} />
+              <Tier ic="💰" label="Budget" item={it.p.budget} />
+              <Tier ic="🥇" label="Best overall" item={it.p.best} />
               <Tier ic="\u2728" label="Luxury" item={it.p.lux} />
             </>
           )}
@@ -196,8 +196,8 @@ export function renderBloom(ctx) {
     // ══════════════ GLOW · a section list ══════════════
     if (tab === "bloom" && glowTopic && glowSection) {
       const T = GLOW_BY_KEY(glowTopic)
-      const SEC = { wins: ["\u2728 Quick Wins", T.wins], types: [T.key === "hair" ? "\U0001F487\u200D\u2640\uFE0F Hair Types" : "\U0001F9F4 Skin Types", T.types],
-                    guides: ["\U0001F6CD\uFE0F Product Guides", T.guides], learn: ["\U0001F4D6 Learn", T.learn],
+      const SEC = { wins: ["\u2728 Quick Wins", T.wins], types: [T.key === "hair" ? "💇‍♀️ Hair Types" : "🧴 Skin Types", T.types],
+                    guides: ["🛍️ Product Guides", T.guides], learn: ["📖 Learn", T.learn],
                     favs: ["\u2764\uFE0F Women's Favorites", []] }
       const [title, items] = SEC[glowSection] || ["", []]
       return (
@@ -210,17 +210,31 @@ export function renderBloom(ctx) {
               <div style={{ fontSize: 24, marginBottom: 10 }}>{"\u2661"}</div>
               <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Women's Favorites are built from what thousands of women save. As saves gather, the most-loved discoveries in {T.name} will appear here.</div>
             </div>
-          ) : items.map((x, i) => (
-            <div key={i} onClick={() => (glowSection === "wins" ? setGlowSheet(x) : setGlowItem(x))}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
-              {x.ic && <span style={{ fontSize: 19 }}>{x.ic}</span>}
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, lineHeight: 1.3 }}>{x.title || x.name || x.n}</div>
-                {(x.desc || x.b || x.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.4 }}>{x.desc || x.b || x.i}</div>}
+          ) : (() => {
+            // A long list becomes a few calm sections. Grouping is presentation
+            // only — nothing is hidden and nothing is removed.
+            const Row = ({ x }) => (
+              <div onClick={() => (glowSection === "wins" ? setGlowSheet(x) : setGlowItem(x))}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
+                {x.ic && <span style={{ fontSize: 19 }}>{x.ic}</span>}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, lineHeight: 1.3 }}>{x.title || x.name || x.n}</div>
+                  {(x.desc || x.b || x.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 3, lineHeight: 1.4 }}>{x.desc || x.b || x.i}</div>}
+                </div>
+                <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
               </div>
-              <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
-            </div>
-          ))}
+            )
+            const grouped = items.length > 0 && items[0].g
+            if (!grouped) return items.map((x, i) => <Row key={i} x={x} />)
+            const order = []
+            items.forEach((x) => { if (order.indexOf(x.g) < 0) order.push(x.g) })
+            return order.map((gname, gi) => (
+              <div key={gname} style={{ marginBottom: gi < order.length - 1 ? 30 : 0 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: "#C9558E", marginBottom: 12 }}>{gname}</div>
+                {items.filter((x) => x.g === gname).map((x, i) => <Row key={i} x={x} />)}
+              </div>
+            ))
+          })()}
           <div style={{ height: 26 }} />
         </div>
       )
@@ -231,9 +245,9 @@ export function renderBloom(ctx) {
       const T = GLOW_BY_KEY(glowTopic)
       const SECTIONS = [
         ["wins", "\u2728", "Quick Wins", T.wins.length + " fast, useful things"],
-        ["types", T.key === "hair" ? "\U0001F487\u200D\u2640\uFE0F" : "\U0001F9F4", T.key === "hair" ? "Hair Types" : "Skin Types", "Advice that fits your " + T.name.toLowerCase()],
-        ["guides", "\U0001F6CD\uFE0F", "Product Guides", T.guides.length + " curated collections"],
-        ["learn", "\U0001F4D6", "Learn", "The why, when you want it"],
+        ["types", T.key === "hair" ? "💇‍♀️" : "🧴", T.key === "hair" ? "Hair Types" : "Skin Types", "Advice that fits your " + T.name.toLowerCase()],
+        ["guides", "🛍️", "Product Guides", T.guides.length + " curated collections"],
+        ["learn", "📖", "Learn", "The why, when you want it"],
         ["favs", "\u2764\uFE0F", "Women's Favorites", "Loved by the community"],
       ]
       return (
