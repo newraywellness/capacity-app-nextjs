@@ -110,7 +110,7 @@ export function renderBloom(ctx) {
       const invite = invites[dayIndex(invites.length)]
       const feat = BLOOM_TRENDING[dayIndex(BLOOM_TRENDING.length)]
       const fid = "article:" + feat.id
-      const LABEL = { fontSize: 8.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe }
+      const LABEL = { fontSize: 9.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
 
       return (
         <div className="fade-in" style={{ padding: "0 24px" }}>
@@ -130,9 +130,9 @@ export function renderBloom(ctx) {
               <span style={{ fontSize: 26, lineHeight: 1 }}>{feat.ic}</span>
               <span onClick={(e) => { e.stopPropagation(); toggleSaveBloom(fid) }} style={{ fontSize: 19, cursor: "pointer", lineHeight: 1, color: "#C9558E", opacity: isSavedBloom(fid) ? 1 : 0.4, padding: "0 0 8px 12px" }}>{isSavedBloom(fid) ? "\u2665" : "\u2661"}</span>
             </div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, color: BASE.cream, marginTop: 12, lineHeight: 1.22, position: "relative" }}>{feat.title}</div>
-            <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6, marginTop: 10, position: "relative" }}>{feat.desc}</div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", marginTop: 16, position: "relative" }}>Read {"\u203a"}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27.5, fontWeight: 700, color: BASE.cream, marginTop: 12, lineHeight: 1.2, position: "relative" }}>{feat.title}</div>
+            <div style={{ fontSize: 13.5, color: BASE.taupe, lineHeight: 1.62, marginTop: 10, position: "relative" }}>{feat.desc}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: 0.3, color: "#C9558E", marginTop: 16, position: "relative" }}>Read {"\u203a"}</div>
           </div>
 
           {/* ── three pillars · stacked, so a fourth can join later ── */}
@@ -152,8 +152,8 @@ export function renderBloom(ctx) {
           <div style={{ height: 52 }} />
           <div style={{ textAlign: "center", paddingBottom: 48 }}>
             <div style={LABEL}>Today's invitation</div>
-            <div style={{ fontSize: 22, marginTop: 16 }}>{invite.emoji}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 20, color: BASE.cream, lineHeight: 1.45, marginTop: 10 }}>{invite.text}</div>
+            <div style={{ fontSize: 26, marginTop: 16 }}>{invite.emoji}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 24, color: BASE.cream, lineHeight: 1.42, marginTop: 10 }}>{invite.text}</div>
           </div>
 
         </div>
