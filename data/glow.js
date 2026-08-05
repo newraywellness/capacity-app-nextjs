@@ -1679,6 +1679,76 @@ const FACIAL_LEARN = [
     note: "You don't need monthly luxury facials to have healthy skin. Daily sunscreen and a consistent routine usually have a bigger long-term impact than occasional expensive treatments. Choose procedures to complement a routine — not replace one." },
 ]
 
+
+// ── WARDROBE ────────────────────────────────────────────────────────────────
+// Deliberately unlike every other Glow category. Wardrobe is inspirational
+// rather than educational: images lead, text supports, and the whole thing
+// reads as a magazine rather than a library.
+//
+// Each look carries an `items` list. Nothing links anywhere yet — the shape is
+// here so affiliate links can be dropped in later without a redesign.
+const W_IMG = (n) => "/wardrobe/" + n + ".jpg"
+
+const WARDROBE = {
+  today: [
+    { id: "wd-today-1", img: W_IMG("todays-outfit-1"), eyebrow: "Effortless", title: "Everyday Chic",
+      items: ["Oversized blazer", "White tank", "Straight jeans", "White sneakers", "Tote bag", "Gold necklace"] },
+    { id: "wd-today-2", img: W_IMG("todays-outfit-2"), eyebrow: "Sophisticated", title: "Date Night",
+      items: ["Black top", "Tailored trousers", "Strappy heels", "Clutch bag", "Gold jewelry"] },
+  ],
+  ideas: [
+    { id: "wd-idea-1", img: W_IMG("outfit-ideas-1"), eyebrow: "01", title: "Coffee Run", sub: "Effortless + comfortable",
+      items: ["Quarter zip", "Leggings", "Sneakers", "Tote bag", "Sunglasses"] },
+    { id: "wd-idea-2", img: W_IMG("outfit-ideas-2"), eyebrow: "02", title: "Brunch Date", sub: "Feminine + timeless",
+      items: ["Ribbed tank", "Wide leg pants", "Sandals", "Shoulder bag", "Sunglasses"] },
+    { id: "wd-idea-3", img: W_IMG("outfit-ideas-3"), eyebrow: "03", title: "Workday Chic", sub: "Polished + put together",
+      items: ["Blazer", "Black top", "Tailored pants", "Heels", "Tote bag"] },
+    { id: "wd-idea-4", img: W_IMG("outfit-ideas-4"), eyebrow: "04", title: "Weekend Errands", sub: "Relaxed + cool",
+      items: ["Button down", "Tank top", "Straight jeans", "Sneakers", "Cap"] },
+  ],
+  gym: [
+    { id: "wd-gym-1", img: W_IMG("gym-style-1"), eyebrow: "Trending", title: "Sports Bra + Leggings",
+      items: ["Sports bra — medium to high support", "High waisted squat-proof leggings", "Sneakers", "Water bottle", "Gym bag"] },
+    { id: "wd-gym-2", img: W_IMG("gym-style-2"), eyebrow: "Trending", title: "Relaxed Tank + Leggings",
+      items: ["Relaxed tank — breathable", "High waisted squat-proof leggings", "Sneakers", "Water bottle", "Gym bag"] },
+  ],
+  plates: [
+    { id: "wd-basics", ic: "🤍", img: W_IMG("wardrobe-basics"), title: "Wardrobe Basics", sub: "The foundation of every outfit",
+      items: ["White tee", "Black tee", "Perfect jeans", "Oversized button-down", "White sneakers", "Little black dress", "Neutral cardigan", "Gold hoops"] },
+    { id: "wd-palette", ic: "🎨", img: W_IMG("color-palette"), title: "Color Palette", sub: "Wear your season, look your best",
+      items: ["Spring — warm, light, bright", "Summer — cool, light, soft", "Autumn — warm, deep, muted", "Winter — cool, deep, bright"] },
+    { id: "wd-shoes", ic: "👠", img: W_IMG("shoes-accessories"), title: "Shoes & Accessories", sub: "The finishing touches",
+      items: ["White sneakers", "Loafers", "Flat sandals", "Heeled sandals", "Pointed pumps", "Ankle boots", "Handbags", "Gold jewelry", "Sunglasses", "Belts", "Scarves", "Watches"] },
+  ],
+}
+
+const WARDROBE_LEARN = [
+  { id: "wd-trends", ic: "📈", title: "Current trends explained",
+    desc: "What's actually happening in style right now, briefly.",
+    body: ["Quiet luxury and the return of tailoring have pushed silhouettes wider and softer — barrel and straight-leg denim, relaxed trousers, oversized blazers worn over something fitted.",
+      "Colour has moved toward warm neutrals: cream, camel, chocolate, soft white. Black is still there but usually as an accent rather than the whole outfit.",
+      "The most wearable version of any trend is one item at a time. A trend head to toe dates fastest; a trend piece against your basics reads as current rather than costume."],
+    note: "You don't need to adopt a trend to look current. One updated silhouette against pieces you already own does the same job for a fraction of the cost." },
+  { id: "wd-capsule", ic: "🧺", title: "Capsule wardrobes",
+    desc: "Fewer pieces, more outfits, less thinking.",
+    body: ["A capsule is a small set of pieces that all work together — usually a tight colour palette, consistent silhouettes and fabrics that suit your actual life.",
+      "The point isn't minimalism for its own sake. It's that every item having three or four pairings means thirty pieces produce more outfits than sixty that don't relate to each other.",
+      "Build it from what you wear, not what you own. Note what you actually reach for over a fortnight — that's your real capsule, and the gaps are your genuine shopping list."],
+    note: "The fastest way to a capsule is not buying. It's noticing which eight things you already wear on repeat and building around them." },
+  { id: "wd-quiet-luxury", ic: "🤍", title: "Quiet luxury",
+    desc: "What it means beyond the hashtag.",
+    body: ["Quiet luxury describes clothing that signals quality through cut, fabric and fit rather than branding — no visible logos, nothing announcing its price.",
+      "In practice it means natural fibres, considered proportions, restrained colour and excellent tailoring. It photographs less dramatically than trend dressing and lasts considerably longer.",
+      "It's also become a marketing term attached to things that are merely beige and expensive. The actual markers are fabric composition, seam finishing and how a garment hangs — all of which you can check in a shop for free."],
+    note: "Quiet luxury is far more achievable secondhand than new. The fabrics and construction that define it were more common twenty years ago than they are today." },
+  { id: "wd-cost-per-wear", ic: "🧮", title: "Cost per wear",
+    desc: "The only shopping maths that matters.",
+    body: ["Divide the price by the number of times you'll realistically wear it. A €200 coat worn twice a week for three winters costs under a euro a wear. A €30 top worn twice costs fifteen.",
+      "It reframes 'expensive' usefully: the costly items in most wardrobes are the cheap ones bought impulsively and worn once.",
+      "It works best on things you wear constantly — outerwear, shoes, denim, a bag. It works least on occasion pieces, where the honest answer is often to rent or borrow."],
+    note: "Before buying, ask what you'd wear it with — specifically, three existing outfits. If you can't name three, it's not a gap in your wardrobe." },
+]
+
 // ── TOPICS ──────────────────────────────────────────────────────────────────
 // Hair and Skin are the reference implementation. Everything else keeps its
 // existing topic-detail page until it's built out to the same standard.
@@ -1705,6 +1775,9 @@ const GLOW_TOPICS = [
     wins: FACIAL_WINS, types: FACIAL_HOME, guides: FACIAL_GUIDES, learn: FACIAL_LEARN },
   { key: "body", ic: "🧴", name: "Body Care", built: true, typesIc: "🌿", typesName: "Body Concerns", typesSub: "Including the one nobody named for you",
     wins: BODY_WINS, types: BODY_CONCERNS, guides: BODY_GUIDES, learn: BODY_LEARN },
+  // Editorial rather than product-first — rendered by its own layout.
+  { key: "wardrobe", ic: "👗", name: "Wardrobe", built: true, editorial: true,
+    wardrobe: WARDROBE, learn: WARDROBE_LEARN },
 ]
 const GLOW_BY_KEY = (k) => GLOW_TOPICS.find((t) => t.key === k) || null
 
