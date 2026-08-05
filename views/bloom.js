@@ -159,7 +159,24 @@ export function renderBloom(ctx) {
             <span onClick={() => setGlowItem(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>{"\u2039 Back"}</span>
             <span onClick={() => toggleSaveBloom(sid)} style={{ fontSize: 19, cursor: "pointer", color: "#C9558E", opacity: isSavedBloom(sid) ? 1 : 0.4 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
           </div>
-          {it.ic && <div style={{ fontSize: 28 }}>{it.ic}</div>}
+          {it.img && (
+            <>
+              <img src={it.img} alt={it.title} style={{ width: "100%", display: "block", borderRadius: 18, border: `1px solid ${BASE.border}` }} />
+              {it.items && (
+                <>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "24px 0 10px" }}>Shop the look</div>
+                  {it.items.map((piece, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 15px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 7 }}>
+                      <span style={{ flex: 1, fontSize: 13.5, color: BASE.cream }}>{piece}</span>
+                      <span style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic" }}>link soon</span>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, margin: "14px 0 26px" }}>Shoppable links are on the way.</div>
+                </>
+              )}
+            </>
+          )}
+          {it.ic && !it.img && <div style={{ fontSize: 28 }}>{it.ic}</div>}
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.18 }}>{it.title || it.n}</div>
           {(it.desc || it.b || it.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 8, lineHeight: 1.5 }}>{it.desc || it.b || it.i}</div>}
 
@@ -236,6 +253,111 @@ export function renderBloom(ctx) {
             </div>
           )}
           <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, margin: "20px 0 26px" }}>General education, not medical advice.</div>
+        </div>
+      )
+    }
+
+    // ══════════════ GLOW · WARDROBE (editorial) ══════════════
+    // Images lead, text supports. Horizontal galleries rather than lists.
+    if (tab === "bloom" && glowTopic === "wardrobe" && !glowItem) {
+      const T = GLOW_BY_KEY("wardrobe"), WD = T.wardrobe
+      const isOpen = (k) => (Array.isArray(glowOpen) ? glowOpen : ["guides", "wins"]).indexOf(k) >= 0
+      const open = Array.isArray(glowOpen) ? glowOpen : ["guides", "wins"]
+      const toggle = (k) => { if (setGlowOpen) setGlowOpen(isOpen(k) ? open.filter((x) => x !== k) : [...open, k]) }
+
+      const Rail = ({ items, w }) => (
+        <div style={{ display: "flex", gap: 12, overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch",
+          scrollSnapType: "x mandatory", padding: "2px 22px 6px", margin: "0 -22px" }}>
+          {items.map((o) => (
+            <div key={o.id} onClick={() => setGlowItem(o)} style={{ flex: "0 0 auto", width: w, scrollSnapAlign: "center", cursor: "pointer" }}>
+              <img src={o.img} alt={o.title} loading="lazy" style={{ width: "100%", display: "block", borderRadius: 16, border: `1px solid ${BASE.border}` }} />
+              <div style={{ marginTop: 9 }}>
+                {o.eyebrow && <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: "#C9558E" }}>{o.eyebrow}</div>}
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, color: BASE.cream, marginTop: 2, lineHeight: 1.2 }}>{o.title}</div>
+                {o.sub && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 2 }}>{o.sub}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+
+      const Head = ({ ic, name, sub }) => (
+        <div style={{ margin: "0 0 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <span style={{ fontSize: 17 }}>{ic}</span>
+            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2.2, textTransform: "uppercase", color: BASE.taupe }}>{name}</span>
+          </div>
+          {sub && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13.5, color: BASE.taupe, marginTop: 5 }}>{sub}</div>}
+        </div>
+      )
+
+      return (
+        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <div onClick={() => setGlowTopic(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 Glow"}</div>
+          <div style={{ fontSize: 30 }}>{T.ic}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 2 }}>Wardrobe</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 6, marginBottom: 30 }}>Who do you want to be today?</div>
+
+          <Head ic="👗" name="Today's Outfit" sub="Current in style inspiration" />
+          <Rail items={WD.today} w={252} />
+
+          <div style={{ height: 38 }} />
+          <Head ic="✨" name="Outfit Ideas" sub="Everyday looks, elevated" />
+          <Rail items={WD.ideas} w={186} />
+
+          <div style={{ height: 38 }} />
+          <Head ic="💪" name="Gym Style" sub="Strong. Confident. Comfortable." />
+          <Rail items={WD.gym} w={252} />
+
+          {/* full-width editorial plates */}
+          {WD.plates.map((pl) => (
+            <div key={pl.id} style={{ marginTop: 38 }}>
+              <Head ic={pl.ic} name={pl.title} sub={pl.sub} />
+              <img src={pl.img} alt={pl.title} loading="lazy" onClick={() => setGlowItem(pl)}
+                style={{ width: "100%", display: "block", borderRadius: 16, border: `1px solid ${BASE.border}`, cursor: "pointer" }} />
+            </div>
+          ))}
+
+          {/* the only written section, kept deliberately short */}
+          <div style={{ height: 34 }} />
+          <div onClick={() => toggle("learn")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 4px 12px", cursor: "pointer" }}>
+            <span style={{ fontSize: 19 }}>📖</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>Learn</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 2 }}>Four short reads, no more</div>
+            </div>
+            <span style={{ color: BASE.taupe, fontSize: 15, transform: isOpen("learn") ? "rotate(90deg)" : "none", transition: "transform 0.22s ease" }}>{"\u203a"}</span>
+          </div>
+          {isOpen("learn") && (
+            <div className="fade-in">
+              {T.learn.map((a) => (
+                <div key={a.id} onClick={() => setGlowItem(a)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8, cursor: "pointer" }}>
+                  <span style={{ fontSize: 19 }}>{a.ic}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, lineHeight: 1.3 }}>{a.title}</div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 3 }}>{a.desc}</div>
+                  </div>
+                  <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div onClick={() => toggle("favs")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 4px 12px", cursor: "pointer" }}>
+            <span style={{ fontSize: 19 }}>❤️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>Women's Favorites</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 2 }}>The most-saved looks</div>
+            </div>
+            <span style={{ color: BASE.taupe, fontSize: 15, transform: isOpen("favs") ? "rotate(90deg)" : "none", transition: "transform 0.22s ease" }}>{"\u203a"}</span>
+          </div>
+          {isOpen("favs") && (
+            <div className="fade-in" style={{ borderRadius: 18, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "26px 22px", textAlign: "center" }}>
+              <div style={{ fontSize: 22, marginBottom: 9 }}>{"\u2661"}</div>
+              <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.65 }}>As women save looks, the most-loved outfits will gather here.</div>
+            </div>
+          )}
+          <div style={{ height: 30 }} />
         </div>
       )
     }
@@ -345,21 +467,36 @@ export function renderBloom(ctx) {
                 <span style={{ fontSize: 22 }}>{T.ic}</span>
                 <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, color: BASE.cream }}>{T.name}</span>
               </div>
+              {/* Editorial topics lead with an image rather than a list. */}
+              {T.editorial ? (
+                <>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.taupe, margin: "8px 0 12px" }}>Who do you want to be today?</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {T.wardrobe.today.concat(T.wardrobe.ideas).slice(0, 3).map((o) => (
+                      <img key={o.id} src={o.img} alt={o.title} loading="lazy"
+                        style={{ flex: 1, width: "33%", aspectRatio: "3 / 4", objectFit: "cover", objectPosition: "top", display: "block", borderRadius: 12, border: `1px solid ${BASE.border}` }} />
+                    ))}
+                  </div>
+                </>
+              ) : (
+              <>
               <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.6, textTransform: "uppercase", color: "#C9558E", margin: "14px 0 8px" }}>{"\u2728"} Quick Wins</div>
-              {T.wins.slice(0, 3).map((w) => (
+              {(T.wins || []).slice(0, 3).map((w) => (
                 <div key={w.id} onClick={() => setGlowSheet(w)} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${BASE.border}`, marginBottom: 6, cursor: "pointer" }}>
                   <span style={{ fontSize: 14 }}>{w.ic}</span>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: BASE.creamDim }}>{w.name}</span>
                   <span style={{ color: BASE.taupe, fontSize: 15 }}>{"\u203a"}</span>
                 </div>
               ))}
-              <div onClick={() => { setGlowTopic(T.key); setGlowOpen(["guides", "wins"]); setGlowItem(null) }} style={{ textAlign: "right", fontSize: 13, fontWeight: 800, color: "#C9558E", cursor: "pointer", padding: "8px 2px 2px", letterSpacing: 0.3 }}>More {"\u2192"}</div>
+              </>
+              )}
+              <div onClick={() => { setGlowTopic(T.key); setGlowOpen(["guides", "wins", "learn"]); setGlowItem(null) }} style={{ textAlign: "right", fontSize: 13, fontWeight: 800, color: "#C9558E", cursor: "pointer", padding: "10px 2px 2px", letterSpacing: 0.3 }}>{T.editorial ? "Explore" : "More"} {"\u2192"}</div>
             </div>
           ))}
 
           {/* Everything not yet built to that standard keeps its existing card. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
-            {P.cards.filter((c) => !(P.key === "glow" && ["Hair", "Skincare", "Makeup", "Perfume", "Nails", "Brows", "Lips", "Jewelry", "Facials", "Body Care"].indexOf(c.n) >= 0)).map((c) => (
+            {P.cards.filter((c) => !(P.key === "glow" && ["Hair", "Skincare", "Makeup", "Perfume", "Nails", "Brows", "Lips", "Jewelry", "Facials", "Body Care", "Wardrobe"].indexOf(c.n) >= 0)).map((c) => (
               <div key={c.n} onClick={() => openBloomCard(c)} style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "20px 12px", textAlign: "center", cursor: "pointer" }}>
                 <div style={{ fontSize: 24 }}>{c.ic}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, marginTop: 8 }}>{c.n}</div>
