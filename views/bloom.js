@@ -163,6 +163,44 @@ export function renderBloom(ctx) {
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.18 }}>{it.title || it.n}</div>
           {(it.desc || it.b || it.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 8, lineHeight: 1.5 }}>{it.desc || it.b || it.i}</div>}
 
+          {/* Professional treatment record: what · who · downtime · best for · verdict · aftercare */}
+          {it.what && (
+            <>
+              {[["What it is", it.what], ["Who it's for", it.who], ["Downtime", it.downtime]].map(([lbl, txt]) => (
+                <div key={lbl}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "24px 0 9px" }}>{lbl}</div>
+                  <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.65 }}>{txt}</div>
+                </div>
+              ))}
+
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "24px 0 10px" }}>Best for</div>
+              {it.best.map(([concern, mark], i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 13px", borderRadius: 12, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 6 }}>
+                  <span style={{ fontSize: 14 }}>{mark}</span>
+                  <span style={{ flex: 1, fontSize: 13, color: mark === "❌" ? BASE.taupe : BASE.cream, fontWeight: mark === "✅" ? 600 : 400 }}>{concern}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 10.5, color: BASE.taupe, fontStyle: "italic", marginTop: 8, lineHeight: 1.5 }}>✅ well supported {"\u00b7"} 🤔 modest or mixed evidence {"\u00b7"} ❌ not what it's for</div>
+
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "24px 0 10px" }}>Worth the money?</div>
+              <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "16px 18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <span style={{ fontSize: 18 }}>{it.worth[0]}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{it.worth[1]}</span>
+                </div>
+                <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.6, marginTop: 9 }}>{it.worth[2]}</div>
+              </div>
+
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "24px 0 10px" }}>Avoid afterwards</div>
+              {it.avoid.map((a, i) => (
+                <div key={i} style={{ display: "flex", gap: 9, marginBottom: 7 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#D65C4E", marginTop: 8, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.55 }}>{a}</span>
+                </div>
+              ))}
+            </>
+          )}
+
           {it.when && (
             <div style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 18, padding: "12px 14px", borderRadius: 13, background: "rgba(255,255,255,0.05)", border: `1px solid ${BASE.border}` }}>
               <span style={{ fontSize: 14, lineHeight: 1.4 }}>🕰️</span>
@@ -321,7 +359,7 @@ export function renderBloom(ctx) {
 
           {/* Everything not yet built to that standard keeps its existing card. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
-            {P.cards.filter((c) => !(P.key === "glow" && ["Hair", "Skincare", "Makeup", "Perfume", "Nails", "Brows", "Lips"].indexOf(c.n) >= 0)).map((c) => (
+            {P.cards.filter((c) => !(P.key === "glow" && ["Hair", "Skincare", "Makeup", "Perfume", "Nails", "Brows", "Lips", "Jewelry", "Facials", "Body Care"].indexOf(c.n) >= 0)).map((c) => (
               <div key={c.n} onClick={() => openBloomCard(c)} style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "20px 12px", textAlign: "center", cursor: "pointer" }}>
                 <div style={{ fontSize: 24 }}>{c.ic}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, marginTop: 8 }}>{c.n}</div>
