@@ -265,6 +265,12 @@ export function renderBloom(ctx) {
             <Grouped items={T.wins} onTap={(x) => setGlowSheet(x)} />
           </Section>
 
+          {T.extra && (
+            <Section k="extra" ic={T.extraIc} name={T.extraName} sub={T.extraSub}>
+              <Grouped items={T.extra} onTap={(x) => setGlowItem(x)} />
+            </Section>
+          )}
+
           <Section k="types" ic={T.typesIc} name={T.typesName} sub={T.typesSub}>
             <Grouped items={T.types} onTap={(x) => setGlowItem(x)} />
           </Section>
@@ -315,7 +321,7 @@ export function renderBloom(ctx) {
 
           {/* Everything not yet built to that standard keeps its existing card. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
-            {P.cards.filter((c) => !(P.key === "glow" && ["Hair", "Skincare", "Makeup", "Perfume"].indexOf(c.n) >= 0)).map((c) => (
+            {P.cards.filter((c) => !(P.key === "glow" && ["Hair", "Skincare", "Makeup", "Perfume", "Nails", "Brows", "Lips"].indexOf(c.n) >= 0)).map((c) => (
               <div key={c.n} onClick={() => openBloomCard(c)} style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "20px 12px", textAlign: "center", cursor: "pointer" }}>
                 <div style={{ fontSize: 24 }}>{c.ic}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: BASE.cream, marginTop: 8 }}>{c.n}</div>
