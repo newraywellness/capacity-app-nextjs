@@ -132,6 +132,8 @@ export default function App() {
   const [glowItem, setGlowItem] = useState(null)
   const [cycLib, setCycLib] = useState(null)
   const [cycArticle, setCycArticle] = useState(null)
+  const [cycleLogs, setCycleLogs] = useState({})
+  const [cycLogDate, setCycLogDate] = useState(new Date().toISOString().slice(0, 10))
   const [cycleMonth, setCycleMonth] = useState(0)
   const [eduPhase, setEduPhase] = useState(null)
   const [woEnv, setWoEnv] = useState("gym")
@@ -146,6 +148,7 @@ export default function App() {
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
     try { const n = localStorage.getItem("nr_nutrition"); if (n) setNutrition(JSON.parse(n)) } catch (e) {}
     try { const sb = localStorage.getItem("nr_bloom_saved"); if (sb) setSavedBloom(JSON.parse(sb)) } catch (e) {}
+    try { const cl = localStorage.getItem("nr_cycle_logs"); if (cl) setCycleLogs(JSON.parse(cl)) } catch (e) {}
     try { const wk = localStorage.getItem("nr_week_plan"); if (wk) setWeekPlan(JSON.parse(wk)) } catch (e) {}
     try { const gm = localStorage.getItem("nr_grocery_manual"); if (gm) setGroceryManual(JSON.parse(gm)) } catch (e) {}
     try { const gc = localStorage.getItem("nr_grocery_checked"); if (gc) setGroceryChecked(JSON.parse(gc)) } catch (e) {}
@@ -244,6 +247,7 @@ export default function App() {
             if (sd.name) { setFirstName(sd.name); try { localStorage.setItem("nr_name", sd.name) } catch (e) {} }
             if (sd.nutrition) { setNutrition(sd.nutrition); try { localStorage.setItem("nr_nutrition", JSON.stringify(sd.nutrition)) } catch (e) {} }
             if (Array.isArray(sd.savedBloom)) { setSavedBloom(sd.savedBloom); try { localStorage.setItem("nr_bloom_saved", JSON.stringify(sd.savedBloom)) } catch (e) {} }
+            if (sd.cycleLogs && typeof sd.cycleLogs === "object") { setCycleLogs(sd.cycleLogs); try { localStorage.setItem("nr_cycle_logs", JSON.stringify(sd.cycleLogs)) } catch (e) {} }
             try { localStorage.setItem("nr_setup", JSON.stringify(sd)) } catch (e) {}
           } else if (p.data.first_name) {
             setFirstName(p.data.first_name)
@@ -332,13 +336,13 @@ export default function App() {
   const handleLogout = async () => {
     await db.auth.signOut()
     setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
-    setNutrition(null); setSavedBloom([]); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
+    setNutrition(null); setSavedBloom([]); setCycleLogs({}); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
     setPct(50); setFactors([]); setSupports([]); setOneThing("")
     setProgramId(null); setWoLog([]); setSetupData(null); setFirstName("")
     setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
     setTab("today"); setBodyView("gym")
     try {
-      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_bloom_saved", "nr_food_days", "nr_saved_foods", "nr_my_foods", "nr_my_meals", "nr_my_foods", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
+      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_bloom_saved", "nr_cycle_logs", "nr_food_days", "nr_saved_foods", "nr_my_foods", "nr_my_meals", "nr_my_foods", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
     } catch (e) {}
   }
 
@@ -379,6 +383,23 @@ export default function App() {
   // profiles.setup for cross-device. No schema change, no shared write.
   // The anonymous aggregate counter is deliberately NOT called from here yet —
   // see the note in the summary before that ships.
+  // One tracking record per calendar date. Local and profile are written in the
+  // same call so the two can never drift apart.
+  const saveCycleLog = (date, patch) => {
+    const prev = cycleLogs[date] || {}
+    const entry = { ...prev, ...patch }
+    Object.keys(entry).forEach((k) => {
+      const v = entry[k]
+      if (v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0)) delete entry[k]
+    })
+    const next = { ...cycleLogs }
+    if (Object.keys(entry).length === 0) delete next[date]
+    else next[date] = entry
+    setCycleLogs(next)
+    try { localStorage.setItem("nr_cycle_logs", JSON.stringify(next)) } catch (e) {}
+    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), cycleLogs: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
+  }
+
   const isSavedBloom = (id) => savedBloom.indexOf(id) >= 0
   const toggleSaveBloom = (id) => {
     const wasSaved = isSavedBloom(id)
@@ -1111,7 +1132,7 @@ export default function App() {
 
 
   const renderContent = () => {
-    const ctx = { Chips, Label, ReportLine, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycleLength, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, entryEdit, factors, findFood, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progressData, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, report, restLeft, saveCheckin, saveCycle, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setRestLeft, setSaveFoodName, setSaveMealName, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    const ctx = { Chips, Label, ReportLine, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, entryEdit, factors, findFood, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progressData, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, report, restLeft, saveCheckin, saveCycle, saveCycleLog, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setRestLeft, setSaveFoodName, setSaveMealName, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
     return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderProgress(ctx) || renderMore(ctx) || null
   }
 
