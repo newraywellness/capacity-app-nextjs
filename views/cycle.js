@@ -4,7 +4,7 @@ import { db } from '../lib/supabase'
 import { BASE } from '../lib/theme'
 
 export function renderCycle(ctx) {
-  const { T, bodyView, cur, cycArticle, cycLib, cycLogDate, cycleLength, cycleLogs, cycleMonth, cycleNow, editCycle, eduPhase, history, lastPeriod, pct, periodDismissed, recovery, saveCycle, saveCycleLog, saveCycleSettings, setCycArticle, setCycLib, setCycLogDate, setCycleMonth, setEditCycle, setEduPhase, setLastPeriod, setPeriodDismissed, setTmpLen, setTmpStart, setupData, tab, tmpLen, tmpStart, user } = ctx
+  const { T, bodyView, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, editCycle, eduPhase, effCycleLength, history, lastPeriod, pct, periodDismissed, recovery, saveCycle, saveCycleLog, saveCycleSettings, setCycArticle, setCycLib, setCycLogDate, setCycleMonth, setEditCycle, setEduPhase, setLastPeriod, setPeriodDismissed, setTmpLen, setTmpStart, setUseAvgCycle, setupData, tab, tmpLen, tmpStart, useAvgCycle, user } = ctx
     // ══════════════ TRACK · dedicated full screen ══════════════
     // Deliberately a screen, not an overlay. A previous bottom sheet used
     // position:fixed inside a .fade-in wrapper — and an ancestor running a
@@ -74,24 +74,53 @@ export function renderCycle(ctx) {
           </div>
 
           {/* Fundamental setup, not advanced settings — always visible, saves on change. */}
-          <div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 16px 14px", marginBottom: 26 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: BASE.taupe, marginBottom: 12 }}>Cycle Settings</div>
+          <div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 16px 15px", marginBottom: 26, boxSizing: "border-box", overflow: "hidden" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: BASE.taupe, marginBottom: 13 }}>Cycle Settings</div>
 
             <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim, marginBottom: 7 }}>First day of last period</div>
+            {/* iOS gives date inputs an intrinsic width that ignores width:100%
+                unless the native appearance is removed — that was the overflow. */}
             <input type="date" value={tmpStart || lastPeriod || ""} max={today}
               onChange={(e) => { setTmpStart(e.target.value); saveCycleSettings(e.target.value, tmpLen) }}
-              style={{ width: "100%", padding: "12px 13px", borderRadius: 11, background: BASE.bg2 || BASE.surface2, border: "1px solid " + BASE.border, color: BASE.cream, fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 16 }} />
+              style={{ display: "block", width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box",
+                WebkitAppearance: "none", MozAppearance: "none", appearance: "none",
+                padding: "12px 13px", margin: 0, borderRadius: 11,
+                background: BASE.bg2 || BASE.surface2, border: "1px solid " + BASE.border,
+                color: BASE.cream, fontSize: 16, fontFamily: "inherit", lineHeight: 1.2, outline: "none", marginBottom: 18 }} />
 
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 7 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim }}>Average cycle length</span>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: "#9B6BC3" }}>{tmpLen} days</span>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim }}>Typical cycle length</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: useAvgCycle && cycleAvg ? BASE.taupe : "#9B6BC3" }}>{tmpLen} days</span>
             </div>
             <input type="range" min="20" max="45" value={tmpLen}
               onChange={(e) => setTmpLen(e.target.value)}
               onMouseUp={(e) => saveCycleSettings(tmpStart || lastPeriod, e.target.value)}
               onTouchEnd={(e) => saveCycleSettings(tmpStart || lastPeriod, e.target.value)}
-              style={{ width: "100%" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: BASE.taupe, marginTop: 2 }}><span>20</span><span>45</span></div>
+              style={{ display: "block", width: "100%", maxWidth: "100%", boxSizing: "border-box", margin: 0 }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: BASE.taupe, marginTop: 3 }}><span>20</span><span>45</span></div>
+
+            {cycleAvg ? (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid " + BASE.border }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim }}>Use my calculated average</div>
+                    <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2, lineHeight: 1.45 }}>Your recent average: <b style={{ color: "#9B6BC3" }}>{cycleAvg.avg} days</b> {"\u00b7"} from {cycleAvg.cycles} completed {cycleAvg.cycles === 1 ? "cycle" : "cycles"}</div>
+                  </div>
+                  <div onClick={() => setUseAvgCycle(!useAvgCycle)}
+                    style={{ flexShrink: 0, width: 46, height: 27, borderRadius: 999, cursor: "pointer", position: "relative",
+                      background: useAvgCycle ? "#9B6BC3" : BASE.surface2, border: "1px solid " + (useAvgCycle ? "#9B6BC3" : BASE.border), transition: "background .2s ease" }}>
+                    <span style={{ position: "absolute", top: 2, left: useAvgCycle ? 21 : 2, width: 21, height: 21, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left .2s ease" }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.5, marginTop: 10 }}>
+                  {useAvgCycle ? "Predictions are using your calculated average." : "Predictions are using your typical length of " + tmpLen + " days."}
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, paddingTop: 13, borderTop: "1px solid " + BASE.border, fontSize: 11.5, color: BASE.taupe, lineHeight: 1.55 }}>
+                Predictions use your typical length for now. Once two full cycles are logged, you'll be able to switch to your own calculated average.
+              </div>
+            )}
           </div>
 
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: BASE.taupe, marginBottom: 14 }}>Today's Tracking</div>
@@ -282,7 +311,7 @@ export function renderCycle(ctx) {
             {cells.map((cell, i) => {
               if (!cell) return <div key={i} />
               const iso = cell.toISOString().slice(0, 10)
-              const c = computeCycle(cycleLength, lastPeriod, cell)
+              const c = computeCycle(effCycleLength || cycleLength, lastPeriod, cell)
               const ph = c ? CYCLE_PHASES[c.phase] : null
               const isToday = iso === todayISOstr
               const capColor = capByDate[iso]
