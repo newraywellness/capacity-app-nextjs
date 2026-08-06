@@ -1,9 +1,79 @@
 import { CYCLE_PHASES, CYCLE_PHASE_ORDER, computeCycle } from '../data/cycle'
+import { CYCLE_DEEP, CYCLE_QA, CYCLE_CONDITIONS, CYCLE_POSTPARTUM, CYCLE_BC, CYCLE_FERTILITY } from '../data/cyclelearn'
 import { db } from '../lib/supabase'
 import { BASE } from '../lib/theme'
 
 export function renderCycle(ctx) {
-  const { T, bodyView, cur, cycleLength, cycleMonth, cycleNow, editCycle, eduPhase, history, lastPeriod, pct, periodDismissed, recovery, saveCycle, setCycleMonth, setEditCycle, setEduPhase, setLastPeriod, setPeriodDismissed, setTmpLen, setTmpStart, setupData, tab, tmpLen, tmpStart, user } = ctx
+  const { T, bodyView, cur, cycArticle, cycLib, cycleLength, cycleMonth, cycleNow, editCycle, eduPhase, history, lastPeriod, pct, periodDismissed, recovery, saveCycle, setCycArticle, setCycLib, setCycleMonth, setEditCycle, setEduPhase, setLastPeriod, setPeriodDismissed, setTmpLen, setTmpStart, setupData, tab, tmpLen, tmpStart, user } = ctx
+    // ── an article from Understand Your Body ──
+    if (tab === "body" && bodyView === "cycle" && cycArticle) {
+      const a = cycArticle
+      const Block = ({ label, children, col }) => (
+        <>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: col || "#C9558E", margin: "24px 0 10px" }}>{label}</div>
+          {children}
+        </>
+      )
+      const Bullets = ({ items, col }) => items.map((x, i) => (
+        <div key={i} style={{ display: "flex", gap: 9, marginBottom: 7 }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: col || "#C9558E", marginTop: 8, flexShrink: 0 }} />
+          <span style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.55 }}>{x}</span>
+        </div>
+      ))
+      const Para = ({ children }) => <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.68, marginBottom: 14 }}>{children}</div>
+
+      return (
+        <div className="fade-in" style={{ padding: "10px 20px 0" }}>
+          <div onClick={() => setCycArticle(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 Understand Your Body"}</div>
+          <div style={{ fontSize: 30 }}>{a.ic}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.18 }}>{a.title}</div>
+          {a.desc && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 8, lineHeight: 1.5 }}>{a.desc}</div>}
+
+          {/* phase pages */}
+          {a.hormones && <Block label="What's happening"><Para>{a.hormones}</Para></Block>}
+          {a.notice && <Block label="What many women notice"><Bullets items={a.notice} /></Block>}
+          {a.symptoms && !a.what && <Block label="Common symptoms"><Bullets items={a.symptoms} /></Block>}
+          {a.support && <Block label="Helpful support"><Bullets items={a.support} col="#7FA054" /></Block>}
+          {a.move && <Block label="Movement"><Para>{a.move}</Para></Block>}
+          {a.food && <Block label="Nutrition"><Para>{a.food}</Para></Block>}
+
+          {/* condition and birth-control pages */}
+          {a.what && <Block label="What it is"><Para>{a.what}</Para></Block>}
+          {a.what && a.symptoms && <Block label="Common symptoms"><Bullets items={a.symptoms} /></Block>}
+          {a.good && <Block label="What it's good for"><Bullets items={a.good} col="#7FA054" /></Block>}
+          {a.consider && <Block label="Worth considering"><Bullets items={a.consider} col="#E8B84B" /></Block>}
+          {a.help && <Block label="What helps"><Bullets items={a.help} col="#7FA054" /></Block>}
+
+          {/* plain articles */}
+          {a.body && a.body.map((para, i) => <Para key={i}>{para}</Para>)}
+
+          {/* when to seek care — always last, always visible */}
+          {a.seek && (
+            <div style={{ borderRadius: 16, background: "rgba(214,92,78,0.09)", border: "1px solid rgba(214,92,78,0.3)", padding: "16px 18px", marginTop: 22 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#D65C4E", marginBottom: 8 }}>When to seek care</div>
+              {Array.isArray(a.seek)
+                ? a.seek.map((x, i) => (
+                    <div key={i} style={{ display: "flex", gap: 9, marginBottom: 6 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#D65C4E", marginTop: 8, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.55 }}>{x}</span>
+                    </div>
+                  ))
+                : <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6 }}>{a.seek}</div>}
+            </div>
+          )}
+
+          {(a.tip || a.note) && (
+            <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", marginTop: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C97BA8", marginBottom: 6 }}>A nurse's note</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.cream, lineHeight: 1.45 }}>{a.tip || a.note}</div>
+            </div>
+          )}
+
+          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, margin: "18px 0 26px" }}>General education, not medical advice.</div>
+        </div>
+      )
+    }
+
     if (tab === "body" && bodyView === "cycle") {
       const setup = cycleNow != null
       const now = new Date()
@@ -196,7 +266,24 @@ export function renderCycle(ctx) {
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: cur.color, textTransform: "uppercase" }}>Cycle Day {cycleNow.day}</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: BASE.cream, margin: "2px 0 8px" }}>{cur.emoji} {cur.name}</div>
             <div style={{ fontSize: 13.5, color: BASE.cream, lineHeight: 1.5, marginBottom: 12 }}>{cur.insight}</div>
-            {cur.suggestions.map((sg, i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cur.color }} /><span style={{ fontSize: 12.5, color: BASE.creamDim }}>{sg}</span></div>))}
+            {(cur.feels || []).length > 0 && (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: "uppercase", color: cur.color, margin: "4px 0 8px" }}>Your body may naturally feel</div>
+                {cur.feels.map((f, i) => (<div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cur.color, marginTop: 7, flexShrink: 0 }} /><span style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.5 }}>{f}</span></div>))}
+              </>
+            )}
+            {(cur.supportToday || cur.suggestions).length > 0 && (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: "uppercase", color: cur.color, margin: "14px 0 8px" }}>Support yourself today</div>
+                {(cur.supportToday || cur.suggestions).map((sg, i) => (<div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cur.color, marginTop: 7, flexShrink: 0 }} /><span style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.5 }}>{sg}</span></div>))}
+              </>
+            )}
+            {cur.nurseNote && (
+              <div style={{ borderRadius: 13, background: "rgba(255,255,255,0.06)", padding: "13px 15px", marginTop: 14 }}>
+                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: cur.color, marginBottom: 5 }}>A nurse's note</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.cream, lineHeight: 1.45 }}>{cur.nurseNote}</div>
+              </div>
+            )}
           </div>
 
           {cycleNow.phase === "menstrual" && cycleNow.day <= 2 && (
@@ -213,30 +300,47 @@ export function renderCycle(ctx) {
             <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>Sleep, stress, motherhood, work, life demands, and recovery all matter too. Cycle offers context — but you always choose your capacity for the day. Nothing here is assigned for you.</div>
           </div>
 
+          {/* ── UNDERSTAND YOUR BODY ── */}
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Understand Your Body</div>
+          <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55, marginBottom: 16 }}>Written to help you understand what you're feeling — never to worry you.</div>
 
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Understand each phase</div>
-          <div style={{ fontSize: 12.5, color: BASE.taupe, marginBottom: 14 }}>Tap any phase to learn what's happening and how to support yourself.</div>
-          {CYCLE_PHASE_ORDER.map((k) => {
-            const ph = CYCLE_PHASES[k]
-            const open = eduPhase === k
+          {[["🌙", "Your Cycle", "What happens in each phase", CYCLE_DEEP],
+            ["🤍", "Common Questions", "The things women actually search", CYCLE_QA],
+            ["🌸", "Health Conditions", "PCOS, endometriosis, PMDD and more", CYCLE_CONDITIONS],
+            ["👶", "Postpartum", "What's normal, and when to call", CYCLE_POSTPARTUM],
+            ["💊", "Birth Control", "Understanding your options", CYCLE_BC],
+            ["🌱", "Fertility", "Ovulation and your fertile window", CYCLE_FERTILITY]].map(([ic, name, sub, items]) => {
+            const open = cycLib === name
             return (
-              <div key={k} style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + (open ? ph.color : BASE.border), marginBottom: 10, overflow: "hidden" }}>
-                <div onClick={() => setEduPhase(open ? null : k)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", cursor: "pointer" }}>
-                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: ph.color }} />
-                  <div style={{ flex: 1 }}><div style={{ fontSize: 14.5, fontWeight: 700, color: BASE.cream }}>{ph.emoji} {ph.name}</div><div style={{ fontSize: 11, color: BASE.taupe }}>{ph.meaning}</div></div>
-                  <span style={{ color: BASE.taupe }}>{open ? "\u2212" : "+"}</span>
+              <div key={name} style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 9, overflow: "hidden" }}>
+                <div onClick={() => setCycLib(open ? null : name)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", cursor: "pointer" }}>
+                  <span style={{ fontSize: 20 }}>{ic}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{name}</div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 2 }}>{sub}</div>
+                  </div>
+                  <span style={{ color: BASE.taupe, fontSize: 15, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.22s ease" }}>{"\u203a"}</span>
                 </div>
                 {open && (
-                  <div className="fade-in" style={{ padding: "0 16px 16px" }}>
-                    {ph.edu.map(([sec, body], i) => (<div key={i} style={{ marginBottom: 10 }}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: ph.color, textTransform: "uppercase", marginBottom: 3 }}>{sec}</div><div style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.5 }}>{body}</div></div>))}
-                    <div style={{ borderRadius: 10, background: ph.soft, padding: "10px 13px", marginTop: 4 }}><div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14, color: BASE.cream }}>{ph.message}</div></div>
+                  <div className="fade-in" style={{ padding: "0 12px 12px" }}>
+                    {items.map((it) => (
+                      <div key={it.id} onClick={() => setCycArticle(it)} style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.04)", border: "1px solid " + BASE.border, marginBottom: 7, cursor: "pointer" }}>
+                        <span style={{ fontSize: 17 }}>{it.ic}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: BASE.cream, lineHeight: 1.3 }}>{it.title}</div>
+                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: BASE.taupe, marginTop: 2 }}>{it.desc}</div>
+                        </div>
+                        <span style={{ color: BASE.taupe }}>{"\u203a"}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             )
           })}
-          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", margin: "8px 0 20px", lineHeight: 1.6 }}>Cycle context can appear in Move and Nourish over time — but your capacity always decides today. You can always train.</div>
-          <div style={{ height: 10 }} />
+          <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, margin: "14px 0 20px" }}>General education, not medical advice. Your provider knows your situation best.</div>
+
+          <div style={{ height: 20 }} />
         </div>
       )
     }
