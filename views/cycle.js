@@ -53,6 +53,7 @@ export function renderCycle(ctx) {
       }
       const label = new Date(d + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
       const count = Object.keys(log).length
+      const lenPct = Math.max(0, Math.min(100, ((parseInt(tmpLen) || 28) - 20) / 25 * 100))
 
       return (
         <div className="fade-in" style={{ padding: "10px 20px 0" }}>
@@ -88,15 +89,21 @@ export function renderCycle(ctx) {
                 background: BASE.bg2 || BASE.surface2, border: "1px solid " + BASE.border,
                 color: BASE.cream, fontSize: 16, fontFamily: "inherit", lineHeight: 1.2, outline: "none", marginBottom: 18 }} />
 
+            {(() => null)()}
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim }}>Typical cycle length</span>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: useAvgCycle && cycleAvg ? BASE.taupe : "#9B6BC3" }}>{tmpLen} days</span>
             </div>
+            {/* The global input[type=range] rule strips the native track and sets no
+                background, so every slider must paint its own. Completed portion is
+                a soft lavender, the remainder a paler tint of the same hue. */}
             <input type="range" min="20" max="45" value={tmpLen}
               onChange={(e) => setTmpLen(e.target.value)}
               onMouseUp={(e) => saveCycleSettings(tmpStart || lastPeriod, e.target.value)}
               onTouchEnd={(e) => saveCycleSettings(tmpStart || lastPeriod, e.target.value)}
-              style={{ display: "block", width: "100%", maxWidth: "100%", boxSizing: "border-box", margin: 0 }} />
+              style={{ display: "block", width: "100%", maxWidth: "100%", boxSizing: "border-box", margin: 0,
+                height: 6, borderRadius: 999,
+                background: `linear-gradient(90deg, #B9A3D4 ${lenPct}%, #E2DAEC ${lenPct}%)` }} />
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: BASE.taupe, marginTop: 3 }}><span>20</span><span>45</span></div>
 
             {cycleAvg ? (
