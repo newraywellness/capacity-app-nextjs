@@ -5,6 +5,109 @@ import { BASE } from '../lib/theme'
 
 export function renderCycle(ctx) {
   const { T, bodyView, cur, cycArticle, cycLib, cycLogDate, cycleLength, cycleLogs, cycleMonth, cycleNow, editCycle, eduPhase, history, lastPeriod, pct, periodDismissed, recovery, saveCycle, saveCycleLog, setCycArticle, setCycLib, setCycLogDate, setCycleMonth, setEditCycle, setEduPhase, setLastPeriod, setPeriodDismissed, setTmpLen, setTmpStart, setupData, tab, tmpLen, tmpStart, user } = ctx
+    // ══════════════ TRACK · dedicated full screen ══════════════
+    // Deliberately a screen, not an overlay. A previous bottom sheet used
+    // position:fixed inside a .fade-in wrapper — and an ancestor running a
+    // transform animation becomes the containing block for fixed positioning,
+    // so it anchored to the page rather than the viewport and fell out of reach.
+    // A normal screen has no containing-block dependency at all.
+    if (tab === "body" && bodyView === "cycle" && editCycle) {
+      const today = new Date().toISOString().slice(0, 10)
+      const d = cycLogDate || today
+      const log = (cycleLogs && cycleLogs[d]) || {}
+      const set = (k, v) => saveCycleLog(d, { [k]: v })
+      const one = (k, v) => set(k, log[k] === v ? null : v)
+      const many = (k, v) => {
+        const arr = Array.isArray(log[k]) ? log[k] : []
+        set(k, arr.indexOf(v) >= 0 ? arr.filter((x) => x !== v) : [...arr, v])
+      }
+      const on = (k, v) => (Array.isArray(log[k]) ? log[k].indexOf(v) >= 0 : log[k] === v)
+
+      const Group = ({ ic, label, k, opts, multi, col, hint }) => (
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 15 }}>{ic}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{label}</span>
+            {hint && <span style={{ fontSize: 10.5, color: BASE.taupe, fontStyle: "italic" }}>{hint}</span>}
+          </div>
+          <div>
+            {opts.map((o) => (
+              <span key={o} onClick={() => (multi ? many(k, o) : one(k, o))}
+                style={{ display: "inline-block", padding: "10px 15px", borderRadius: 999, marginRight: 8, marginBottom: 8, cursor: "pointer",
+                  fontSize: 13, fontWeight: on(k, o) ? 700 : 500,
+                  background: on(k, o) ? (col || "#9B6BC3") : BASE.surface,
+                  color: on(k, o) ? "#fff" : BASE.creamDim,
+                  border: "1px solid " + (on(k, o) ? (col || "#9B6BC3") : BASE.border) }}>{o}</span>
+            ))}
+          </div>
+        </div>
+      )
+
+      const shift = (n) => {
+        const dt = new Date(d + "T00:00:00"); dt.setDate(dt.getDate() + n)
+        const iso = dt.toISOString().slice(0, 10)
+        if (iso <= today) setCycLogDate(iso)
+      }
+      const label = new Date(d + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
+      const count = Object.keys(log).length
+
+      return (
+        <div className="fade-in" style={{ padding: "10px 20px 0" }}>
+          <div onClick={() => setEditCycle(false)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Cycle"}</div>
+
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream }}>Track</div>
+          <div style={{ fontSize: 12.5, color: BASE.taupe, marginTop: 3, marginBottom: 16 }}>{count ? count + " logged for this day" : "Nothing logged yet"} {"\u00b7"} saves as you tap</div>
+
+          {/* date selector */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 14, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 24 }}>
+            <span onClick={() => shift(-1)} style={{ fontSize: 20, color: BASE.creamDim, cursor: "pointer", padding: "0 10px" }}>{"\u2039"}</span>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: d === today ? "#9B6BC3" : BASE.cream }}>{d === today ? "Today" : label}</div>
+              {d !== today && <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 1 }}>{d}</div>}
+            </div>
+            <span onClick={() => shift(1)} style={{ fontSize: 20, color: d === today ? BASE.border : BASE.creamDim, cursor: d === today ? "default" : "pointer", padding: "0 10px" }}>{"\u203a"}</span>
+          </div>
+
+          <Group ic="❤️" label="Period" k="period" col="#A8556B" opts={["Light", "Medium", "Heavy"]} />
+          <Group ic="🟤" label="Spotting" k="spotting" col="#A8556B" opts={["Spotting"]} />
+          <Group ic="😊" label="Feelings" k="feelings" multi col="#C9558E" opts={["Calm", "Happy", "Motivated", "Sensitive", "Anxious", "Irritable", "Low"]} />
+          <Group ic="😖" label="Pain" k="pain" multi col="#D65C4E" opts={["Cramps", "Headache", "Back", "Breast tenderness", "Bloating", "Nausea"]} />
+          <Group ic="💕" label="Sex Life" k="sex" multi col="#E3799F" opts={["Sex", "Protected", "Unprotected", "High libido", "Low libido"]} />
+          <Group ic="⚡" label="Energy" k="energy" col="#E8B84B" hint="one signal, not a second score" opts={["Low", "Okay", "High"]} />
+          <Group ic="💊" label="Birth Control" k="bc" col="#5E7FB0" opts={["Taken", "Late", "Missed", "Changed"]} />
+          <Group ic="💧" label="Discharge" k="discharge" col="#7FA054" opts={["Dry", "Sticky", "Creamy", "Watery", "Egg white"]} />
+
+          <div style={{ fontSize: 11.5, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.55, marginBottom: 20 }}>Capacity stays your whole-day measure — you log that on Today. Energy here is one contributing signal.</div>
+
+          {/* cycle settings, collapsed */}
+          <div onClick={() => setEduPhase(eduPhase === "settings" ? null : "settings")}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: "1px solid " + BASE.border, cursor: "pointer", marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: BASE.creamDim }}>{"\u2699\ufe0f"} Cycle Settings</span>
+            <span style={{ color: BASE.taupe, fontSize: 16, transform: eduPhase === "settings" ? "rotate(90deg)" : "none", transition: "transform .2s" }}>{"\u203a"}</span>
+          </div>
+          {eduPhase === "settings" && (
+            <div className="fade-in" style={{ marginBottom: 16, padding: "4px 2px" }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, marginBottom: 7 }}>First day of your last period</div>
+              <input type="date" value={tmpStart} max={today} onChange={(e) => setTmpStart(e.target.value)}
+                style={{ width: "100%", padding: "13px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, color: BASE.cream, fontSize: 16, marginBottom: 16, outline: "none", boxSizing: "border-box" }} />
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, marginBottom: 7 }}>Average cycle length: {tmpLen} days</div>
+              <input type="range" min="20" max="45" value={tmpLen} onChange={(e) => setTmpLen(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: BASE.taupe, marginBottom: 14 }}><span>20</span><span>45</span></div>
+              <button onClick={saveCycle} disabled={!tmpStart}
+                style={{ width: "100%", padding: 14, borderRadius: 13, border: "none", cursor: tmpStart ? "pointer" : "default",
+                  background: tmpStart ? "linear-gradient(135deg,#9B6BC3,#5E7FB0)" : BASE.surface2, color: tmpStart ? "#fff" : BASE.taupe, fontSize: 13.5, fontWeight: 700 }}>Save cycle settings</button>
+            </div>
+          )}
+
+          <button onClick={() => setEditCycle(false)}
+            style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", fontSize: 14.5, fontWeight: 700, marginTop: 6 }}>Save</button>
+
+          {/* clear of the persistent nav and the iPhone home indicator */}
+          <div style={{ height: 40, paddingBottom: "env(safe-area-inset-bottom)" }} />
+        </div>
+      )
+    }
+
     // ── an article from Understand Your Body ──
     if (tab === "body" && bodyView === "cycle" && cycArticle) {
       const a = cycArticle
@@ -266,120 +369,6 @@ export function renderCycle(ctx) {
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><span style={{ fontSize: 16 }}>🔄</span><span style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>Your cycle is one piece of your capacity picture.</span></div>
             <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.55 }}>Sleep, stress, motherhood, work, life demands, and recovery all matter too. Cycle offers context — but you always choose your capacity for the day. Nothing here is assigned for you.</div>
           </div>
-
-          {/* ══════════════ TRACKING SHEET ══════════════
-              A real bottom sheet: anchored to the bottom, capped by the visible
-              viewport with dvh (which excludes mobile browser chrome), scrollable
-              inside, and padded past the persistent nav and the home indicator. */}
-          {editCycle && (() => {
-            const today = new Date().toISOString().slice(0, 10)
-            const d = cycLogDate || today
-            const log = (cycleLogs && cycleLogs[d]) || {}
-            const set = (k, v) => saveCycleLog(d, { [k]: v })
-            const one = (k, v) => set(k, log[k] === v ? null : v)
-            const many = (k, v) => {
-              const arr = Array.isArray(log[k]) ? log[k] : []
-              set(k, arr.indexOf(v) >= 0 ? arr.filter((x) => x !== v) : [...arr, v])
-            }
-            const on = (k, v) => (Array.isArray(log[k]) ? log[k].indexOf(v) >= 0 : log[k] === v)
-
-            const Chip = ({ k, v, multi, col }) => (
-              <span onClick={() => (multi ? many(k, v) : one(k, v))}
-                style={{ display: "inline-block", padding: "9px 14px", borderRadius: 999, marginRight: 7, marginBottom: 7, cursor: "pointer",
-                  fontSize: 12.5, fontWeight: on(k, v) ? 700 : 500,
-                  background: on(k, v) ? (col || "#9B6BC3") : BASE.surface,
-                  color: on(k, v) ? "#fff" : BASE.creamDim,
-                  border: "1px solid " + (on(k, v) ? (col || "#9B6BC3") : BASE.border) }}>{v}</span>
-            )
-            const Group = ({ ic, label, k, opts, multi, col, hint }) => (
-              <div style={{ marginBottom: 18 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                  <span style={{ fontSize: 14 }}>{ic}</span>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: BASE.cream }}>{label}</span>
-                  {hint && <span style={{ fontSize: 10.5, color: BASE.taupe, fontStyle: "italic" }}>{hint}</span>}
-                </div>
-                <div>{opts.map((o) => <Chip key={o} k={k} v={o} multi={multi} col={col} />)}</div>
-              </div>
-            )
-
-            const shift = (n) => {
-              const dt = new Date(d + "T00:00:00"); dt.setDate(dt.getDate() + n)
-              const iso = dt.toISOString().slice(0, 10)
-              if (iso <= today) setCycLogDate(iso)
-            }
-            const label = new Date(d + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
-            const count = Object.keys(log).length
-
-            return (
-              <div onClick={() => setEditCycle(false)}
-                style={{ position: "fixed", inset: 0, background: "rgba(43,27,61,0.55)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-                <div onClick={(e) => e.stopPropagation()}
-                  style={{ width: "100%", maxWidth: 440, background: BASE.bg2 || "#FFF9F5",
-                    borderRadius: "22px 22px 0 0", boxShadow: "0 -14px 44px rgba(43,27,61,0.4)",
-                    maxHeight: "86dvh", display: "flex", flexDirection: "column" }}>
-
-                  {/* fixed header — always reachable */}
-                  <div style={{ padding: "10px 20px 12px", borderBottom: "1px solid " + BASE.border, flexShrink: 0 }}>
-                    <div style={{ width: 38, height: 4, borderRadius: 99, background: BASE.border, margin: "0 auto 12px" }} />
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div>
-                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: BASE.cream }}>Track your day</div>
-                        <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 1 }}>{count ? count + " logged" : "Nothing logged yet"} {"\u00b7"} saves as you tap</div>
-                      </div>
-                      <span onClick={() => setEditCycle(false)}
-                        style={{ width: 34, height: 34, borderRadius: "50%", background: BASE.surface, border: "1px solid " + BASE.border,
-                          display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, color: BASE.creamDim, flexShrink: 0 }}>{"\u2715"}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, padding: "7px 12px", borderRadius: 999, background: BASE.surface, border: "1px solid " + BASE.border }}>
-                      <span onClick={() => shift(-1)} style={{ fontSize: 17, color: BASE.creamDim, cursor: "pointer", padding: "0 8px" }}>{"\u2039"}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: d === today ? "#9B6BC3" : BASE.cream }}>{d === today ? "Today" : label}</span>
-                      <span onClick={() => shift(1)} style={{ fontSize: 17, color: d === today ? BASE.border : BASE.creamDim, cursor: d === today ? "default" : "pointer", padding: "0 8px" }}>{"\u203a"}</span>
-                    </div>
-                  </div>
-
-                  {/* scrollable body — the part that was previously unreachable */}
-                  <div style={{ overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "18px 20px 8px", flex: 1, minHeight: 0 }}>
-                    <Group ic="❤️" label="Period" k="period" col="#A8556B" opts={["Light", "Medium", "Heavy"]} />
-                    <Group ic="🟤" label="Spotting" k="spotting" col="#A8556B" opts={["Spotting"]} />
-                    <Group ic="😊" label="Feelings" k="feelings" multi col="#C9558E" opts={["Calm", "Happy", "Motivated", "Sensitive", "Anxious", "Irritable", "Low"]} />
-                    <Group ic="😖" label="Pain" k="pain" multi col="#D65C4E" opts={["Cramps", "Headache", "Back", "Breast tenderness", "Bloating", "Nausea"]} />
-                    <Group ic="💕" label="Sex life" k="sex" multi col="#E3799F" opts={["Sex", "Protected", "Unprotected", "High libido", "Low libido"]} />
-                    <Group ic="⚡" label="Energy" k="energy" col="#E8B84B" hint="one signal, not a second score" opts={["Low", "Okay", "High"]} />
-                    <Group ic="💊" label="Birth control" k="bc" col="#5E7FB0" opts={["Taken", "Late", "Missed", "Changed"]} />
-                    <Group ic="💧" label="Discharge" k="discharge" col="#7FA054" opts={["Dry", "Sticky", "Creamy", "Watery", "Egg white"]} />
-
-                    <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.55, marginBottom: 14 }}>Capacity stays your whole-day measure — you log that on Today. Energy here is one contributing signal.</div>
-
-                    {/* cycle settings, kept rather than lost */}
-                    <div onClick={() => setEduPhase(eduPhase === "settings" ? null : "settings")}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 15px", borderRadius: 13, background: BASE.surface, border: "1px solid " + BASE.border, cursor: "pointer", marginBottom: 10 }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim }}>{"\u2699\ufe0f"} Cycle settings</span>
-                      <span style={{ color: BASE.taupe, fontSize: 15, transform: eduPhase === "settings" ? "rotate(90deg)" : "none", transition: "transform .2s" }}>{"\u203a"}</span>
-                    </div>
-                    {eduPhase === "settings" && (
-                      <div className="fade-in" style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: BASE.creamDim, marginBottom: 6 }}>First day of your last period</div>
-                        <input type="date" value={tmpStart} max={today} onChange={(e) => setTmpStart(e.target.value)}
-                          style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, color: BASE.cream, fontSize: 16, marginBottom: 14, outline: "none", boxSizing: "border-box" }} />
-                        <div style={{ fontSize: 12, fontWeight: 700, color: BASE.creamDim, marginBottom: 6 }}>Average cycle length: {tmpLen} days</div>
-                        <input type="range" min="20" max="45" value={tmpLen} onChange={(e) => setTmpLen(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: BASE.taupe, marginBottom: 12 }}><span>20</span><span>45</span></div>
-                        <button onClick={saveCycle} disabled={!tmpStart}
-                          style={{ width: "100%", padding: 13, borderRadius: 12, border: "none", cursor: tmpStart ? "pointer" : "default",
-                            background: tmpStart ? "linear-gradient(135deg,#9B6BC3,#5E7FB0)" : BASE.surface2, color: tmpStart ? "#fff" : BASE.taupe, fontSize: 13.5, fontWeight: 700 }}>Save cycle settings</button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* clear of the persistent nav and the home indicator */}
-                  <div style={{ flexShrink: 0, padding: "12px 20px", paddingBottom: "calc(20px + env(safe-area-inset-bottom))", borderTop: "1px solid " + BASE.border }}>
-                    <button onClick={() => setEditCycle(false)}
-                      style={{ width: "100%", padding: 14, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", fontSize: 14, fontWeight: 700 }}>Done</button>
-                  </div>
-                </div>
-              </div>
-            )
-          })()}
 
           {/* ── UNDERSTAND YOUR BODY ── */}
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Understand Your Body</div>
