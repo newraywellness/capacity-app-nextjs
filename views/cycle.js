@@ -4,7 +4,7 @@ import { db } from '../lib/supabase'
 import { BASE } from '../lib/theme'
 
 export function renderCycle(ctx) {
-  const { T, bodyView, cur, cycArticle, cycLib, cycLogDate, cycleLength, cycleLogs, cycleMonth, cycleNow, editCycle, eduPhase, history, lastPeriod, pct, periodDismissed, recovery, saveCycle, saveCycleLog, setCycArticle, setCycLib, setCycLogDate, setCycleMonth, setEditCycle, setEduPhase, setLastPeriod, setPeriodDismissed, setTmpLen, setTmpStart, setupData, tab, tmpLen, tmpStart, user } = ctx
+  const { T, bodyView, cur, cycArticle, cycLib, cycLogDate, cycleLength, cycleLogs, cycleMonth, cycleNow, editCycle, eduPhase, history, lastPeriod, pct, periodDismissed, recovery, saveCycle, saveCycleLog, saveCycleSettings, setCycArticle, setCycLib, setCycLogDate, setCycleMonth, setEditCycle, setEduPhase, setLastPeriod, setPeriodDismissed, setTmpLen, setTmpStart, setupData, tab, tmpLen, tmpStart, user } = ctx
     // ══════════════ TRACK · dedicated full screen ══════════════
     // Deliberately a screen, not an overlay. A previous bottom sheet used
     // position:fixed inside a .fade-in wrapper — and an ancestor running a
@@ -33,11 +33,14 @@ export function renderCycle(ctx) {
           <div>
             {opts.map((o) => (
               <span key={o} onClick={() => (multi ? many(k, o) : one(k, o))}
-                style={{ display: "inline-block", padding: "10px 15px", borderRadius: 999, marginRight: 8, marginBottom: 8, cursor: "pointer",
-                  fontSize: 13, fontWeight: on(k, o) ? 700 : 500,
+                style={{ display: "inline-block", padding: "10px 16px", borderRadius: 999, marginRight: 8, marginBottom: 9, cursor: "pointer",
+                  fontSize: 13, fontWeight: on(k, o) ? 700 : 500, letterSpacing: on(k, o) ? 0.1 : 0,
                   background: on(k, o) ? (col || "#9B6BC3") : BASE.surface,
                   color: on(k, o) ? "#fff" : BASE.creamDim,
-                  border: "1px solid " + (on(k, o) ? (col || "#9B6BC3") : BASE.border) }}>{o}</span>
+                  border: "1px solid " + (on(k, o) ? (col || "#9B6BC3") : BASE.border),
+                  boxShadow: on(k, o) ? "0 2px 8px " + (col || "#9B6BC3") + "40, inset 0 1px 0 rgba(255,255,255,0.18)" : "none",
+                  transform: on(k, o) ? "translateY(-1px)" : "none",
+                  transition: "transform .16s ease, box-shadow .16s ease" }}>{o}</span>
             ))}
           </div>
         </div>
@@ -56,20 +59,45 @@ export function renderCycle(ctx) {
           <div onClick={() => setEditCycle(false)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Cycle"}</div>
 
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream }}>Track</div>
-          <div style={{ fontSize: 12.5, color: BASE.taupe, marginTop: 3, marginBottom: 16 }}>{count ? count + " logged for this day" : "Nothing logged yet"} {"\u00b7"} saves as you tap</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, marginTop: 4, marginBottom: 18, lineHeight: 1.5 }}>{count ? "Saved as you go — " + count + (count === 1 ? " thing noted" : " things noted") + " so far." : "Track anything you'd like to remember today."}</div>
 
           {/* date selector */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 14, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 24 }}>
-            <span onClick={() => shift(-1)} style={{ fontSize: 20, color: BASE.creamDim, cursor: "pointer", padding: "0 10px" }}>{"\u2039"}</span>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: d === today ? "#9B6BC3" : BASE.cream }}>{d === today ? "Today" : label}</div>
+          {/* Fixed 44px arrow columns and a flexible centre: the label is centred
+              on the control itself rather than on whatever space is left over. */}
+          <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "9px 6px", borderRadius: 14, background: BASE.surface, border: "1px solid " + BASE.border, marginBottom: 22 }}>
+            <span onClick={() => shift(-1)} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 40, fontSize: 20, color: BASE.creamDim, cursor: "pointer", userSelect: "none" }}>{"\u2039"}</span>
+            <div style={{ textAlign: "center", minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: d === today ? "#9B6BC3" : BASE.cream, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d === today ? "Today" : label}</div>
               {d !== today && <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 1 }}>{d}</div>}
             </div>
-            <span onClick={() => shift(1)} style={{ fontSize: 20, color: d === today ? BASE.border : BASE.creamDim, cursor: d === today ? "default" : "pointer", padding: "0 10px" }}>{"\u203a"}</span>
+            <span onClick={() => shift(1)} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 40, fontSize: 20, color: d === today ? BASE.border : BASE.creamDim, cursor: d === today ? "default" : "pointer", userSelect: "none" }}>{"\u203a"}</span>
           </div>
 
+          {/* Fundamental setup, not advanced settings — always visible, saves on change. */}
+          <div style={{ borderRadius: 16, background: BASE.surface, border: "1px solid " + BASE.border, padding: "16px 16px 14px", marginBottom: 26 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: BASE.taupe, marginBottom: 12 }}>Cycle Settings</div>
+
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim, marginBottom: 7 }}>First day of last period</div>
+            <input type="date" value={tmpStart || lastPeriod || ""} max={today}
+              onChange={(e) => { setTmpStart(e.target.value); saveCycleSettings(e.target.value, tmpLen) }}
+              style={{ width: "100%", padding: "12px 13px", borderRadius: 11, background: BASE.bg2 || BASE.surface2, border: "1px solid " + BASE.border, color: BASE.cream, fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 16 }} />
+
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 7 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim }}>Average cycle length</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: "#9B6BC3" }}>{tmpLen} days</span>
+            </div>
+            <input type="range" min="20" max="45" value={tmpLen}
+              onChange={(e) => setTmpLen(e.target.value)}
+              onMouseUp={(e) => saveCycleSettings(tmpStart || lastPeriod, e.target.value)}
+              onTouchEnd={(e) => saveCycleSettings(tmpStart || lastPeriod, e.target.value)}
+              style={{ width: "100%" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: BASE.taupe, marginTop: 2 }}><span>20</span><span>45</span></div>
+          </div>
+
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: BASE.taupe, marginBottom: 14 }}>Today's Tracking</div>
+
           <Group ic="❤️" label="Period" k="period" col="#A8556B" opts={["Light", "Medium", "Heavy"]} />
-          <Group ic="🟤" label="Spotting" k="spotting" col="#A8556B" opts={["Spotting"]} />
+          <Group ic="🟤" label="Spotting" k="spotting" col="#A8556B" opts={["Brown spotting", "Red spotting"]} />
           <Group ic="😊" label="Feelings" k="feelings" multi col="#C9558E" opts={["Calm", "Happy", "Motivated", "Sensitive", "Anxious", "Irritable", "Low"]} />
           <Group ic="😖" label="Pain" k="pain" multi col="#D65C4E" opts={["Cramps", "Headache", "Back", "Breast tenderness", "Bloating", "Nausea"]} />
           <Group ic="💕" label="Sex Life" k="sex" multi col="#E3799F" opts={["Sex", "Protected", "Unprotected", "High libido", "Low libido"]} />
@@ -79,31 +107,8 @@ export function renderCycle(ctx) {
 
           <div style={{ fontSize: 11.5, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.55, marginBottom: 20 }}>Capacity stays your whole-day measure — you log that on Today. Energy here is one contributing signal.</div>
 
-          {/* cycle settings, collapsed */}
-          <div onClick={() => setEduPhase(eduPhase === "settings" ? null : "settings")}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 16px", borderRadius: 14, background: BASE.surface, border: "1px solid " + BASE.border, cursor: "pointer", marginBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: BASE.creamDim }}>{"\u2699\ufe0f"} Cycle Settings</span>
-            <span style={{ color: BASE.taupe, fontSize: 16, transform: eduPhase === "settings" ? "rotate(90deg)" : "none", transition: "transform .2s" }}>{"\u203a"}</span>
-          </div>
-          {eduPhase === "settings" && (
-            <div className="fade-in" style={{ marginBottom: 16, padding: "4px 2px" }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, marginBottom: 7 }}>First day of your last period</div>
-              <input type="date" value={tmpStart} max={today} onChange={(e) => setTmpStart(e.target.value)}
-                style={{ width: "100%", padding: "13px 14px", borderRadius: 12, background: BASE.surface, border: "1px solid " + BASE.border, color: BASE.cream, fontSize: 16, marginBottom: 16, outline: "none", boxSizing: "border-box" }} />
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: BASE.creamDim, marginBottom: 7 }}>Average cycle length: {tmpLen} days</div>
-              <input type="range" min="20" max="45" value={tmpLen} onChange={(e) => setTmpLen(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: BASE.taupe, marginBottom: 14 }}><span>20</span><span>45</span></div>
-              <button onClick={saveCycle} disabled={!tmpStart}
-                style={{ width: "100%", padding: 14, borderRadius: 13, border: "none", cursor: tmpStart ? "pointer" : "default",
-                  background: tmpStart ? "linear-gradient(135deg,#9B6BC3,#5E7FB0)" : BASE.surface2, color: tmpStart ? "#fff" : BASE.taupe, fontSize: 13.5, fontWeight: 700 }}>Save cycle settings</button>
-            </div>
-          )}
-
-          <button onClick={() => setEditCycle(false)}
-            style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#9B6BC3,#5E7FB0)", color: "#fff", fontSize: 14.5, fontWeight: 700, marginTop: 6 }}>Save</button>
-
           {/* clear of the persistent nav and the iPhone home indicator */}
-          <div style={{ height: 40, paddingBottom: "env(safe-area-inset-bottom)" }} />
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -297,13 +302,14 @@ export function renderCycle(ctx) {
             })}
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10, justifyContent: "center" }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.4, textTransform: "uppercase", color: BASE.taupe, textAlign: "center", marginBottom: 7, opacity: 0.8 }}>Cycle phases</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14, justifyContent: "center" }}>
             {CYCLE_PHASE_ORDER.map((k) => { const ph = CYCLE_PHASES[k]; return (
-              <div key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: ph.color }} /><span style={{ fontSize: 10.5, color: BASE.taupe }}>{ph.name.replace(" Phase", "")}</span></div>
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 11, height: 11, borderRadius: 3.5, background: ph.soft, border: "1.5px solid " + ph.color }} /><span style={{ fontSize: 10.5, color: BASE.taupe }}>{ph.name.replace(" Phase", "")}</span></div>
             )})}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12, justifyContent: "center", alignItems: "center" }}>
-            <span style={{ fontSize: 10, color: BASE.taupe, fontWeight: 700 }}>Your capacity:</span>
+            <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.4, textTransform: "uppercase", color: BASE.taupe, opacity: 0.8, width: "100%", textAlign: "center", marginBottom: 1 }}>Capacity</span>
             {[["green", "Green"], ["yellow", "Yellow"], ["red", "Red"]].map(([k, lbl]) => (
               <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: CAP_DOT[k] }} /><span style={{ fontSize: 10, color: BASE.taupe }}>{lbl}</span></div>
             ))}
