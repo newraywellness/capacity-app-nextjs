@@ -9,6 +9,7 @@ import { BASE, ENV, THEMES, colorFromPct, dayIndex } from '../lib/theme'
 import { Sky, Garden } from '../lib/atmosphere'
 import { NourishAir, HerbGarden, NOURISH_BG } from '../lib/herbs'
 import { BloomAir, BloomAccents, BloomScene, BLOOM_BG } from '../lib/bloomair'
+import { CycleAir, CYCLE_BG } from '../lib/cycleair'
 import { renderHome } from '../views/home'
 import { renderTrain } from '../views/train'
 import { renderCycle } from '../views/cycle'
@@ -599,6 +600,8 @@ export default function App() {
       ::-webkit-scrollbar { width: 0; }
       a { text-decoration: none; }
       input[type=range] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; outline: none; }
+      input[type=range]::-webkit-slider-runnable-track { -webkit-appearance: none; height: 6px; border-radius: 999px; background: transparent; border: none; }
+      input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: transparent; border: none; }
       input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -1188,7 +1191,7 @@ export default function App() {
 
   return (
     <><Fonts /><GlobalStyle />
-      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG(envRoot.mode) : BASE.bg)), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
+      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG(envRoot.mode) : (tab === "body" && bodyView === "cycle" ? CYCLE_BG(cycleNow && cycleNow.phase) : BASE.bg))), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
         {tab === "today" && <Sky mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "today" && <Garden mode={envRoot.mode} />}
         {tab === "body" && bodyView === "nourish" && <NourishAir mode={envRoot.mode} tint={envRoot.tint} />}
@@ -1196,6 +1199,7 @@ export default function App() {
         {tab === "bloom" && <BloomAir mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "bloom" && !bloomCard && !bloomArticle && !bloomPillar && <BloomAccents mode={envRoot.mode} />}
         {tab === "bloom" && <BloomScene mode={envRoot.mode} subtle={!!bloomCard || !!bloomArticle || !!bloomPillar || !!glowTopic} />}
+        {tab === "body" && bodyView === "cycle" && <CycleAir phase={cycleNow && cycleNow.phase} />}
         <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
             <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
