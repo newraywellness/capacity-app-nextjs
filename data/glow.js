@@ -1776,7 +1776,12 @@ const GLOW_TOPICS = [
   { key: "body", ic: "🧴", name: "Body Care", built: true, typesIc: "🌿", typesName: "Body Concerns", typesSub: "Including the one nobody named for you",
     wins: BODY_WINS, types: BODY_CONCERNS, guides: BODY_GUIDES, learn: BODY_LEARN },
   // Editorial rather than product-first — rendered by its own layout.
+  // The empty wins/types/guides arrays are deliberate: they keep this record
+  // safe for any view that iterates the standard sections, so the data and the
+  // view can be deployed in either order without breaking Glow.
   { key: "wardrobe", ic: "👗", name: "Wardrobe", built: true, editorial: true,
+    typesIc: "👗", typesName: "Looks", typesSub: "Browse the galleries",
+    wins: [], types: [], guides: [],
     wardrobe: WARDROBE, learn: WARDROBE_LEARN },
 ]
 const GLOW_BY_KEY = (k) => GLOW_TOPICS.find((t) => t.key === k) || null
