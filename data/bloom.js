@@ -1,8 +1,8 @@
-import { BLOOM_INVITATIONS, BLOOM_PILLARS, BLOOM_SECTIONS, BLOOM_TRENDING } from '../data/bloom'
-import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow'
-import { RESET_DAY, RESET_NIGHT, RESET_SONGS, RESET_EXPLORE } from '../data/reset'
-import { F_TIMES, F_IMG, F_BY_ID, byTag, seasonalSet, timeFeed, relatedByMood } from '../data/flourish'
-import { BASE, dayIndex } from '../lib/theme'
+import { BLOOM_INVITATIONS, BLOOM_PILLARS, BLOOM_SECTIONS, BLOOM_TRENDING } from '../data/bloom.js'
+import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow.js'
+import { RESET_DAY, RESET_NIGHT, RESET_SONGS, RESET_EXPLORE } from '../data/reset.js'
+import { F_TIMES, F_IMG, F_BY_ID, byTag, seasonalSet, timeFeed, relatedByMood } from '../data/flourish.js'
+import { BASE, dayIndex } from '../lib/theme.js'
 
 export function renderBloom(ctx) {
   const { bloomArticle, bloomCard, bloomPillar, checkedIn, closeBloom, cur, flourishProject, flourishTime, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, openBloomCard, pct, resetPage, resetSeed, resetSongs, setBloomArticle, setBloomPillar, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setResetPage, setResetSongs, surpriseReset, tab, toggleSaveBloom } = ctx
