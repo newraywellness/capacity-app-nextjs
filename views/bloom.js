@@ -1,9 +1,10 @@
 import { BLOOM_INVITATIONS, BLOOM_PILLARS, BLOOM_SECTIONS, BLOOM_TRENDING } from '../data/bloom'
 import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow'
+import { RESET_DAY, RESET_NIGHT, RESET_SONGS, RESET_EXPLORE } from '../data/reset'
 import { BASE, dayIndex } from '../lib/theme'
 
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomPillar, checkedIn, closeBloom, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, openBloomCard, pct, setBloomArticle, setBloomPillar, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, tab, toggleSaveBloom } = ctx
+  const { bloomArticle, bloomCard, bloomPillar, checkedIn, closeBloom, cur, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, openBloomCard, pct, resetPage, resetSeed, resetSongs, setBloomArticle, setBloomPillar, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setResetPage, setResetSongs, surpriseReset, tab, toggleSaveBloom } = ctx
     if (tab === "bloom" && bloomCard) {
       const sec = BLOOM_PILLARS.find((x) => x.cards.some((c) => c.n === bloomCard.n)) || BLOOM_PILLARS[0]
       const card = bloomCard
@@ -418,11 +419,11 @@ export function renderBloom(ctx) {
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 4, marginBottom: 10 }}>{T.name}</div>
 
           <Section k="guides" ic="🛍️" name="Products We Love" sub="Curated by True Reverie">
-            <Grouped items={T.guides} onTap={(x) => setGlowItem(x)} />
+            <Grouped items={T.guides || []} onTap={(x) => setGlowItem(x)} />
           </Section>
 
           <Section k="wins" ic="✨" name="Quick Wins" sub="Fast, useful, evidence-based">
-            <Grouped items={T.wins} onTap={(x) => setGlowSheet(x)} />
+            <Grouped items={T.wins || []} onTap={(x) => setGlowSheet(x)} />
           </Section>
 
           {T.extra && (
@@ -432,11 +433,11 @@ export function renderBloom(ctx) {
           )}
 
           <Section k="types" ic={T.typesIc} name={T.typesName} sub={T.typesSub}>
-            <Grouped items={T.types} onTap={(x) => setGlowItem(x)} />
+            <Grouped items={T.types || []} onTap={(x) => setGlowItem(x)} />
           </Section>
 
           <Section k="learn" ic="📖" name="Learn" sub="The why, when you want it">
-            <Grouped items={T.learn} onTap={(x) => setGlowItem(x)} />
+            <Grouped items={T.learn || []} onTap={(x) => setGlowItem(x)} />
           </Section>
 
           <Section k="favs" ic="❤️" name="Women's Favorites" sub="Loved by the community">
@@ -447,6 +448,181 @@ export function renderBloom(ctx) {
           </Section>
 
           <div style={{ height: 30 }} />
+        </div>
+      )
+    }
+
+    // ══════════════ RESET · an Explore More page ══════════════
+    if (tab === "bloom" && bloomPillar === "reset" && resetPage) {
+      const P = RESET_EXPLORE.find((x) => x.id === resetPage) || RESET_EXPLORE[0]
+      const capKey3 = !checkedIn ? "yellow" : pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green"
+      const sid = "reset:" + P.id
+      const Label = ({ children }) => (
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#9B6BC3", margin: "26px 0 12px" }}>{children}</div>
+      )
+      return (
+        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <span onClick={() => setResetPage(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>{"\u2039 Reset"}</span>
+            <span onClick={() => toggleSaveBloom(sid)} style={{ fontSize: 19, cursor: "pointer", color: "#C9558E", opacity: isSavedBloom(sid) ? 1 : 0.4 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
+          </div>
+          <div style={{ fontSize: 30 }}>{P.ic}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.18 }}>{P.title}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 6 }}>{P.sub}</div>
+          <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.65, marginTop: 16 }}>{P.intro}</div>
+
+          {P.steps && (<>
+            <Label>{P.id === "deep-stretch" ? "The sequence" : "How to"}</Label>
+            {P.steps.map((st, i) => (
+              <div key={i} style={{ display: "flex", gap: 13, marginBottom: 15 }}>
+                <span style={{ flexShrink: 0, width: 24, height: 24, borderRadius: "50%", background: "rgba(155,107,195,0.14)", color: "#9B6BC3", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>{i + 1}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>{st[0]}{st.length > 2 && <span style={{ fontWeight: 500, color: BASE.taupe }}> {"\u00b7"} {st[1]}</span>}</div>
+                  <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginTop: 3 }}>{st.length > 2 ? st[2] : st[1]}</div>
+                </div>
+              </div>
+            ))}
+          </>)}
+
+          {P.byCapacity && (<>
+            <Label>Ideas for today</Label>
+            {(P.byCapacity[capKey3] || P.byCapacity.yellow).map((x, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, marginBottom: 9 }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#9B6BC3", marginTop: 8, flexShrink: 0 }} />
+                <span style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.55 }}>{x}</span>
+              </div>
+            ))}
+          </>)}
+
+          {P.prompts && P.prompts.map(([grp, list]) => (
+            <div key={grp}>
+              <Label>{grp}</Label>
+              {list.map((q, i) => (
+                <div key={i} style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15.5, color: BASE.cream, lineHeight: 1.5, padding: "11px 15px", borderRadius: 13, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>{q}</div>
+              ))}
+            </div>
+          ))}
+
+          {P.techniques && (<>
+            <Label>Techniques</Label>
+            {P.techniques.map(([name, when, how], i) => (
+              <div key={i} style={{ borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "15px 17px", marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{name}</div>
+                <div style={{ fontSize: 11.5, color: "#9B6BC3", fontWeight: 600, marginTop: 3 }}>{when}</div>
+                <div style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.6, marginTop: 7 }}>{how}</div>
+              </div>
+            ))}
+          </>)}
+
+          {P.tips && (<>
+            <Label>Worth knowing</Label>
+            {P.tips.map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, marginBottom: 9 }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#9B6BC3", marginTop: 8, flexShrink: 0 }} />
+                <span style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.55 }}>{t}</span>
+              </div>
+            ))}
+          </>)}
+
+          <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", marginTop: 22 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C97BA8", marginBottom: 6 }}>A nurse's note</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.cream, lineHeight: 1.45 }}>{P.note}</div>
+          </div>
+          <div style={{ height: 30 }} />
+        </div>
+      )
+    }
+
+    // ══════════════ RESET ══════════════
+    // Suggestions are the content. They open nothing, complete nothing, track
+    // nothing. The only navigation on this page is Explore More.
+    if (tab === "bloom" && bloomPillar === "reset") {
+      const capKey2 = !checkedIn ? "yellow" : pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green"
+      const COUNT = { red: 3, yellow: 4, green: 5 }[capKey2]
+      const seedFor = (which) => {
+        const d = new Date().toISOString().slice(0, 10)
+        return resetSeed && resetSeed.d === d ? (resetSeed[which] || 0) : 0
+      }
+      const window_ = (pool, off) => {
+        const out = []
+        for (let i = 0; i < COUNT; i++) out.push(pool[(off * COUNT + i) % pool.length])
+        return out
+      }
+      const dayList = window_(RESET_DAY[capKey2], seedFor("day"))
+      const nightList = window_(RESET_NIGHT[capKey2], seedFor("night"))
+
+      const Label = ({ children }) => (
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe, textAlign: "center", opacity: 0.85 }}>{children}</div>
+      )
+      const Line = ({ s, i, section }) => {
+        const key = section + ":" + i + ":" + s.text
+        const openSongs = resetSongs === key
+        return (
+          <div style={{ marginBottom: 26 }}>
+            <div style={{ display: "flex", gap: 13, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 17, lineHeight: 1.35, flexShrink: 0 }}>{s.ic}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17.5, color: BASE.cream, lineHeight: 1.45 }}>{s.text}</div>
+                {s.extra && s.extra.kind === "songs" && (
+                  <div onClick={() => setResetSongs(openSongs ? null : key)}
+                    style={{ fontSize: 11.5, fontWeight: 700, color: "#9B6BC3", marginTop: 7, cursor: "pointer", letterSpacing: 0.2 }}>
+                    {openSongs ? "Hide" : RESET_SONGS[s.extra.mood].label} {openSongs ? "" : "\u203a"}
+                  </div>
+                )}
+                {openSongs && (
+                  <div className="fade-in" style={{ marginTop: 9 }}>
+                    {RESET_SONGS[s.extra.mood].songs.map((song, si) => (
+                      <div key={si} style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.7 }}>{song}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      }
+      const Surprise = ({ which }) => (
+        <div onClick={() => surpriseReset(which)} style={{ textAlign: "center", marginTop: 4, cursor: "pointer" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#9B6BC3", letterSpacing: 0.3 }}>{"\u2728"} Surprise me</span>
+        </div>
+      )
+
+      return (
+        <div className="fade-in" style={{ padding: "0 24px" }}>
+          <div onClick={() => setBloomPillar(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", paddingTop: 10, marginBottom: 20 }}>{"\u2039 Bloom"}</div>
+
+          <div style={{ textAlign: "center", paddingTop: 6 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: BASE.cream, lineHeight: 1.1 }}>Reset</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.taupe, marginTop: 10, lineHeight: 1.45 }}>A gentle reminder that today is enough.</div>
+          </div>
+
+          <div style={{ height: 52 }} />
+          <Label>Today's Reset</Label>
+          <div style={{ height: 20 }} />
+          {dayList.map((s, i) => <Line key={i} s={s} i={i} section="day" />)}
+          <Surprise which="day" />
+
+          <div style={{ height: 52 }} />
+          <Label>Tonight's Reset</Label>
+          <div style={{ height: 20 }} />
+          {nightList.map((s, i) => <Line key={i} s={s} i={i} section="night" />)}
+          <Surprise which="night" />
+
+          <div style={{ height: 56 }} />
+          <Label>Explore More</Label>
+          <div style={{ height: 20 }} />
+          {RESET_EXPLORE.map((P) => (
+            <div key={P.id} onClick={() => setResetPage(P.id)}
+              style={{ display: "flex", alignItems: "center", gap: 13, padding: "15px 17px", borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 10, cursor: "pointer" }}>
+              <span style={{ fontSize: 19 }}>{P.ic}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: BASE.cream }}>{P.title}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 2 }}>{P.sub}</div>
+              </div>
+              <span style={{ color: BASE.taupe, fontSize: 16 }}>{"\u203a"}</span>
+            </div>
+          ))}
+          <div style={{ height: 44 }} />
         </div>
       )
     }
@@ -560,6 +736,7 @@ export function renderBloom(ctx) {
             <div style={LABEL}>Today's invitation</div>
             <div style={{ fontSize: 28, marginTop: 16 }}>{invite.emoji}</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 26, color: BASE.cream, lineHeight: 1.4, marginTop: 10 }}>{invite.text}</div>
+            <div onClick={() => setBloomPillar("reset")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", marginTop: 18, cursor: "pointer", letterSpacing: 0.2 }}>More gentle ideas in Reset {"\u2192"}</div>
           </div>
 
         </div>
