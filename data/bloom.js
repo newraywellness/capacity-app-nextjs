@@ -885,10 +885,13 @@ export function renderBloom(ctx) {
     // ── BLOOM LANDING ────────────────────────────────────────────────────
     if (tab === "bloom") {
       const capKey = checkedIn ? (pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green") : "yellow"
-      const invites = BLOOM_INVITATIONS[capKey]
-      const invite = invites[dayIndex(invites.length)]
-      const feat = BLOOM_TRENDING[dayIndex(BLOOM_TRENDING.length)]
-      const fid = "article:" + feat.id
+      // Defensive: a partially-deployed data file should degrade, not white-screen.
+      const invites = (BLOOM_INVITATIONS && BLOOM_INVITATIONS[capKey]) || []
+      const inviteRaw = invites.length ? invites[dayIndex(invites.length)] : null
+      const invite = inviteRaw && typeof inviteRaw === "object" ? inviteRaw : { emoji: "\ud83e\udd0d", text: inviteRaw || "Be gentle with yourself today." }
+      const trending = Array.isArray(BLOOM_TRENDING) ? BLOOM_TRENDING : []
+      const feat = trending.length ? trending[dayIndex(trending.length)] : null
+      const fid = feat ? "article:" + feat.id : ""
       const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
 
       return (
@@ -904,7 +907,7 @@ export function renderBloom(ctx) {
           <div style={{ height: 44 }} />
           <div style={{ ...LABEL, textAlign: "center" }}>Trending</div>
           <div style={{ height: 16 }} />
-          <div onClick={() => setBloomArticle(feat)} style={{ borderRadius: 22, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "22px 22px 20px", cursor: "pointer", position: "relative", overflow: "hidden" }}>
+          {feat && <div onClick={() => setBloomArticle(feat)} style={{ borderRadius: 22, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "22px 22px 20px", cursor: "pointer", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -14, right: -8, fontSize: 78, opacity: 0.08 }}>{feat.ic}</div>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", position: "relative" }}>
               <span style={{ fontSize: 26, lineHeight: 1 }}>{feat.ic}</span>
@@ -913,11 +916,11 @@ export function renderBloom(ctx) {
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 12, lineHeight: 1.18, position: "relative" }}>{feat.title}</div>
             <div style={{ fontSize: 14.5, color: BASE.taupe, lineHeight: 1.6, marginTop: 10, position: "relative" }}>{feat.desc}</div>
             <div style={{ fontSize: 14.5, fontWeight: 800, letterSpacing: 0.4, color: "#C9558E", marginTop: 16, position: "relative" }}>Read {"\u203a"}</div>
-          </div>
+          </div>}
 
           {/* ── three pillars · stacked, so a fourth can join later ── */}
           <div style={{ height: 48 }} />
-          {BLOOM_PILLARS.map((P, i) => (
+          {(BLOOM_PILLARS || []).map((P, i) => (
             <div key={P.key} onClick={() => setBloomPillar(P.key)} style={{ display: "flex", alignItems: "center", gap: 16, borderRadius: 20, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 20px", cursor: "pointer", marginBottom: i < BLOOM_PILLARS.length - 1 ? 12 : 0, minHeight: 84 }}>
               <span style={{ fontSize: 26, lineHeight: 1 }}>{P.ic}</span>
               <div style={{ flex: 1 }}>
