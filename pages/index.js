@@ -78,7 +78,7 @@ export default function App() {
   // Which month "This Month" is showing. Independent from capMonth (the
   // Capacity calendar's own range control) so paging one doesn't move the other.
   const [reviewMonth, setReviewMonth] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
-  const [capRange, setCapRange] = useState("month")
+  const [capRange, setCapRange] = useState("week") // "This Week" is the section's default snapshot, not the calendar month
   const [capMonth, setCapMonth] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
   const [capDay, setCapDay] = useState(null)
   const [moreView, setMoreView] = useState("menu")
