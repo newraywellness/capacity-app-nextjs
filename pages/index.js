@@ -1,22 +1,22 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Head from 'next/head'
-import { CYCLEPREF, EQUIP, HOPES, LEVELS, QUOTES, SEASONS, SHARE_LEVELS } from '../data/checkin'
-import { PHASE_ORDER, computeCycle } from '../data/cycle'
-import { STARTER_FOODS, gramsFor, mealAsFood, r1 } from '../data/nourish'
-import { WO_TYPES } from '../data/train'
-import { db } from '../lib/supabase'
-import { BASE, ENV, THEMES, colorFromPct, dayIndex } from '../lib/theme'
-import { Sky, Garden } from '../lib/atmosphere'
-import { NourishAir, HerbGarden, NOURISH_BG } from '../lib/herbs'
-import { BloomAir, BloomAccents, BloomScene, BLOOM_BG } from '../lib/bloomair'
-import { CycleAir, CYCLE_BG } from '../lib/cycleair'
-import { renderHome } from '../views/home'
-import { renderTrain } from '../views/train'
-import { renderCycle } from '../views/cycle'
-import { renderNourish } from '../views/nourish'
-import { renderBloom } from '../views/bloom'
-import { renderProgress } from '../views/progress'
-import { renderMore } from '../views/more'
+import { CYCLEPREF, EQUIP, HOPES, LEVELS, QUOTES, SEASONS, SHARE_LEVELS } from '../data/checkin.js'
+import { PHASE_ORDER, computeCycle } from '../data/cycle.js'
+import { STARTER_FOODS, gramsFor, mealAsFood, r1 } from '../data/nourish.js'
+import { WO_TYPES } from '../data/train.js'
+import { db } from '../lib/supabase.js'
+import { BASE, ENV, THEMES, colorFromPct, dayIndex } from '../lib/theme.js'
+import { Sky, Garden } from '../lib/atmosphere.js'
+import { NourishAir, HerbGarden, NOURISH_BG } from '../lib/herbs.js'
+import { BloomAir, BloomAccents, BloomScene, BLOOM_BG } from '../lib/bloomair.js'
+import { CycleAir, CYCLE_BG } from '../lib/cycleair.js'
+import { renderHome } from '../views/home.js'
+import { renderTrain } from '../views/train.js'
+import { renderCycle } from '../views/cycle.js'
+import { renderNourish } from '../views/nourish.js'
+import { renderBloom } from '../views/bloom.js'
+import { renderProgress } from '../views/progress.js'
+import { renderMore } from '../views/more.js'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -623,7 +623,10 @@ export default function App() {
       input[type=range] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; outline: none; }
       input[type=range]::-webkit-slider-runnable-track { -webkit-appearance: none; height: 6px; border-radius: 999px; background: transparent; border: none; }
       input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: transparent; border: none; }
-      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
+      /* Once ::-webkit-slider-runnable-track has an explicit height, WebKit aligns
+         the thumb to the TOP of the track instead of centring it. Offset by half
+         the difference: (6px track - 26px thumb) / 2 = -10px. */
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); margin-top: -10px; }
       input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid var(--accent, #D08560); }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
       @keyframes breathe { 0%,100% { opacity: .9; } 50% { opacity: 1; } }
