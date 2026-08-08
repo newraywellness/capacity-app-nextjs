@@ -2,6 +2,11 @@
 // An editorial story of the user's growth — not an analytics dashboard.
 // All computation lives in data/progress.js; this file is presentation only.
 // Numbers are evidence. The interpreted sentence beneath them is the product.
+//
+// Five chapters, each opened by the same eyebrow-number / large-title /
+// italic-subtitle treatment, with generous whitespace so every section reads
+// as "I've entered a new part of Progress" while scrolling continuously —
+// nothing here is hidden behind a tap, an accordion, or a card grid.
 
 import { PHASES } from '../data/cycle.js'
 import { WO_TYPES, PROG_BY_ID } from '../data/train.js'
@@ -16,16 +21,19 @@ export function renderProgress(ctx) {
   const dowShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
   const monthName = (y, m) => new Date(y, m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })
 
-  // A quiet section header. Numbered per the editorial structure, never styled
-  // as a card — headings and rules only.
+  // ── the chapter opener ──────────────────────────────────────────────────
+  // Small eyebrow number, a substantially larger serif title, an italic
+  // subtitle, then a hairline and real air before the section's own content.
+  // The 72px lead-in (plus whatever whitespace already sits between the last
+  // section's content and here) is what makes each chapter feel distinct —
+  // and it's exactly where the watercolor stars in lib/progressair.js get
+  // room to show through, unchanged and untouched by this file.
   const Section = ({ n, title, sub, children }) => (
-    <div style={{ marginTop: 50 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: BASE.taupe }}>{n}</span>
-        <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, color: BASE.cream }}>{title}</span>
-      </div>
-      {sub && <div style={{ fontSize: 12.5, color: BASE.taupe, fontStyle: "italic", marginTop: 3 }}>{sub}</div>}
-      <div style={{ height: 1, background: BASE.border, marginTop: 14, marginBottom: 20 }} />
+    <div style={{ marginTop: 72 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 3, color: BASE.taupe }}>{n}</div>
+      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 36, fontWeight: 600, color: BASE.cream, lineHeight: 1.08, marginTop: 8 }}>{title}</div>
+      {sub && <div style={{ fontSize: 14, color: BASE.taupe, fontStyle: "italic", marginTop: 7, lineHeight: 1.4 }}>{sub}</div>}
+      <div style={{ height: 1, background: BASE.border, marginTop: 26, marginBottom: 30 }} />
       {children}
     </div>
   )
@@ -60,7 +68,7 @@ export function renderProgress(ctx) {
     )
   }
 
-  // ═══════════════════════════ 01 · CAPACITY ═══════════════════════════
+  // ═══════════════════════════ 01 · THIS WEEK ═══════════════════════════
   const RangeTabs = () => (
     <div style={{ display: "flex", gap: 6, padding: 4, background: BASE.surface, borderRadius: 999, border: `1px solid ${BASE.border}`, marginBottom: 18 }}>
       {[["week", "Week"], ["month", "Month"], ["3months", "3 Mo"], ["year", "Year"]].map(([k, lbl]) => (
@@ -218,6 +226,16 @@ export function renderProgress(ctx) {
     )
   }
 
+  // Only the strongest 1–2 observations, in priority order — momentum (the
+  // freshest signal) first, then weekday patterns, then recovery-tag
+  // correlation. These arrays are unfiltered real output from data/progress.js;
+  // this is presentation-only selection, never new analysis.
+  const weekInsights = [
+    progress.momentum && { text: progress.momentum.msg, color: "#A87BD1" },
+    ...(progress.weekly || []).map((w) => ({ text: w, color: "#C9558E" })),
+    ...(progress.recoveryPatterns || []).map((w) => ({ text: w, color: "#7FA054" })),
+  ].filter(Boolean).slice(0, 2)
+
   // ═══════════════════════════ 03 · RHYTHM ═══════════════════════════
   const RhythmRows = () => {
     const cp = progress.cyclePhase
@@ -249,6 +267,14 @@ export function renderProgress(ctx) {
   const canGoOlder = idx >= 0 && idx < progress.pastMonths.length - 1
   const canGoNewer = idx > 0
   const review = progress.monthReview(reviewMonth.y, reviewMonth.m)
+  const checkinsThisMonth = review.hasData ? review.counts.green + review.counts.yellow + review.counts.red + review.counts.recovery : 0
+
+  const MiniStat = ({ value, label }) => (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 600, color: BASE.cream }}>{value}</div>
+      <div style={{ fontSize: 10, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>{label}</div>
+    </div>
+  )
 
   return (
     <div className="fade-in" style={{ padding: "10px 22px 60px" }}>
@@ -266,8 +292,8 @@ export function renderProgress(ctx) {
         </div>
       ) : (
         <>
-          {/* ═══ 01 CAPACITY ═══ */}
-          <Section n="01" title="Capacity" sub="Patterns, not pressure.">
+          {/* ═══ 01 THIS WEEK ═══ */}
+          <Section n="01" title="This Week" sub="Your capacity at a glance.">
             <RangeTabs />
             {capData.hasData && <Sparkline series={capData.series} />}
             {capRange === "week" && <WeekStrip />}
@@ -286,10 +312,9 @@ export function renderProgress(ctx) {
               </>
             ) : <Empty>No check-ins logged in this range yet.</Empty>}
 
-            {progress.momentum && <Insight color="#A87BD1">{progress.momentum.msg}</Insight>}
-            {progress.weekly && progress.weekly.map((w, i) => <Insight key={i}>{w}</Insight>)}
-            {progress.recoveryPatterns && progress.recoveryPatterns.map((w, i) => <Insight key={i} color="#7FA054">{w}</Insight>)}
-            {!progress.momentum && !progress.weekly && !progress.recoveryPatterns && (
+            {weekInsights.length ? (
+              weekInsights.map((w, i) => <Insight key={i} color={w.color}>{w.text}</Insight>)
+            ) : (
               <Empty>Keep checking in — patterns need a little more time to show themselves honestly.</Empty>
             )}
           </Section>
@@ -335,7 +360,7 @@ export function renderProgress(ctx) {
                 {progress.movement.consistency && progress.movement.consistency.msg && <Insight color="#9B6BC3">{progress.movement.consistency.msg}</Insight>}
 
                 <div style={{ marginTop: 16 }}>
-                  {progress.movement.sessions.slice(0, 6).map((w, i) => (
+                  {progress.movement.sessions.slice(0, 3).map((w, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: i === 0 ? "none" : `0.5px solid ${BASE.border}` }}>
                       <span style={{ width: 9, height: 9, borderRadius: "50%", background: THEMES[w.color] ? THEMES[w.color].accent : BASE.terracotta, flexShrink: 0 }} />
                       <div style={{ flex: 1 }}>
@@ -344,19 +369,19 @@ export function renderProgress(ctx) {
                       </div>
                     </div>
                   ))}
-                  {progress.movement.sessions.length > 6 && <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", marginTop: 8 }}>Showing your 6 most recent · {progress.movement.sessions.length} total</div>}
+                  {progress.movement.sessions.length > 3 && <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", marginTop: 8 }}>Showing your 3 most recent · {progress.movement.sessions.length} total</div>}
                 </div>
               </>
             ) : <Empty>Finish a workout in the Body tab and it will show up here.</Empty>}
 
             {/* Architected for when Move begins tracking load — quiet, not a dead end. */}
             <div style={{ marginTop: 22, paddingTop: 16, borderTop: `0.5px solid ${BASE.border}` }}>
-              <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.55 }}>As strength progression and personal records become part of Move, they'll take shape here too.</div>
+              <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.55 }}>As strength progression, personal records, and completed programs become part of Move, they'll take shape here too.</div>
             </div>
           </Section>
 
           {/* ═══ 03 YOUR RHYTHM ═══ */}
-          <Section n="03" title="Your Rhythm" sub="Where cycle, capacity, and movement start to connect.">
+          <Section n="03" title="Your Rhythm" sub="Where your cycle, capacity, and movement start to connect.">
             {!cycleLength || !lastPeriod ? (
               <Empty>Turn on cycle tracking in the Body tab to begin seeing how your capacity moves through your cycle.</Empty>
             ) : progress.cyclePhase.ready ? (
@@ -370,23 +395,23 @@ export function renderProgress(ctx) {
           </Section>
 
           {/* ═══ 04 THIS MONTH ═══ */}
-          <Section n="04" title="This Month">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <Section n="04" title="This Month" sub="Your month at a glance.">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
               <span onClick={() => canGoOlder && setReviewMonth({ y: progress.pastMonths[idx + 1].y, m: progress.pastMonths[idx + 1].m })} style={{ fontSize: 17, color: canGoOlder ? BASE.creamDim : BASE.border, cursor: canGoOlder ? "pointer" : "default", padding: "0 6px" }}>{"\u2039"}</span>
               <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: BASE.cream }}>{review.monthLabel}</span>
               <span onClick={() => canGoNewer && setReviewMonth({ y: progress.pastMonths[idx - 1].y, m: progress.pastMonths[idx - 1].m })} style={{ fontSize: 17, color: canGoNewer ? BASE.creamDim : BASE.border, cursor: canGoNewer ? "pointer" : "default", padding: "0 6px" }}>{"\u203a"}</span>
             </div>
             {review.hasData ? (
-              <div style={{ borderRadius: 18, background: `linear-gradient(160deg, ${BASE.surface}, ${BASE.bg2})`, border: `1px solid ${BASE.border}`, padding: "22px 20px" }}>
-                <div style={{ textAlign: "center", marginBottom: 18 }}>
-                  <div style={{ fontSize: 11, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1 }}>Average capacity</div>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontWeight: 600, color: THEMES[colorFromPct(review.avg)].accent, lineHeight: 1.1 }}>{review.avg}%</div>
+              <>
+                <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 24 }}>
+                  <MiniStat value={checkinsThisMonth} label={checkinsThisMonth === 1 ? "Check-in" : "Check-ins"} />
+                  {review.workoutsCount > 0 && <MiniStat value={review.workoutsCount} label={review.workoutsCount === 1 ? "Workout" : "Workouts"} />}
+                  <MiniStat value={review.avg + "%"} label="Avg Capacity" />
                 </div>
-                <Distribution counts={review.counts} />
-                <div style={{ marginTop: 14 }}>
-                  {review.bullets.map((b, i) => <div key={i} style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65, marginBottom: 8 }}>{"\u2022  "}{b}</div>)}
-                </div>
-              </div>
+                {review.bullets.slice(0, 3).map((b, i) => (
+                  <div key={i} style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65, marginBottom: 10 }}>{"\u2022  "}{b}</div>
+                ))}
+              </>
             ) : <Empty>No check-ins logged this month yet.</Empty>}
           </Section>
 
@@ -394,9 +419,9 @@ export function renderProgress(ctx) {
           <Section n="05" title="Wins" sub="Real growth, quietly noticed.">
             {progress.wins.length ? (
               progress.wins.map((w) => (
-                <div key={w.id} style={{ marginBottom: 20 }}>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, color: BASE.cream, marginBottom: 4 }}>{w.title}</div>
-                  <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.6 }}>{w.body}</div>
+                <div key={w.id} style={{ marginBottom: 44 }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: BASE.cream, marginBottom: 6 }}>{w.title}</div>
+                  <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.65 }}>{w.body}</div>
                 </div>
               ))
             ) : (
