@@ -94,26 +94,42 @@ function cyclePhaseCapacity(history, cycleLength, lastPeriod, effCycleLength) {
   if (!cycleLength || !lastPeriod) return { ready: false, reason: "no-cycle" }
   if (!history.length) return { ready: false, reason: "no-checkins" }
   const L = effCycleLength || cycleLength
-  const buckets = { menstrual: { n: 0, sum: 0 }, follicular: { n: 0, sum: 0 }, ovulation: { n: 0, sum: 0 }, luteal: { n: 0, sum: 0 } }
+
+  // Build buckets FROM PHASE_ORDER itself rather than a hard-coded key list,
+  // so this can never silently drift out of sync with data/cycle.js. Any
+  // phase name PHASE_ORDER lists but PHASES doesn't recognise is dropped here
+  // — once, at the source — rather than causing an unguarded read anywhere
+  // downstream. buildProgress() runs on every app render, not only while
+  // Progress is open, so nothing in this function may ever throw.
+  const safePhases = PHASE_ORDER.filter((p) => PHASES && PHASES[p])
+  if (!safePhases.length) return { ready: false, reason: "no-cycle" }
+
+  const buckets = {}
+  safePhases.forEach((p) => { buckets[p] = { n: 0, sum: 0 } })
+
   history.forEach((d) => {
     const c = computeCycle(L, lastPeriod, d.date)
-    if (!c || !buckets[c.phase]) return
+    if (!c || !buckets[c.phase]) return // unrecognised/foreign phase key — skip, never throw
     buckets[c.phase].n++; buckets[c.phase].sum += d.pct
   })
-  const withEnough = PHASE_ORDER.filter((p) => buckets[p].n >= PHASE_MIN)
-  const rows = PHASE_ORDER.map((p) => ({ phase: p, n: buckets[p].n, enough: buckets[p].n >= PHASE_MIN, avg: buckets[p].n ? round(buckets[p].sum / buckets[p].n) : null }))
+
+  const avgOf = (p) => (buckets[p] && buckets[p].n ? round(buckets[p].sum / buckets[p].n) : null)
+  const withEnough = safePhases.filter((p) => buckets[p].n >= PHASE_MIN)
+  const rows = safePhases.map((p) => ({ phase: p, n: buckets[p].n, enough: buckets[p].n >= PHASE_MIN, avg: avgOf(p) }))
   if (!withEnough.length) return { ready: false, reason: "not-enough", rows }
+
   let summary = null, bestPhase = null, worstPhase = null
   if (withEnough.length >= 2) {
-    const ranked = [...withEnough].sort((a, b) => (buckets[b].sum / buckets[b].n) - (buckets[a].sum / buckets[a].n))
+    const ranked = [...withEnough].sort((a, b) => (avgOf(b) || 0) - (avgOf(a) || 0))
     bestPhase = ranked[0]; worstPhase = ranked[ranked.length - 1]
-    if (buckets[bestPhase].n && round(buckets[bestPhase].sum / buckets[bestPhase].n) !== round(buckets[worstPhase].sum / buckets[worstPhase].n)) {
+    const bestAvg = avgOf(bestPhase), worstAvg = avgOf(worstPhase)
+    if (bestAvg != null && worstAvg != null && bestAvg !== worstAvg && PHASES[bestPhase] && PHASES[worstPhase]) {
       summary = `Your capacity has tended to run highest during your ${PHASES[bestPhase].name.toLowerCase()} phase and lowest during your ${PHASES[worstPhase].name.toLowerCase()} phase.`
     }
   } else {
     bestPhase = withEnough[0]
   }
-  return { ready: true, rows, summary, bestPhase, worstPhase, allFour: withEnough.length === 4, phasesTracked: withEnough.length }
+  return { ready: true, rows, summary, bestPhase, worstPhase, allFour: withEnough.length === PHASE_ORDER.length, phasesTracked: withEnough.length }
 }
 
 // ── DATE LOOKUPS (for the calendar + day-detail card) ────────────────────────
