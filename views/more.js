@@ -1,28 +1,45 @@
-import { CYCLEPREF, EQUIP, HOPES, LEVELS, SEASONS, SHARE_LEVELS, SHARE_NEED, SHARE_TRUE, ShopItems } from '../data/checkin'
-import { db } from '../lib/supabase'
-import { BASE, THEMES } from '../lib/theme'
-import { BLOOM_PILLARS, BLOOM_TRENDING } from '../data/bloom'
+import { CYCLEPREF, EQUIP, HOPES, LEVELS, SEASONS, SHARE_LEVELS, SHARE_NEED, SHARE_TRUE, ShopItems } from '../data/checkin.js'
+import { db } from '../lib/supabase.js'
+import { BASE, THEMES } from '../lib/theme.js'
+import { BLOOM_PILLARS, BLOOM_TRENDING } from '../data/bloom.js'
 
 export function renderMore(ctx) {
   const { Chips, Label, T, cycleNow, editLife, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, savedBloom, setBloomArticle, setBodyView, setEditCycle, setEditLife, setFirstName, setLifeMsg, setMoreView, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
     if (tab === "more" && moreView === "menu") {
       const nm = (setupData && setupData.name) || "friend"
       const season = (setupData && setupData.season) || "Your season"
-      const Row = ({ label, onClick, chevron = true }) => (
-        <div onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 16px", cursor: "pointer", borderBottom: `1px solid ${BASE.border}` }}>
-          <span style={{ fontSize: 14, color: BASE.cream, fontWeight: 500 }}>{label}</span>
-          {chevron && <span style={{ color: BASE.taupe, fontSize: 16 }}>{"›"}</span>}
+
+      // Every prop here is optional and defaults to the original single-line
+      // look, so existing call sites needed no changes — only the four rows
+      // that now carry a subtitle/icon/extra breathing room opt into them.
+      const Row = ({ label, sub, icon, onClick, muted, spacious }) => (
+        <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", padding: spacious ? "17px 16px" : "15px 16px", cursor: "pointer", borderBottom: `1px solid ${BASE.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+            {icon && <span style={{ fontSize: 17, flexShrink: 0 }}>{icon}</span>}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: muted ? 13 : 14, color: muted ? BASE.taupe : BASE.cream, fontWeight: muted ? 500 : 600 }}>{label}</div>
+              {sub && <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2, lineHeight: 1.35 }}>{sub}</div>}
+            </div>
+          </div>
+          <span style={{ color: BASE.taupe, fontSize: 16, flexShrink: 0 }}>{"›"}</span>
         </div>
       )
-      const Group = ({ title, children }) => (
-        <div style={{ marginBottom: 20 }}>
+      const Group = ({ title, children, spacious }) => (
+        <div style={{ marginBottom: spacious ? 24 : 20 }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, margin: "0 4px 8px" }}>{title}</div>
           <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, overflow: "hidden" }}>{children}</div>
         </div>
       )
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
-          <div onClick={() => setMoreView("mylife")} style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, borderRadius: 20, background: "linear-gradient(135deg,#E984B4,#A87BD1)", cursor: "pointer", marginBottom: 22, boxShadow: "0 10px 26px rgba(168,123,209,0.3)" }}>
+          {/* ── editorial page header ── */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 600, color: BASE.cream, lineHeight: 1.1 }}>More</div>
+            <div style={{ fontSize: 13, color: BASE.taupe, marginTop: 3, fontStyle: "italic" }}>Your space, your way.</div>
+          </div>
+
+          {/* ── MY LIFE — the one gradient element, representing her rather than a setting ── */}
+          <div onClick={() => setMoreView("mylife")} style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, borderRadius: 20, background: "linear-gradient(135deg,#E984B4,#A87BD1)", cursor: "pointer", marginBottom: 26, boxShadow: "0 10px 26px rgba(168,123,209,0.3)" }}>
             <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: "#fff" }}>{nm[0] ? nm[0].toUpperCase() : "🌸"}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.85)", textTransform: "uppercase" }}>{"🌸"} My Life</div>
@@ -32,26 +49,37 @@ export function renderMore(ctx) {
             <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 20 }}>{"›"}</span>
           </div>
 
-          <Group title="Wellness">
-            <Row label="Capacity reminders" onClick={() => setMoreView("mylife")} />
-            <Row label="Workout reminders" onClick={() => setMoreView("mylife")} />
-            <Row label="Cycle settings" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setTab("body"); setBodyView("cycle"); setEditCycle(true) }} />
+          {/* ── MY WELLNESS — elevated labels over the same existing destinations.
+              "Capacity reminders" and "Workout reminders" both currently open the
+              My Life editor (there's no dedicated reminders screen yet) — that
+              exact handler is preserved rather than invented around. ── */}
+          <Group title="My Wellness">
+            <Row label="My Capacity" sub="Check-ins & reminders" onClick={() => setMoreView("mylife")} />
+            <Row label="My Cycle" sub="Cycle tracking & preferences" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setTab("body"); setBodyView("cycle"); setEditCycle(true) }} />
+            <Row label="My Movement" sub="Workout reminders & preferences" onClick={() => setMoreView("mylife")} />
           </Group>
-          <Group title="True Reverie">
-            <Row label="Saved Ideas" onClick={() => setMoreView("saved")} />
-            <Row label="Share with a partner" onClick={() => setMoreView("share")} />
-            <Row label="Shop" onClick={() => setMoreView("shop")} />
-            <Row label="The Capacity Method" onClick={() => setMoreView("about")} />
+
+          {/* ── TRUE REVERIE — the ecosystem. Slightly more air, small icons. ── */}
+          <Group title="True Reverie" spacious>
+            <Row icon="♡" label="Saved Ideas" sub="Everything you've kept, in one place." onClick={() => setMoreView("saved")} spacious />
+            <Row icon="✦" label="The Capacity Method" sub="Understand the method behind your days." onClick={() => setMoreView("about")} spacious />
+            <Row icon="💌" label="Share with a partner" sub="Send them your capacity check-in." onClick={() => setMoreView("share")} spacious />
+            <Row icon="🛍" label="Shop" sub="Wearable reminders from True Reverie." onClick={() => setMoreView("shop")} spacious />
           </Group>
-          <Group title="Preferences">
-            <Row label="Morning greeting" onClick={() => setMoreView("mylife")} />
-            <Row label="Motion & sound" onClick={() => setMoreView("mylife")} />
-            <Row label="Theme" onClick={() => setMoreView("mylife")} />
+
+          {/* ── APP SETTINGS — deliberately recedes: muted color, no subtitles. ── */}
+          <Group title="App Settings">
+            <Row label="Morning greeting" muted onClick={() => setMoreView("mylife")} />
+            <Row label="Motion & sound" muted onClick={() => setMoreView("mylife")} />
+            <Row label="Theme" muted onClick={() => setMoreView("mylife")} />
           </Group>
-          <Group title="Support">
-            <Row label="Contact & feedback" onClick={() => setMoreView("about")} />
-            <Row label="Privacy & terms" onClick={() => setMoreView("about")} />
+
+          {/* ── HELP & LEGAL ── */}
+          <Group title="Help & Legal">
+            <Row label="Contact & feedback" muted onClick={() => setMoreView("about")} />
+            <Row label="Privacy & terms" muted onClick={() => setMoreView("about")} />
           </Group>
+
           <button onClick={handleLogout} style={{ width: "100%", padding: 14, borderRadius: 14, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Log Out</button>
         </div>
       )
