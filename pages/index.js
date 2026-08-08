@@ -11,6 +11,7 @@ import { Sky, Garden } from '../lib/atmosphere.js'
 import { NourishAir, HerbGarden, NOURISH_BG } from '../lib/herbs.js'
 import { BloomAir, BloomAccents, BloomScene, BLOOM_BG } from '../lib/bloomair.js'
 import { CycleAir, CYCLE_BG } from '../lib/cycleair.js'
+import { ProgressAir, PROGRESS_BG } from '../lib/progressair.js'
 import { renderHome } from '../views/home.js'
 import { renderTrain } from '../views/train.js'
 import { renderCycle } from '../views/cycle.js'
@@ -980,7 +981,7 @@ export default function App() {
 
   return (
     <><Fonts /><GlobalStyle />
-      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG(envRoot.mode) : (tab === "body" && bodyView === "cycle" ? CYCLE_BG(cycleNow && cycleNow.phase) : BASE.bg))), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
+      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG(envRoot.mode) : (tab === "body" && bodyView === "cycle" ? CYCLE_BG(cycleNow && cycleNow.phase) : (tab === "progress" ? PROGRESS_BG() : BASE.bg)))), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
         {tab === "today" && <Sky mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "today" && <Garden mode={envRoot.mode} />}
         {tab === "body" && bodyView === "nourish" && <NourishAir mode={envRoot.mode} tint={envRoot.tint} />}
@@ -989,6 +990,7 @@ export default function App() {
         {tab === "bloom" && !bloomCard && !bloomArticle && !bloomPillar && <BloomAccents mode={envRoot.mode} />}
         {tab === "bloom" && <BloomScene mode={envRoot.mode} subtle={!!bloomCard || !!bloomArticle || !!bloomPillar || !!glowTopic} />}
         {tab === "body" && bodyView === "cycle" && <CycleAir phase={cycleNow && cycleNow.phase} />}
+        {tab === "progress" && <ProgressAir />}
         <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
             <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
