@@ -4,6 +4,7 @@ import { CYCLEPREF, EQUIP, HOPES, LEVELS, QUOTES, SEASONS, SHARE_LEVELS } from '
 import { PHASE_ORDER, computeCycle } from '../data/cycle.js'
 import { STARTER_FOODS, gramsFor, mealAsFood, r1 } from '../data/nourish.js'
 import { WO_TYPES } from '../data/train.js'
+import { buildProgress } from '../data/progress.js'
 import { db } from '../lib/supabase.js'
 import { BASE, ENV, THEMES, colorFromPct, dayIndex } from '../lib/theme.js'
 import { Sky, Garden } from '../lib/atmosphere.js'
@@ -71,7 +72,11 @@ export default function App() {
   const [selectedWoKey, setSelectedWoKey] = useState(null)
   const [woLogged, setWoLogged] = useState(false)
   const [bodyView, setBodyView] = useState("gym")
-  const [progressView, setProgressView] = useState("trends")
+  const [progressView, setProgressView] = useState("trends") // kept as a call target for Train's "History" button
+
+  // Which month "This Month" is showing. Independent from capMonth (the
+  // Capacity calendar's own range control) so paging one doesn't move the other.
+  const [reviewMonth, setReviewMonth] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
   const [capRange, setCapRange] = useState("month")
   const [capMonth, setCapMonth] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
   const [capDay, setCapDay] = useState(null)
@@ -962,254 +967,14 @@ export default function App() {
     )
   }
 
-  // ---- analytics over history ----
-  const topOf = (rows, key) => {
-    const tally = {}
-    rows.forEach((r) => (r[key] || []).forEach((v) => { tally[v] = (tally[v] || 0) + 1 }))
-    const arr = Object.entries(tally).sort((a, b) => b[1] - a[1])
-    return arr.length ? arr[0][0] : null
-  }
-
-  const stats = (() => {
-    if (!history.length) return null
-    const counts = { red: 0, yellow: 0, green: 0 }
-    let sum = 0
-    history.forEach((d) => { counts[d.color]++; sum += d.pct })
-    return { counts, avg: Math.round(sum / history.length), top: Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] }
-  })()
-
-  // capacity average per cycle phase (needs cycle set + history)
-  const phaseAverages = (() => {
-    if (!cycleLength || !lastPeriod || !history.length) return null
-    const buckets = { menstrual: [], follicular: [], ovulation: [], luteal: [] }
-    history.forEach((d) => {
-      const c = computeCycle(effCycleLength, lastPeriod, d.date)
-      if (c) buckets[c.phase].push(d.pct)
-    })
-    const out = {}
-    let any = false
-    PHASE_ORDER.forEach((p) => {
-      if (buckets[p].length) { out[p] = Math.round(buckets[p].reduce((a, b) => a + b, 0) / buckets[p].length); any = true }
-      else out[p] = null
-    })
-    return any ? out : null
-  })()
-
-  // monthly capacity report (current calendar month)
-  const report = (() => {
-    if (!history.length) return null
-    const now = new Date()
-    const m = now.getMonth(), y = now.getFullYear()
-    const rows = history.filter((d) => d.date.getMonth() === m && d.date.getFullYear() === y)
-    if (!rows.length) return { empty: true, monthName: now.toLocaleDateString("en-US", { month: "long" }) }
-    const counts = { red: 0, yellow: 0, green: 0 }
-    let sum = 0
-    rows.forEach((d) => { counts[d.color]++; sum += d.pct })
-    const avg = Math.round(sum / rows.length)
-    const redRows = rows.filter((d) => d.color === "red")
-    const greenRows = rows.filter((d) => d.color === "green")
-    const trigger = topOf(redRows.length ? redRows : rows, "factors")
-    const recovery = topOf(greenRows.length ? greenRows : rows, "supports")
-    let bestPhase = null
-    if (phaseAverages) {
-      const ranked = PHASE_ORDER.filter((p) => phaseAverages[p] != null).sort((a, b) => phaseAverages[b] - phaseAverages[a])
-      if (ranked.length) bestPhase = ranked[0]
-    }
-    const reminder = counts.green >= counts.red
-      ? "You had at least as many Green Days as Red this month — your patterns are leaning steadier. That's worth noticing."
-      : "Red Days outnumbered Green this month. That's information, not failure — it shows where your system needed more support."
-    return { empty: false, monthName: now.toLocaleDateString("en-US", { month: "long" }), avg, counts, trigger, recovery, bestPhase, days: rows.length }
-  })()
-
-
-  // ============ PROGRESS DASHBOARD ANALYTICS ============
-  // All derived from real check-in history and workout log. Observational, never prescriptive.
-  const progressData = (() => {
-    const H = [...history].filter((d) => d.dateISO && typeof d.pct === "number").sort((a, b) => (a.dateISO < b.dateISO ? -1 : 1))
-    const todayISO = new Date().toISOString().slice(0, 10)
-    const tierOf = (d) => (d.pct < 15 ? "recovery" : d.color)
-    // Recovery-day count (below 15%)
-    const recoveryDays = H.filter((d) => d.pct < 15).length
-    // ---- Capacity momentum: compare last ~14 days vs the prior ~14 days ----
-    const momentum = (() => {
-      if (H.length < 6) return null
-      const recent = H.slice(-14), prior = H.slice(-28, -14)
-      if (!recent.length || prior.length < 3) return null
-      const avg = (arr) => arr.reduce((s, d) => s + d.pct, 0) / arr.length
-      const rAvg = avg(recent), pAvg = avg(prior)
-      const delta = Math.round(rAvg - pAvg)
-      if (delta >= 5) return { dir: "up", icon: "⬆️", delta, msg: "Your average capacity has gradually increased over recent weeks. Whatever you've been doing, it's supporting you." }
-      if (delta <= -5) return { dir: "down", icon: "⬇️", delta, msg: "Your capacity has dipped recently. Recovery may deserve a little extra attention — and that's a wise thing to give it." }
-      return { dir: "steady", icon: "➡️", delta, msg: "Your capacity has stayed relatively steady lately. Steady is its own kind of progress." }
-    })()
-    // ---- Weekly patterns: average capacity by day of week ----
-    const weekly = (() => {
-      if (H.length < 10) return null
-      const days = [[], [], [], [], [], [], []] // Sun..Sat
-      H.forEach((d) => { const wd = new Date(d.dateISO + "T12:00:00").getDay(); days[wd].push(d.pct) })
-      const named = days.map((arr, i) => ({ i, n: arr.length, avg: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null }))
-      const eligible = named.filter((x) => x.n >= 2)
-      if (eligible.length < 4) return null
-      const DOW = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"]
-      const hi = [...eligible].sort((a, b) => b.avg - a.avg)[0]
-      const lo = [...eligible].sort((a, b) => a.avg - b.avg)[0]
-      const out = []
-      if (hi && hi.avg != null) out.push(`Your capacity has tended to be highest on ${DOW[hi.i]}.`)
-      if (lo && lo.i !== hi.i) out.push(`${DOW[lo.i]} have often been a lower-capacity time for you.`)
-      return out.length ? out : null
-    })()
-    // ---- Recovery patterns: which supports precede higher-capacity days ----
-    const recoveryPatterns = (() => {
-      if (H.length < 8) return null
-      const greenRows = H.filter((d) => d.color === "green")
-      if (greenRows.length < 3) return null
-      // supports most commonly logged ON green days
-      const supTally = {}
-      greenRows.forEach((d) => (d.supports || []).forEach((s) => { supTally[s] = (supTally[s] || 0) + 1 }))
-      const topSup = Object.entries(supTally).sort((a, b) => b[1] - a[1])[0]
-      // factor most commonly logged on red days
-      const redRows = H.filter((d) => d.color === "red")
-      const facTally = {}
-      redRows.forEach((d) => (d.factors || []).forEach((f) => { facTally[f] = (facTally[f] || 0) + 1 }))
-      const topFac = Object.entries(facTally).sort((a, b) => b[1] - a[1])[0]
-      const out = []
-      if (topSup && topSup[1] >= 2) out.push(`"${topSup[0]}" is commonly present around your Green Days.`)
-      if (topFac && topFac[1] >= 2) out.push(`"${topFac[0]}" has often shown up on your lower-capacity days.`)
-      return out.length ? out : null
-    })()
-    // ---- Movement stats ----
-    const totalWorkouts = woLog.length
-    const totalMinutes = woLog.reduce((s, w) => s + (w.minutes || w.mins || (Array.isArray(w.sets) ? 0 : 0) || 25), 0) // ~25 min default when unknown
-    const catTally = {}
-    woLog.forEach((w) => { const lbl = (WO_TYPES.find((t) => t.key === w.type) || { label: w.type }).label; catTally[lbl] = (catTally[lbl] || 0) + 1 })
-    const favCat = Object.entries(catTally).sort((a, b) => b[1] - a[1])[0]
-    // ---- Check-in streak (consecutive days up to today) ----
-    const checkinStreak = (() => {
-      if (!H.length) return 0
-      const set = new Set(H.map((d) => d.dateISO))
-      let streak = 0
-      const cursor = new Date(todayISO + "T12:00:00")
-      // allow streak to count from today or yesterday backward
-      if (!set.has(cursor.toISOString().slice(0, 10))) cursor.setDate(cursor.getDate() - 1)
-      while (set.has(cursor.toISOString().slice(0, 10))) { streak++; cursor.setDate(cursor.getDate() - 1) }
-      return streak
-    })()
-    // ---- Workout streak (consecutive weeks with >=1 workout) is complex; use consecutive-day movement streak ----
-    const workoutStreak = (() => {
-      if (!woLog.length) return 0
-      const set = new Set(woLog.map((w) => w.date))
-      let streak = 0
-      const cursor = new Date(todayISO + "T12:00:00")
-      if (!set.has(cursor.toISOString().slice(0, 10))) cursor.setDate(cursor.getDate() - 1)
-      while (set.has(cursor.toISOString().slice(0, 10))) { streak++; cursor.setDate(cursor.getDate() - 1) }
-      return streak
-    })()
-    // ---- Dynamic header insight line ----
-    const headerLine = (() => {
-      const timeless = ["You're learning your rhythm.", "Small steps are adding up.", "Every check-in teaches us something.", "Your patterns are becoming clearer.", "Progress isn't always louder — it can be steadier.", "One day at a time is becoming real progress."]
-      const personal = []
-      if (checkinStreak >= 3) personal.push(`You've checked in ${checkinStreak} days in a row — you're building a clearer picture of your rhythm.`)
-      if (momentum && momentum.dir === "up") personal.push("Your capacity has been finding a steadier, stronger rhythm lately.")
-      if (recoveryDays >= 3) personal.push("You've been honoring recovery more often lately, and that matters.")
-      if (stats && stats.counts.green >= 3 && stats.counts.green >= stats.counts.red) personal.push("Your Green Days have been showing up more often.")
-      const pool = personal.length ? personal.concat(timeless.slice(0, 2)) : timeless
-      return pool[dayIndex(pool.length)]
-    })()
-    // ---- Biggest Win: pick the most meaningful, data-backed accomplishment ----
-    const biggestWin = (() => {
-      const wins = []
-      if (checkinStreak >= 7) wins.push({ p: 5, t: `You checked in ${checkinStreak} days in a row — consistency is quietly becoming one of your strengths.` })
-      else if (checkinStreak >= 3) wins.push({ p: 2, t: `You've checked in ${checkinStreak} days running. Showing up is the whole practice.` })
-      if (momentum && momentum.dir === "up" && momentum.delta >= 5) wins.push({ p: 5, t: `Your average capacity has risen about ${momentum.delta}% recently — real, quiet progress.` })
-      if (recoveryDays >= 2) wins.push({ p: 4, t: "You prioritized recovery instead of pushing through exhaustion. That's strength, not stepping back." })
-      // First green after a run of red
-      const sortedH = H
-      for (let i = 1; i < sortedH.length; i++) {
-        if (sortedH[i].color === "green" && sortedH[i - 1] && sortedH[i - 1].color === "red") { wins.push({ p: 3, t: "You reached a Green day after harder ones — proof your capacity rebuilds." }); break }
-      }
-      if (phaseAverages && PHASE_ORDER.every((p) => phaseAverages[p] != null)) wins.push({ p: 4, t: "You've now logged your capacity through every cycle phase — a full picture of your rhythm." })
-      if (workoutStreak >= 2) wins.push({ p: 3, t: `You've moved ${workoutStreak} days in a row. Momentum is building.` })
-      if (totalWorkouts >= 1) wins.push({ p: 1, t: `You've completed ${totalWorkouts} workout${totalWorkouts > 1 ? "s" : ""} — every one counted.` })
-      if (!wins.length) return "Every day you check in, you're learning something about yourself. That's where rebuilding begins."
-      const maxP = Math.max(...wins.map((w) => w.p))
-      const top = wins.filter((w) => w.p === maxP)
-      return top[dayIndex(top.length)].t
-    })()
-    // ---- Monthly reflection (rotating, data-aware) ----
-    const monthlyReflection = (() => {
-      if (!report || report.empty) return null
-      const g = report.counts.green, r = report.counts.red
-      const pool = []
-      if (g >= r) pool.push("You gave yourself more Green Days than Red this month. Progress doesn't always feel dramatic, but consistency is quietly changing your capacity.")
-      if (g >= r) pool.push("More Green than Red this month — your system has been finding steadier ground. That's worth pausing on.")
-      if (r > g) pool.push("This month asked a lot of you, yet you continued showing up. Even your Red Days became valuable information instead of failure.")
-      if (r > g) pool.push("A heavier month, and still you kept checking in. Meeting yourself honestly on the hard days is its own kind of strength.")
-      pool.push("However this month felt, you kept listening to your body. That awareness is the foundation everything else is built on.")
-      return pool[dayIndex(pool.length)]
-    })()
-    // highest/lowest capacity this month
-    const monthRows = report && !report.empty ? history.filter((d) => { const dt = d.date; const now = new Date(); return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear() }) : []
-    const monthHi = monthRows.length ? Math.max(...monthRows.map((d) => d.pct)) : null
-    const monthLo = monthRows.length ? Math.min(...monthRows.map((d) => d.pct)) : null
-    // ---- Cycle phase analysis (avg + most-common tier per phase, min 3 check-ins) ----
-    const cyclePhases = (() => {
-      if (!cycleLength || !lastPeriod || H.length < 3) return null
-      const PHASE_MIN = 3
-      const stats = { menstrual: { n: 0, sum: 0, colors: {} }, follicular: { n: 0, sum: 0, colors: {} }, ovulation: { n: 0, sum: 0, colors: {} }, luteal: { n: 0, sum: 0, colors: {} } }
-      H.forEach((d) => {
-        const cc = computeCycle(effCycleLength, lastPeriod, new Date(d.dateISO + "T00:00:00"))
-        if (!cc || !stats[cc.phase]) return
-        const st = stats[cc.phase]; st.n++; st.sum += d.pct
-        const tier = tierOf(d); st.colors[tier] = (st.colors[tier] || 0) + 1
-      })
-      const withEnough = PHASE_ORDER.filter((p) => stats[p].n >= PHASE_MIN)
-      if (!withEnough.length) return { none: true }
-      const avg = (p) => Math.round(stats[p].sum / stats[p].n)
-      const top = (p) => { const c = stats[p].colors; const k = Object.keys(c); return k.length ? k.sort((a, b) => c[b] - c[a])[0] : null }
-      let summary = null
-      if (withEnough.length >= 2) {
-        const ranked = [...withEnough].sort((a, b) => avg(b) - avg(a))
-        const PL = { menstrual: "menstrual", follicular: "follicular", ovulation: "ovulatory", luteal: "luteal" }
-        if (avg(ranked[0]) !== avg(ranked[ranked.length - 1])) summary = `So far, your check-ins suggest your capacity runs highest during your ${PL[ranked[0]]} phase and lowest during your ${PL[ranked[ranked.length - 1]]} phase.`
-      }
-      return { rows: PHASE_ORDER.map((p) => ({ phase: p, enough: stats[p].n >= PHASE_MIN, n: stats[p].n, avg: stats[p].n ? avg(p) : null, top: stats[p].n ? top(p) : null })), summary, allFour: withEnough.length === 4 }
-    })()
-    // ---- Date-indexed lookups for the capacity calendar ----
-    const byDate = {}
-    history.forEach((d) => { if (d.dateISO) byDate[d.dateISO] = d })
-    const woByDate = {}
-    woLog.forEach((w) => { if (w.date) { (woByDate[w.date] = woByDate[w.date] || []).push(w) } })
-    // ---- Average capacity for a given calendar month (for month-over-month comparison) ----
-    const avgForMonth = (y, m) => {
-      const rows = history.filter((d) => d.date.getFullYear() === y && d.date.getMonth() === m)
-      if (!rows.length) return null
-      return Math.round(rows.reduce((s, d) => s + d.pct, 0) / rows.length)
-    }
-    // ---- Per-month summary for the Year view ----
-    const yearMonths = (y) => {
-      return Array.from({ length: 12 }, (_, m) => {
-        const rows = history.filter((d) => d.date.getFullYear() === y && d.date.getMonth() === m)
-        if (!rows.length) return { m, n: 0, avg: null, tier: null }
-        const avg = Math.round(rows.reduce((s, d) => s + d.pct, 0) / rows.length)
-        const colors = {}
-        rows.forEach((d) => { const t = d.pct < 15 ? "recovery" : d.color; colors[t] = (colors[t] || 0) + 1 })
-        const tier = Object.keys(colors).sort((a, b) => colors[b] - colors[a])[0]
-        return { m, n: rows.length, avg, tier }
-      })
-    }
-    return { momentum, weekly, recoveryPatterns, totalWorkouts, totalMinutes, favCat: favCat ? favCat[0] : null, checkinStreak, workoutStreak, headerLine, biggestWin, monthlyReflection, recoveryDays, monthHi, monthLo, tierOf, cyclePhases, byDate, woByDate, avgForMonth, yearMonths }
-  })()
-
-  const ReportLine = ({ label, value }) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "8px 0" }}>
-      <span style={{ fontSize: 13, color: BASE.taupe }}>{label}</span>
-      <span style={{ fontSize: 14, color: BASE.cream, fontWeight: 600, textAlign: "right" }}>{value}</span>
-    </div>
-  )
+  // ---- Progress: everything derives from real stored history/workouts. ----
+  // See data/progress.js for the computation itself.
+  const progress = buildProgress({ history, woLog, cycleLength, lastPeriod, effCycleLength, programId, programStart })
+  const stats = progress.stats // still read directly by More via ctx
 
 
   const renderContent = () => {
-    const ctx = { Chips, Label, ReportLine, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, findFood, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progressData, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, report, resetPage, resetSeed, resetSongs, restLeft, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setSaveFoodName, setSaveMealName, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    const ctx = { Chips, Label, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, findFood, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
     return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderProgress(ctx) || renderMore(ctx) || null
   }
 
