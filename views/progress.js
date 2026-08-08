@@ -29,12 +29,17 @@ export function renderProgress(ctx) {
   // and it's exactly where the watercolor stars in lib/progressair.js get
   // room to show through, unchanged and untouched by this file.
   const Section = ({ n, title, sub, children }) => (
-    <div style={{ marginTop: 72 }}>
+    <div style={{ marginTop: 88 }}>
       <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 3, color: BASE.taupe }}>{n}</div>
       <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 36, fontWeight: 600, color: BASE.cream, lineHeight: 1.08, marginTop: 8 }}>{title}</div>
       {sub && <div style={{ fontSize: 14, color: BASE.taupe, fontStyle: "italic", marginTop: 7, lineHeight: 1.4 }}>{sub}</div>}
-      <div style={{ height: 1, background: BASE.border, marginTop: 26, marginBottom: 30 }} />
-      {children}
+      {/* One editorial panel per chapter — warm ivory (not pure white), a hairline
+          mauve border reusing BASE.border, and a shadow soft enough not to read
+          as "floating." The heading stays outside so it reads as a chapter title
+          sitting above the panel, not a card label inside one. */}
+      <div style={{ marginTop: 28, borderRadius: 20, background: "#FDFBFA", border: `1px solid ${BASE.border}`, boxShadow: "0 2px 14px rgba(42,21,34,0.06)", padding: "26px 22px" }}>
+        {children}
+      </div>
     </div>
   )
 
@@ -418,8 +423,8 @@ export function renderProgress(ctx) {
           {/* ═══ 05 WINS ═══ */}
           <Section n="05" title="Wins" sub="Real growth, quietly noticed.">
             {progress.wins.length ? (
-              progress.wins.map((w) => (
-                <div key={w.id} style={{ marginBottom: 44 }}>
+              progress.wins.map((w, i) => (
+                <div key={w.id} style={{ marginBottom: i === progress.wins.length - 1 ? 0 : 32, paddingTop: i === 0 ? 0 : 28, borderTop: i === 0 ? "none" : `0.5px solid ${BASE.border}` }}>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: BASE.cream, marginBottom: 6 }}>{w.title}</div>
                   <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.65 }}>{w.body}</div>
                 </div>
