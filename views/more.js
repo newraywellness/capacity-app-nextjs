@@ -61,7 +61,7 @@ export function renderMore(ctx) {
               My Life editor (there's no dedicated reminders screen yet) — that
               exact handler is preserved rather than invented around. ── */}
           <Group title="My Wellness">
-            <Row label="My Capacity" sub="Check-ins & reminders" onClick={openMyLife} />
+            <Row label="My Capacity" sub="Check-ins & reminders" onClick={() => setMoreView("capacity")} />
             <Row label="My Cycle" sub="Cycle tracking & preferences" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setTab("body"); setBodyView("cycle"); setEditCycle(true) }} />
             <Row label="My Movement" sub="Workout reminders & preferences" onClick={openMyLife} />
           </Group>
@@ -88,6 +88,25 @@ export function renderMore(ctx) {
           </Group>
 
           <button onClick={handleLogout} style={{ width: "100%", padding: 14, borderRadius: 14, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Log Out</button>
+        </div>
+      )
+    }
+    if (tab === "more" && moreView === "capacity") {
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>My Capacity</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Make the Capacity Method fit your day.</div>
+
+          {/* No Capacity-specific setting exists in the app yet — reminders,
+              check-in timing, etc. are all still just labels. Rather than
+              invent a toggle with nothing behind it, this states that plainly,
+              in the same voice the app already uses for "not built yet"
+              (see Progress's Movement section, Flourish's "coming soon"). */}
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "26px 22px", textAlign: "center" }}>
+            <div style={{ fontSize: 22, marginBottom: 10 }}>{"\ud83e\udd0d"}</div>
+            <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Nothing to configure yet. As Capacity-specific reminders and preferences are built, they'll live here.</div>
+          </div>
         </div>
       )
     }
