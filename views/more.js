@@ -4,9 +4,13 @@ import { BASE, THEMES } from '../lib/theme.js'
 import { BLOOM_PILLARS, BLOOM_TRENDING } from '../data/bloom.js'
 
 export function renderMore(ctx) {
-  const { Chips, Label, T, cycleNow, editLife, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, savedBloom, setBloomArticle, setBodyView, setEditCycle, setEditLife, setFirstName, setLifeMsg, setMoreView, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
+  const { Chips, Label, T, cycleNow, editLife, firstName, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, savedBloom, setBloomArticle, setBodyView, setEditCycle, setEditLife, setFirstName, setLifeMsg, setMoreView, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
     if (tab === "more" && moreView === "menu") {
-      const nm = (setupData && setupData.name) || "friend"
+      const nm = (setupData && setupData.name) || firstName || "friend"
+      // Every current entry point into My Life routes through here so a
+      // leftover draft from a previous visit (left via bottom-nav rather than
+      // Back) can never shadow the actually-saved name or other fields.
+      const openMyLife = () => { setEditLife(null); setMoreView("mylife") }
       const season = (setupData && setupData.season) || "Your season"
 
       // Every prop here is optional and defaults to the original single-line
@@ -39,7 +43,7 @@ export function renderMore(ctx) {
           </div>
 
           {/* ── MY LIFE — the one gradient element, representing her rather than a setting ── */}
-          <div onClick={() => setMoreView("mylife")} style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, borderRadius: 20, background: "linear-gradient(135deg,#E984B4,#A87BD1)", cursor: "pointer", marginBottom: 26, boxShadow: "0 10px 26px rgba(168,123,209,0.3)" }}>
+          <div onClick={openMyLife} style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, borderRadius: 20, background: "linear-gradient(135deg,#E984B4,#A87BD1)", cursor: "pointer", marginBottom: 26, boxShadow: "0 10px 26px rgba(168,123,209,0.3)" }}>
             <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: "#fff" }}>{nm[0] ? nm[0].toUpperCase() : "🌸"}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.85)", textTransform: "uppercase" }}>{"🌸"} My Life</div>
@@ -54,9 +58,9 @@ export function renderMore(ctx) {
               My Life editor (there's no dedicated reminders screen yet) — that
               exact handler is preserved rather than invented around. ── */}
           <Group title="My Wellness">
-            <Row label="My Capacity" sub="Check-ins & reminders" onClick={() => setMoreView("mylife")} />
+            <Row label="My Capacity" sub="Check-ins & reminders" onClick={openMyLife} />
             <Row label="My Cycle" sub="Cycle tracking & preferences" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setTab("body"); setBodyView("cycle"); setEditCycle(true) }} />
-            <Row label="My Movement" sub="Workout reminders & preferences" onClick={() => setMoreView("mylife")} />
+            <Row label="My Movement" sub="Workout reminders & preferences" onClick={openMyLife} />
           </Group>
 
           {/* ── TRUE REVERIE — the ecosystem. Slightly more air, small icons. ── */}
@@ -69,9 +73,9 @@ export function renderMore(ctx) {
 
           {/* ── APP SETTINGS — deliberately recedes: muted color, no subtitles. ── */}
           <Group title="App Settings">
-            <Row label="Morning greeting" muted onClick={() => setMoreView("mylife")} />
-            <Row label="Motion & sound" muted onClick={() => setMoreView("mylife")} />
-            <Row label="Theme" muted onClick={() => setMoreView("mylife")} />
+            <Row label="Morning greeting" muted onClick={openMyLife} />
+            <Row label="Motion & sound" muted onClick={openMyLife} />
+            <Row label="Theme" muted onClick={openMyLife} />
           </Group>
 
           {/* ── HELP & LEGAL ── */}
@@ -86,6 +90,7 @@ export function renderMore(ctx) {
     }
     if (tab === "more" && moreView === "mylife") {
       const d = editLife || setupData || {}
+      const displayName = d.name || firstName || ""
       const setField = (k, v) => setEditLife({ ...(editLife || setupData || {}), [k]: v })
       const toggleHope = (h) => {
         const cur2 = (editLife || setupData || {}).hopes || []
@@ -93,11 +98,17 @@ export function renderMore(ctx) {
         setField("hopes", arr)
       }
       const saveLife = () => {
-        const data = { ...(setupData || {}), ...(editLife || {}) }
+        // Resolve, don't just merge: if the Name field was never touched this
+        // session, editLife.name is undefined and a plain spread would carry
+        // forward whatever setupData.name already was — including blank, if
+        // it had drifted blank before. Fall back through firstName as a last
+        // resort so a save can heal a blank name but can never re-blank one.
+        const name = (editLife && editLife.name) || (setupData && setupData.name) || firstName || ""
+        const data = { ...(setupData || {}), ...(editLife || {}), name }
         setSetupData(data)
-        if (data.name) setFirstName(data.name)
-        try { localStorage.setItem("nr_setup", JSON.stringify(data)); if (data.name) localStorage.setItem("nr_name", data.name) } catch (e) {}
-        try { if (user) db.from("profiles").update({ setup: data, first_name: data.name }).eq("id", user.id).then(() => {}) } catch (e) {}
+        if (name) setFirstName(name)
+        try { localStorage.setItem("nr_setup", JSON.stringify(data)); if (name) localStorage.setItem("nr_name", name) } catch (e) {}
+        try { if (user) db.from("profiles").update({ setup: data, first_name: name }).eq("id", user.id).then(() => {}) } catch (e) {}
         setLifeMsg("Saved \u2713")
         setTimeout(() => setLifeMsg(""), 1800)
       }
@@ -123,7 +134,7 @@ export function renderMore(ctx) {
 
           <Sec title="About Me">
             <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 6 }}>Name</div>
-            <input value={d.name || ""} onChange={(e) => setField("name", e.target.value)} placeholder="Your name" style={{ ...inputStyle, marginBottom: 14 }} />
+            <input value={displayName} onChange={(e) => setField("name", e.target.value)} placeholder="Your name" style={{ ...inputStyle, marginBottom: 14 }} />
             <div style={{ fontSize: 11.5, color: BASE.taupe, marginBottom: 8 }}>My season</div>
             <Pick options={SEASONS} value={d.season} onPick={(o) => setField("season", o)} />
           </Sec>
