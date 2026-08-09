@@ -7,6 +7,7 @@ import { RESET_EXPLORE } from '../data/reset.js'
 import { F_BY_ID, F_IMG } from '../data/flourish.js'
 import { PROG_BY_ID, progSchedule } from '../data/train.js'
 import { GREETING_STYLES, GREETING_BY_KEY, greetWordFor } from '../lib/greeting.js'
+import { LEGAL_DOCS } from '../data/legal.js'
 
 export function renderMore(ctx) {
   const { Chips, Label, T, cycleAvg, cycleNow, editLife, firstName, greetingOn, greetingStyle, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, saveCycleSettings, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setUseAvgCycle, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, useAvgCycle, user } = ctx
@@ -85,8 +86,8 @@ export function renderMore(ctx) {
 
           {/* ── HELP & LEGAL ── */}
           <Group title="Help & Legal">
-            <Row label="Contact & feedback" muted onClick={() => setMoreView("about")} />
-            <Row label="Privacy & terms" muted onClick={() => setMoreView("about")} />
+            <Row label="Contact & feedback" muted onClick={() => setMoreView("contact")} />
+            <Row label="Privacy & terms" muted onClick={() => setMoreView("legal")} />
           </Group>
 
           <button onClick={handleLogout} style={{ width: "100%", padding: 14, borderRadius: 14, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Log Out</button>
@@ -329,6 +330,82 @@ export function renderMore(ctx) {
           <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", textAlign: "center", lineHeight: 1.6, marginTop: 16, padding: "0 10px" }}>More appearance options can live here as True Reverie grows.</div>
         </div>
       )
+    }
+    if (tab === "more" && moreView === "contact") {
+      const SUPPORT_EMAIL = "truereverieco@gmail.com"
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Contact & Feedback</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Questions, ideas, or something not working? We'd love to hear from you.</div>
+
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, overflow: "hidden" }}>
+            <div style={{ padding: "18px 18px 16px" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, marginBottom: 3 }}>Contact us</div>
+              <div style={{ fontSize: 12.5, color: BASE.taupe }}>{SUPPORT_EMAIL}</div>
+            </div>
+            <a href={"mailto:" + SUPPORT_EMAIL} style={{ display: "block", padding: "14px 18px", borderTop: `1px solid ${BASE.border}`, textAlign: "center", fontSize: 13, fontWeight: 700, color: "#C9558E", textDecoration: "none" }}>Email True Reverie</a>
+          </div>
+
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, overflow: "hidden", marginTop: 16 }}>
+            <div style={{ padding: "18px 18px 16px" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, marginBottom: 3 }}>Send feedback</div>
+              <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.5 }}>Share an idea, report a bug, or tell us what you'd love to see.</div>
+            </div>
+            <a href={"mailto:" + SUPPORT_EMAIL + "?subject=" + encodeURIComponent("True Reverie Feedback")} style={{ display: "block", padding: "14px 18px", borderTop: `1px solid ${BASE.border}`, textAlign: "center", fontSize: 13, fontWeight: 700, color: "#C9558E", textDecoration: "none" }}>Send Feedback</a>
+          </div>
+        </div>
+      )
+    }
+    if (tab === "more" && moreView === "legal") {
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Privacy & Terms</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>The important details, all in one place.</div>
+
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, overflow: "hidden" }}>
+            {LEGAL_DOCS.map((d, i) => (
+              <div key={d.key} onClick={() => setMoreView(d.key)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", cursor: "pointer", borderTop: i === 0 ? "none" : `1px solid ${BASE.border}` }}>
+                <span style={{ fontSize: 16 }}>{d.ic}</span>
+                <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: BASE.cream }}>{d.doc.title}</span>
+                <span style={{ color: BASE.taupe, fontSize: 16 }}>{"\u203a"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    {
+      // One shared, readable template for every policy — Privacy Policy, Terms
+      // of Use, Health & Wellness Disclaimer, and (later) Refund Policy all
+      // render through this exact same code path from data/legal.js, so none
+      // of them can drift from the source text or from each other's styling.
+      const legalEntry = LEGAL_DOCS.find((d) => d.key === moreView)
+      if (tab === "more" && legalEntry) {
+        const doc = legalEntry.doc
+        return (
+          <div className="fade-in" style={{ padding: "10px 20px 0", background: BASE.bg }}>
+            <div onClick={() => setMoreView("legal")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 Back to Privacy & Terms"}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 25, fontWeight: 700, color: BASE.cream, lineHeight: 1.2, marginBottom: 4 }}>{doc.title}</div>
+            {doc.effectiveDate && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", marginBottom: 18 }}>{doc.effectiveDate}</div>}
+            {doc.intro && <div style={{ fontSize: 14.5, color: BASE.creamDim, lineHeight: 1.75, marginBottom: 24 }}>{doc.intro}</div>}
+
+            {doc.sections.map((sec, i) => (
+              <div key={i} style={{ marginBottom: 22 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream, marginBottom: 8 }}>{sec.h}</div>
+                {sec.body.map((p, j) => (
+                  <div key={j} style={{ fontSize: 14.5, color: BASE.creamDim, lineHeight: 1.75, marginBottom: j === sec.body.length - 1 ? 0 : 10 }}>{p}</div>
+                ))}
+              </div>
+            ))}
+
+            <div style={{ height: 1, background: BASE.border, margin: "8px 0 18px" }} />
+            <div style={{ fontSize: 12, color: BASE.taupe, textAlign: "center", marginBottom: 40 }}>True Reverie {"\u00b7"} truereverieco@gmail.com</div>
+          </div>
+        )
+      }
     }
     if (tab === "more" && moreView === "mylife") {
       const d = editLife || setupData || {}
