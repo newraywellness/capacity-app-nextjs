@@ -69,7 +69,7 @@ export function renderMore(ctx) {
           {/* ── TRUE REVERIE — the ecosystem. Slightly more air, small icons. ── */}
           <Group title="True Reverie" spacious>
             <Row icon="♡" label="Saved Ideas" sub="Everything you've kept, in one place." onClick={() => { setSavedFilter("All"); setMoreView("saved") }} spacious />
-            <Row icon="✦" label="The Capacity Method" sub="Understand the method behind your days." onClick={() => setMoreView("about")} spacious />
+            <Row icon="✦" label="The Capacity Method" sub="Understand the method behind your days." onClick={() => setMoreView("capacitymethod")} spacious />
             <Row icon="💌" label="Share with a partner" sub="Send them your capacity check-in." onClick={() => setMoreView("share")} spacious />
             <Row icon="🛍" label="Shop" sub="Wearable reminders from True Reverie." onClick={() => setMoreView("shop")} spacious />
           </Group>
@@ -370,6 +370,39 @@ export function renderMore(ctx) {
       )
     }
 
+    if (tab === "more" && moreView === "capacitymethod") {
+      const ColorBlock = ({ k, title, headline, body }) => {
+        const th = THEMES[k]
+        return (
+          <div style={{ borderRadius: 20, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "22px 22px", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
+              <span style={{ width: 11, height: 11, borderRadius: "50%", background: th.accent, flexShrink: 0 }} />
+              <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 2.5, textTransform: "uppercase", color: th.accent }}>{title}</span>
+              <span style={{ fontSize: 11.5, color: BASE.taupe, marginLeft: "auto" }}>{th.range}</span>
+            </div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: BASE.cream, marginBottom: 8 }}>{headline}</div>
+            <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65 }}>{body}</div>
+          </div>
+        )
+      }
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>The Capacity Method{"\u2122"}</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 16, fontStyle: "italic", fontFamily: "'Cormorant Garamond', serif" }}>A way to meet yourself where you are today.</div>
+          <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.75, marginBottom: 26 }}>Your capacity changes from day to day. Sleep, stress, hormones, parenting, illness, anxiety, grief, and the rest of real life all affect how much you have available. The Capacity Method helps you notice what you have today so you can adjust how you care for yourself instead of expecting the same thing from yourself every day.</div>
+
+          <ColorBlock k="red" title="Red" headline="Low capacity" body="Today may need more recovery, fewer demands, and a focus on the essentials." />
+          <ColorBlock k="yellow" title="Yellow" headline="Moderate capacity" body="You have something to work with, but you may need to adjust the intensity, pace, or expectations of your day." />
+          <ColorBlock k="green" title="Green" headline="Higher capacity" body="You have more room for challenge, movement, planning, and growth." />
+
+          <div style={{ textAlign: "center", padding: "22px 10px 10px" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: BASE.cream, lineHeight: 1.5 }}>Your color isn't a grade.</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: BASE.taupe, lineHeight: 1.5, marginTop: 2 }}>It's information about what you have available today.</div>
+          </div>
+        </div>
+      )
+    }
     if (tab === "more" && moreView === "about") {
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
