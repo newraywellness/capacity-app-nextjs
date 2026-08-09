@@ -8,7 +8,7 @@ import { F_BY_ID, F_IMG } from '../data/flourish.js'
 import { PROG_BY_ID, progSchedule } from '../data/train.js'
 
 export function renderMore(ctx) {
-  const { Chips, Label, T, cycleNow, editLife, firstName, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
+  const { Chips, Label, T, cycleAvg, cycleNow, editLife, firstName, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, saveCycleSettings, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setUseAvgCycle, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, useAvgCycle, user } = ctx
     if (tab === "more" && moreView === "menu") {
       const nm = (setupData && setupData.name) || firstName || "friend"
       // Every current entry point into My Life routes through here so a
@@ -63,7 +63,7 @@ export function renderMore(ctx) {
               exact handler is preserved rather than invented around. ── */}
           <Group title="My Wellness">
             <Row label="My Capacity" sub="Check-ins & reminders" onClick={() => setMoreView("capacity")} />
-            <Row label="My Cycle" sub="Cycle tracking & preferences" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setTab("body"); setBodyView("cycle"); setEditCycle(true) }} />
+            <Row label="My Cycle" sub="Cycle tracking & preferences" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setMoreView("cycle") }} />
             <Row label="My Movement" sub="Workout reminders & preferences" onClick={() => setMoreView("movement")} />
           </Group>
 
@@ -157,6 +157,70 @@ export function renderMore(ctx) {
         </div>
       )
     }
+    if (tab === "more" && moreView === "cycle") {
+      const today = new Date().toISOString().slice(0, 10)
+      const lenPct = Math.max(0, Math.min(100, ((parseInt(tmpLen) || 28) - 20) / 25 * 100))
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>My Cycle</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Your cycle tracking & preferences.</div>
+
+          {/* Same state, same saveCycleSettings, same inputs as the main Cycle
+              tab's own settings panel — this is a second entry point, not a
+              second settings system. Calendar, symptoms, sex tracking, and
+              history stay in the main Cycle tab. */}
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 18px 17px", boxSizing: "border-box", overflow: "hidden" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: BASE.taupe, marginBottom: 14 }}>Cycle Tracking</div>
+
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim, marginBottom: 7 }}>Last period</div>
+            <input type="date" value={tmpStart || lastPeriod || ""} max={today}
+              onChange={(e) => { setTmpStart(e.target.value); saveCycleSettings(e.target.value, tmpLen) }}
+              style={{ display: "block", width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box",
+                WebkitAppearance: "none", MozAppearance: "none", appearance: "none",
+                padding: "12px 13px", margin: 0, borderRadius: 11,
+                background: BASE.bg2 || BASE.surface2, border: `1px solid ${BASE.border}`,
+                color: BASE.cream, fontSize: 16, fontFamily: "inherit", lineHeight: 1.2, outline: "none", marginBottom: 20 }} />
+
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim }}>Cycle length</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: useAvgCycle && cycleAvg ? BASE.taupe : "#9B6BC3" }}>{tmpLen} days</span>
+            </div>
+            <input type="range" min="20" max="45" value={tmpLen}
+              onChange={(e) => setTmpLen(e.target.value)}
+              onMouseUp={(e) => saveCycleSettings(tmpStart || lastPeriod, e.target.value)}
+              onTouchEnd={(e) => saveCycleSettings(tmpStart || lastPeriod, e.target.value)}
+              style={{ display: "block", width: "100%", maxWidth: "100%", boxSizing: "border-box", margin: 0,
+                height: 6, borderRadius: 999,
+                background: `linear-gradient(90deg, #B9A3D4 ${lenPct}%, #E2DAEC ${lenPct}%)` }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: BASE.taupe, marginTop: 3 }}><span>20</span><span>45</span></div>
+
+            {cycleAvg ? (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${BASE.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim }}>Use my calculated average</div>
+                    <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2, lineHeight: 1.45 }}>Your recent average: <b style={{ color: "#9B6BC3" }}>{cycleAvg.avg} days</b> {"\u00b7"} from {cycleAvg.cycles} completed {cycleAvg.cycles === 1 ? "cycle" : "cycles"}</div>
+                  </div>
+                  <div onClick={() => setUseAvgCycle(!useAvgCycle)}
+                    style={{ flexShrink: 0, width: 46, height: 27, borderRadius: 999, cursor: "pointer", position: "relative",
+                      background: useAvgCycle ? "#9B6BC3" : BASE.surface2, border: `1px solid ${useAvgCycle ? "#9B6BC3" : BASE.border}`, transition: "background .2s ease" }}>
+                    <span style={{ position: "absolute", top: 2, left: useAvgCycle ? 21 : 2, width: 21, height: 21, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left .2s ease" }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.5, marginTop: 10 }}>
+                  {useAvgCycle ? "Predictions are using your calculated average." : "Predictions are using your typical length of " + tmpLen + " days."}
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, paddingTop: 13, borderTop: `1px solid ${BASE.border}`, fontSize: 11.5, color: BASE.taupe, lineHeight: 1.55 }}>
+                Predictions use your typical length for now. Once two full cycles are logged, you'll be able to switch to your own calculated average.
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    }
     if (tab === "more" && moreView === "mylife") {
       const d = editLife || setupData || {}
       const displayName = d.name || firstName || ""
@@ -236,6 +300,7 @@ export function renderMore(ctx) {
       const ST = THEMES[shareLevel]
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 26, margin: "12px 0 4px" }}>The Capacity Check-In</h2>
           <p style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.5, marginBottom: 22 }}>Share where you're at with your partner — so they can meet you, instead of guessing.</p>
 
