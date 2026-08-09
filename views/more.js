@@ -2,9 +2,12 @@ import { CYCLEPREF, EQUIP, HOPES, LEVELS, SEASONS, SHARE_LEVELS, SHARE_NEED, SHA
 import { db } from '../lib/supabase.js'
 import { BASE, THEMES } from '../lib/theme.js'
 import { BLOOM_PILLARS, BLOOM_TRENDING } from '../data/bloom.js'
+import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow.js'
+import { RESET_EXPLORE } from '../data/reset.js'
+import { F_BY_ID, F_IMG } from '../data/flourish.js'
 
 export function renderMore(ctx) {
-  const { Chips, Label, T, cycleNow, editLife, firstName, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, savedBloom, setBloomArticle, setBodyView, setEditCycle, setEditLife, setFirstName, setLifeMsg, setMoreView, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
+  const { Chips, Label, T, cycleNow, editLife, firstName, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, savedBloom, savedFilter, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
     if (tab === "more" && moreView === "menu") {
       const nm = (setupData && setupData.name) || firstName || "friend"
       // Every current entry point into My Life routes through here so a
@@ -65,7 +68,7 @@ export function renderMore(ctx) {
 
           {/* ── TRUE REVERIE — the ecosystem. Slightly more air, small icons. ── */}
           <Group title="True Reverie" spacious>
-            <Row icon="♡" label="Saved Ideas" sub="Everything you've kept, in one place." onClick={() => setMoreView("saved")} spacious />
+            <Row icon="♡" label="Saved Ideas" sub="Everything you've kept, in one place." onClick={() => { setSavedFilter("All"); setMoreView("saved") }} spacious />
             <Row icon="✦" label="The Capacity Method" sub="Understand the method behind your days." onClick={() => setMoreView("about")} spacious />
             <Row icon="💌" label="Share with a partner" sub="Send them your capacity check-in." onClick={() => setMoreView("share")} spacious />
             <Row icon="🛍" label="Shop" sub="Wearable reminders from True Reverie." onClick={() => setMoreView("shop")} spacious />
@@ -235,37 +238,112 @@ export function renderMore(ctx) {
       )
     }
     if (tab === "more" && moreView === "saved") {
-      const items = (savedBloom || []).map((id) => {
+      // One resolver per current save-ID scheme. Each returns the real content's
+      // own metadata plus an `open` action that sets exactly the state the
+      // original screen already expects — Saved Ideas never renders its own
+      // detail view, only routes back into the real one.
+      const resolve = (id) => {
         if (id.indexOf("article:") === 0) {
           const a = BLOOM_TRENDING.find((x) => x.id === id.slice(8))
-          return a ? { id, kind: "Article", ic: a.ic, name: a.title, open: () => { setBloomArticle(a); setTab("bloom") } } : null
+          return a ? { id, cat: "Bloom", ic: a.ic, title: a.title, sub: a.desc,
+            open: () => { setBloomArticle(a); setTab("bloom") } } : null
         }
-        const n = id.slice(6)
-        for (const P of BLOOM_PILLARS) {
-          const c = P.cards.find((x) => x.n === n)
-          if (c) return { id, kind: P.name, ic: c.ic, name: c.n, open: () => { openBloomCard(c); setTab("bloom") } }
+        if (id.indexOf("win:") === 0) {
+          const rid = id.slice(4)
+          for (const t of GLOW_TOPICS) {
+            const w = (t.wins || []).find((x) => x.id === rid)
+            if (w) return { id, cat: "Glow", ic: w.ic, title: w.name, sub: t.name + " \u00b7 Quick Win",
+              open: () => { setBloomPillar("glow"); setGlowTopic(t.key); setGlowSheet(w); setTab("bloom") } }
+          }
+          return null
+        }
+        if (id.indexOf("glow:") === 0) {
+          const rest = id.slice(5)
+          const sep = rest.indexOf(":")
+          if (sep < 0) return null
+          const topicKey = rest.slice(0, sep), itemId = rest.slice(sep + 1)
+          const t = GLOW_BY_KEY(topicKey)
+          if (!t) return null
+          const pools = [["Product", t.guides], ["Type", t.types], ["Learn", t.learn]]
+          for (const [kind, arr] of pools) {
+            const it = (arr || []).find((x) => (x.id || x.n) === itemId)
+            if (it) return { id, cat: "Glow", ic: it.ic || "\u2728", title: it.title || it.n, sub: t.name + " \u00b7 " + kind,
+              open: () => { setBloomPillar("glow"); setGlowTopic(topicKey); setGlowItem(it); setTab("bloom") } }
+          }
+          return null
+        }
+        if (id.indexOf("reset:") === 0) {
+          const P = RESET_EXPLORE.find((x) => x.id === id.slice(6))
+          return P ? { id, cat: "Reset", ic: P.ic, title: P.title, sub: P.sub,
+            open: () => { setBloomPillar("reset"); setResetPage(P.id); setTab("bloom") } } : null
+        }
+        if (id.indexOf("flourish:") === 0) {
+          const P = F_BY_ID(id.slice(9))
+          return P ? { id, cat: "Flourish", ic: P.emoji, title: P.title, sub: P.sub, img: F_IMG(P.id), time: P.time, category: P.category,
+            open: () => { setBloomPillar("flourish"); setFlourishProject(P.id); setTab("bloom") } } : null
+        }
+        // Legacy IDs from before the Glow rebuild — resolved best-effort so an
+        // old save doesn't just vanish, but not surfaced as its own filter
+        // category since nothing can create a new one today.
+        if (id.indexOf("topic:") === 0) {
+          const rid = id.slice(6)
+          for (const Pl of BLOOM_PILLARS) {
+            const c = (Pl.cards || []).find((x) => x.n === rid)
+            if (c) return { id, cat: "Glow", ic: c.ic, title: c.n, sub: Pl.name,
+              open: () => { openBloomCard(c); setTab("bloom") } }
+          }
+          return null
         }
         return null
-      }).filter(Boolean)
+      }
+
+      const items = (savedBloom || []).map(resolve).filter(Boolean)
+      const cats = Array.from(new Set(items.map((it) => it.cat)))
+      const shown = savedFilter === "All" ? items : items.filter((it) => it.cat === savedFilter)
+
+      // A small photograph-shaped placeholder, matching Flourish's own visual
+      // language, for the one save type that has real imagery.
+      const SavedImg = ({ src, emoji }) => (
+        <div style={{ position: "relative", width: 60, height: 75, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: 20, opacity: 0.28 }}>{emoji}</span>
+          {src && <img src={src} alt="" loading="lazy" onError={(e) => { e.target.style.display = "none" }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+        </div>
+      )
 
       return (
-        <div className="fade-in">
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 More"}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Saved Ideas</div>
-          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 20 }}>Everything you've kept from Bloom, in one place.</div>
-          {items.length === 0 ? (
-            <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "26px 22px", textAlign: "center" }}>
-              <div style={{ fontSize: 24, marginBottom: 10 }}>{"\u2661"}</div>
-              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Nothing saved yet. Tap the heart on anything in Bloom and it will wait for you here.</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 20 }}>Everything you've kept, in one place.</div>
+
+          {cats.length > 1 && (
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 18 }}>
+              {["All", ...cats].map((c) => (
+                <span key={c} onClick={() => setSavedFilter(c)} style={{ padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer", background: savedFilter === c ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface, color: savedFilter === c ? "#fff" : BASE.creamDim, border: `1px solid ${savedFilter === c ? "transparent" : BASE.border}` }}>{c}</span>
+              ))}
             </div>
-          ) : items.map((it) => (
-            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 8 }}>
-              <span onClick={it.open} style={{ fontSize: 20, cursor: "pointer" }}>{it.ic}</span>
-              <div onClick={it.open} style={{ flex: 1, cursor: "pointer" }}>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: BASE.cream, lineHeight: 1.3 }}>{it.name}</div>
-                <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 2, letterSpacing: 0.4, textTransform: "uppercase" }}>{it.kind}</div>
+          )}
+
+          {items.length === 0 ? (
+            <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "30px 22px", textAlign: "center" }}>
+              <div style={{ fontSize: 24, marginBottom: 10 }}>{"\u2661"}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: BASE.cream, marginBottom: 6 }}>Nothing saved yet.</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Tap the heart on anything you want to find again.</div>
+            </div>
+          ) : shown.map((it) => (
+            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px", borderRadius: 16, background: "#FDFBFA", border: `1px solid ${BASE.border}`, marginBottom: 10 }}>
+              <div onClick={it.open} style={{ cursor: "pointer", flexShrink: 0 }}>
+                {it.img !== undefined
+                  ? <SavedImg src={it.img} emoji={it.ic} />
+                  : <div style={{ width: 44, height: 44, borderRadius: 12, background: BASE.surface2 || BASE.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19 }}>{it.ic}</div>}
               </div>
-              <span onClick={() => toggleSaveBloom(it.id)} style={{ fontSize: 17, color: "#C9558E", cursor: "pointer" }}>{"\u2665"}</span>
+              <div onClick={it.open} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
+                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C9558E", marginBottom: 3 }}>{it.cat}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontWeight: 700, color: BASE.cream, lineHeight: 1.25 }}>{it.title}</div>
+                {it.sub && <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2, lineHeight: 1.35 }}>{it.sub}</div>}
+                {it.time && <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 3 }}>{it.time}{it.category && it.category.length ? " \u00b7 " + it.category[0] : ""}</div>}
+              </div>
+              <span onClick={() => toggleSaveBloom(it.id)} style={{ fontSize: 18, color: "#C9558E", cursor: "pointer", flexShrink: 0 }}>{"\u2665"}</span>
             </div>
           ))}
           <div style={{ height: 20 }} />
