@@ -77,9 +77,9 @@ export function renderMore(ctx) {
 
           {/* ── APP SETTINGS — deliberately recedes: muted color, no subtitles. ── */}
           <Group title="App Settings">
-            <Row label="Morning greeting" muted onClick={openMyLife} />
-            <Row label="Motion & sound" muted onClick={openMyLife} />
-            <Row label="Theme" muted onClick={openMyLife} />
+            <Row label="Morning greeting" muted onClick={() => setMoreView("greeting")} />
+            <Row label="Motion & sound" muted onClick={() => setMoreView("motionsound")} />
+            <Row label="Theme" muted onClick={() => setMoreView("theme")} />
           </Group>
 
           {/* ── HELP & LEGAL ── */}
@@ -218,6 +218,78 @@ export function renderMore(ctx) {
               </div>
             )}
           </div>
+        </div>
+      )
+    }
+    if (tab === "more" && moreView === "greeting") {
+      // Same thresholds as ENV() in lib/theme.js — morning 5–11, afternoon
+      // 12–17, everything else (including night) reads "Good evening", exactly
+      // matching what Today actually shows right now.
+      const h = new Date().getHours()
+      const greetWord = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 18 ? "Good afternoon" : "Good evening"
+      const nm = (setupData && setupData.name) || ""
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Morning Greeting</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Choose how True Reverie welcomes you.</div>
+
+          {/* The greeting always shows today — there's no on/off state behind
+              it yet, so this states that plainly rather than wiring a toggle
+              to nothing. The name it uses is setupData.name, the same value
+              My Life edits — no second name field exists or is needed. */}
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "24px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 20, marginBottom: 8 }}>{"\ud83c\udf05"}</div>
+            <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Nothing to configure yet. Your greeting always shows when you open Today, using your saved name from My Life. A way to adjust it will live here.</div>
+          </div>
+
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, margin: "22px 4px 8px" }}>Preview</div>
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "20px", textAlign: "center" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 20, color: BASE.cream }}>{greetWord}{nm ? ", " + nm : ""}</div>
+          </div>
+        </div>
+      )
+    }
+    if (tab === "more" && moreView === "motionsound") {
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Motion & Sound</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Choose how True Reverie feels as you move through it.</div>
+
+          {/* No app-level motion toggle exists — motion already respects the
+              device's own reduce-motion accessibility setting via CSS, with
+              nothing in app state to bind a second toggle to. Sound and
+              haptics don't exist anywhere in the app, so neither is a real
+              setting yet — no fake toggles for either. */}
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 18px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim, marginBottom: 5 }}>Motion</div>
+            <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6 }}>True Reverie already respects your device's Reduce Motion accessibility setting automatically — no separate switch needed here.</div>
+            <div style={{ height: 1, background: BASE.border, margin: "16px 0" }} />
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim, marginBottom: 5 }}>Sound</div>
+            <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6 }}>Sound controls will appear here when supported experiences use audio.</div>
+          </div>
+        </div>
+      )
+    }
+    if (tab === "more" && moreView === "theme") {
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Theme</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Choose how True Reverie looks on your device.</div>
+
+          {/* Only one appearance exists — no dark mode, no system-matching, no
+              switching architecture anywhere in the app. Shown as a single
+              selected state rather than pretending options exist. */}
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "16px 17px", display: "flex", alignItems: "center", gap: 13 }}>
+            <span style={{ width: 20, height: 20, borderRadius: "50%", background: "linear-gradient(135deg,#E984B4,#A87BD1)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 800 }}>{"\u2713"}</span>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>True Reverie</div>
+              <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2 }}>The current signature light appearance.</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", textAlign: "center", lineHeight: 1.6, marginTop: 16, padding: "0 10px" }}>More appearance options can live here as True Reverie grows.</div>
         </div>
       )
     }
