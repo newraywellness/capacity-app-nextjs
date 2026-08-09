@@ -6,6 +6,22 @@ import { BASE, dayIndex } from '../lib/theme.js'
 
 export function renderBloom(ctx) {
   const { bloomArticle, bloomCard, bloomPillar, checkedIn, closeBloom, cur, flourishProject, flourishTime, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, openBloomCard, pct, resetPage, resetSeed, resetSongs, setBloomArticle, setBloomPillar, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setResetPage, setResetSongs, surpriseReset, tab, toggleSaveBloom } = ctx
+
+    // One save control for all of Glow/Reset/Flourish, so "obvious and
+    // consistent" is true by construction rather than by copying styles
+    // between call sites. `overlay` is for the two spots a heart sits on top
+    // of a photograph (Flourish rail cards, Flourish time-feed cards) rather
+    // than in a plain header row.
+    const Heart = ({ id, overlay }) => {
+      const saved = isSavedBloom(id)
+      return (
+        <span onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); toggleSaveBloom(id) }}
+          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 9, margin: -9, borderRadius: "50%", cursor: "pointer", flexShrink: 0,
+            background: overlay ? "rgba(255,255,255,0.85)" : "transparent", boxShadow: overlay ? "0 1px 4px rgba(0,0,0,0.15)" : "none" }}>
+          <span style={{ fontSize: 24, lineHeight: 1, color: saved ? "#C9558E" : (overlay ? "#C79BB4" : BASE.taupe) }}>{saved ? "\u2665" : "\u2661"}</span>
+        </span>
+      )
+    }
     if (tab === "bloom" && bloomCard) {
       const sec = BLOOM_PILLARS.find((x) => x.cards.some((c) => c.n === bloomCard.n)) || BLOOM_PILLARS[0]
       const card = bloomCard
@@ -100,7 +116,7 @@ export function renderBloom(ctx) {
         <div className="fade-in" style={{ padding: "10px 22px 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <span onClick={() => setGlowSheet(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>{"\u2039 Back"}</span>
-            <span onClick={() => toggleSaveBloom(sid)} style={{ fontSize: 19, cursor: "pointer", color: "#C9558E", opacity: isSavedBloom(sid) ? 1 : 0.4 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
+            <Heart id={sid} />
           </div>
           <div style={{ fontSize: 30 }}>{w.ic}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.15 }}>{w.name}</div>
@@ -159,7 +175,7 @@ export function renderBloom(ctx) {
         <div className="fade-in" style={{ padding: "10px 22px 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <span onClick={() => setGlowItem(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>{"\u2039 Back"}</span>
-            <span onClick={() => toggleSaveBloom(sid)} style={{ fontSize: 19, cursor: "pointer", color: "#C9558E", opacity: isSavedBloom(sid) ? 1 : 0.4 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
+            <Heart id={sid} />
           </div>
           {it.img && (
             <>
@@ -465,7 +481,7 @@ export function renderBloom(ctx) {
         <div className="fade-in" style={{ padding: "10px 22px 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <span onClick={() => setResetPage(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>{"\u2039 Reset"}</span>
-            <span onClick={() => toggleSaveBloom(sid)} style={{ fontSize: 19, cursor: "pointer", color: "#C9558E", opacity: isSavedBloom(sid) ? 1 : 0.4 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
+            <Heart id={sid} />
           </div>
           <div style={{ fontSize: 30 }}>{P.ic}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.18 }}>{P.title}</div>
@@ -654,7 +670,7 @@ export function renderBloom(ctx) {
         <div className="fade-in" style={{ padding: "10px 0 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 22px", marginBottom: 14 }}>
             <span onClick={() => setFlourishProject(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer" }}>{"\u2039 Back"}</span>
-            <span onClick={() => toggleSaveBloom(sid)} style={{ fontSize: 20, cursor: "pointer", color: "#C9558E", opacity: isSavedBloom(sid) ? 1 : 0.4 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
+            <Heart id={sid} />
           </div>
           <div style={{ padding: "0 22px" }}><FImg p={P} /></div>
           <div style={{ padding: "0 22px" }}>
@@ -747,7 +763,10 @@ export function renderBloom(ctx) {
               {feed.map((p) => (
                 <div key={p.id} onClick={() => setFlourishProject(p.id)}
                   style={{ scrollSnapAlign: "start", padding: "0 22px 22px", cursor: "pointer" }}>
-                  <FImg p={p} ratio="4 / 5" />
+                  <div style={{ position: "relative" }}>
+                    <FImg p={p} ratio="4 / 5" />
+                    <div style={{ position: "absolute", top: 14, right: 29 }}><Heart id={"flourish:" + p.id} overlay /></div>
+                  </div>
                   <div style={{ paddingTop: 12 }}>
                     <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: BASE.cream, lineHeight: 1.2 }}>{p.emoji} {p.title}</div>
                     <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13.5, color: BASE.taupe, marginTop: 4 }}>{p.sub}</div>
@@ -774,8 +793,7 @@ export function renderBloom(ctx) {
               <div key={p.id} style={{ flex: "0 0 auto", width: 172, scrollSnapAlign: "center" }}>
                 <div style={{ position: "relative" }}>
                   <div onClick={() => setFlourishProject(p.id)} style={{ cursor: "pointer" }}><FImg p={p} /></div>
-                  <span onClick={(e) => { e.stopPropagation(); toggleSaveBloom(sid) }}
-                    style={{ position: "absolute", top: 8, right: 9, fontSize: 17, cursor: "pointer", color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.4)", opacity: isSavedBloom(sid) ? 1 : 0.75 }}>{isSavedBloom(sid) ? "\u2665" : "\u2661"}</span>
+                  <div style={{ position: "absolute", top: 6, right: 7 }}><Heart id={sid} overlay /></div>
                 </div>
                 <div onClick={() => setFlourishProject(p.id)} style={{ cursor: "pointer", marginTop: 9 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 700, color: BASE.cream, lineHeight: 1.22 }}>{p.title}</div>
