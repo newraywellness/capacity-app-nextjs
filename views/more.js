@@ -6,9 +6,10 @@ import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow.js'
 import { RESET_EXPLORE } from '../data/reset.js'
 import { F_BY_ID, F_IMG } from '../data/flourish.js'
 import { PROG_BY_ID, progSchedule } from '../data/train.js'
+import { GREETING_STYLES, GREETING_BY_KEY, greetWordFor } from '../lib/greeting.js'
 
 export function renderMore(ctx) {
-  const { Chips, Label, T, cycleAvg, cycleNow, editLife, firstName, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, saveCycleSettings, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setUseAvgCycle, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, useAvgCycle, user } = ctx
+  const { Chips, Label, T, cycleAvg, cycleNow, editLife, firstName, greetingOn, greetingStyle, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, saveCycleSettings, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setUseAvgCycle, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, useAvgCycle, user } = ctx
     if (tab === "more" && moreView === "menu") {
       const nm = (setupData && setupData.name) || firstName || "friend"
       // Every current entry point into My Life routes through here so a
@@ -222,30 +223,66 @@ export function renderMore(ctx) {
       )
     }
     if (tab === "more" && moreView === "greeting") {
-      // Same thresholds as ENV() in lib/theme.js — morning 5–11, afternoon
-      // 12–17, everything else (including night) reads "Good evening", exactly
-      // matching what Today actually shows right now.
-      const h = new Date().getHours()
-      const greetWord = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 18 ? "Good afternoon" : "Good evening"
+      // Same shared logic Today uses for the real greeting — the preview
+      // below can never show something Today wouldn't actually display.
+      const mode = (() => { const h = new Date().getHours(); return h >= 5 && h < 12 ? "morning" : h >= 12 && h < 18 ? "afternoon" : "evening" })()
+      const word = greetWordFor(mode)
       const nm = (setupData && setupData.name) || ""
+      const preview = GREETING_BY_KEY(greetingStyle).build(word, nm)
+
+      const Toggle = ({ on, onClick }) => (
+        <div onClick={onClick} style={{ flexShrink: 0, width: 46, height: 27, borderRadius: 999, cursor: "pointer", position: "relative",
+          background: on ? "#9B6BC3" : BASE.surface2, border: `1px solid ${on ? "#9B6BC3" : BASE.border}`, transition: "background .2s ease" }}>
+          <span style={{ position: "absolute", top: 2, left: on ? 21 : 2, width: 21, height: 21, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left .2s ease" }} />
+        </div>
+      )
+
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Morning Greeting</div>
           <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Choose how True Reverie welcomes you.</div>
 
-          {/* The greeting always shows today — there's no on/off state behind
-              it yet, so this states that plainly rather than wiring a toggle
-              to nothing. The name it uses is setupData.name, the same value
-              My Life edits — no second name field exists or is needed. */}
-          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "24px 20px", textAlign: "center" }}>
-            <div style={{ fontSize: 20, marginBottom: 8 }}>{"\ud83c\udf05"}</div>
-            <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Nothing to configure yet. Your greeting always shows when you open Today, using your saved name from My Life. A way to adjust it will live here.</div>
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 18px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: BASE.cream }}>Show morning greeting</div>
+                <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2, lineHeight: 1.4 }}>Welcome me when I open Today.</div>
+              </div>
+              <Toggle on={greetingOn} onClick={() => setGreetingOn(!greetingOn)} />
+            </div>
+
+            {greetingOn && (
+              <div className="fade-in">
+                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim, marginBottom: 10 }}>How should I greet you?</div>
+                {GREETING_STYLES.map((g) => {
+                  const sel = greetingStyle === g.key
+                  return (
+                    <div key={g.key} onClick={() => setGreetingStyle(g.key)}
+                      style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 13px", borderRadius: 13, cursor: "pointer", marginBottom: 7,
+                        background: sel ? "rgba(155,107,195,0.10)" : BASE.bg2 || BASE.surface2, border: `1px solid ${sel ? "#9B6BC3" : BASE.border}` }}>
+                      <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, border: `2px solid ${sel ? "#9B6BC3" : BASE.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {sel && <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#9B6BC3" }} />}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: sel ? 700 : 600, color: BASE.cream }}>{g.label}</div>
+                        {g.sub && <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 1 }}>{g.sub}</div>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, margin: "22px 4px 8px" }}>Preview</div>
           <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "20px", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 20, color: BASE.cream }}>{greetWord}{nm ? ", " + nm : ""}</div>
+            {greetingOn ? (
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 20, color: BASE.cream }}>{preview}</div>
+            ) : (
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.taupe }}>Morning greeting is turned off.</div>
+            )}
           </div>
         </div>
       )
