@@ -5,9 +5,10 @@ import { BLOOM_PILLARS, BLOOM_TRENDING } from '../data/bloom.js'
 import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow.js'
 import { RESET_EXPLORE } from '../data/reset.js'
 import { F_BY_ID, F_IMG } from '../data/flourish.js'
+import { PROG_BY_ID, progSchedule } from '../data/train.js'
 
 export function renderMore(ctx) {
-  const { Chips, Label, T, cycleNow, editLife, firstName, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, savedBloom, savedFilter, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
+  const { Chips, Label, T, cycleNow, editLife, firstName, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, toggle, toggleSaveBloom, user } = ctx
     if (tab === "more" && moreView === "menu") {
       const nm = (setupData && setupData.name) || firstName || "friend"
       // Every current entry point into My Life routes through here so a
@@ -63,7 +64,7 @@ export function renderMore(ctx) {
           <Group title="My Wellness">
             <Row label="My Capacity" sub="Check-ins & reminders" onClick={() => setMoreView("capacity")} />
             <Row label="My Cycle" sub="Cycle tracking & preferences" onClick={() => { setTmpLen(cycleNow ? String(cycleNow.length) : "28"); setTmpStart(lastPeriod || ""); setTab("body"); setBodyView("cycle"); setEditCycle(true) }} />
-            <Row label="My Movement" sub="Workout reminders & preferences" onClick={openMyLife} />
+            <Row label="My Movement" sub="Workout reminders & preferences" onClick={() => setMoreView("movement")} />
           </Group>
 
           {/* ── TRUE REVERIE — the ecosystem. Slightly more air, small icons. ── */}
@@ -107,6 +108,52 @@ export function renderMore(ctx) {
             <div style={{ fontSize: 22, marginBottom: 10 }}>{"\ud83e\udd0d"}</div>
             <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Nothing to configure yet. As Capacity-specific reminders and preferences are built, they'll live here.</div>
           </div>
+        </div>
+      )
+    }
+    if (tab === "more" && moreView === "movement") {
+      // PROG_BY_ID falls back to a default program for an unknown/missing id,
+      // so an absent programId must be checked BEFORE calling it — otherwise
+      // this would show fabricated progress for someone who never chose a
+      // program. Same guard already used for this in data/progress.js.
+      let program = null
+      if (programId) {
+        const prog = PROG_BY_ID(programId)
+        const sched = programStart ? progSchedule(prog, programStart) : null
+        program = { name: prog.name, emoji: prog.emoji, totalWeeks: prog.weeks, started: !!programStart, week: sched ? Math.min(sched.week, prog.weeks) : null, complete: sched ? sched.complete : false }
+      }
+      return (
+        <div className="fade-in" style={{ padding: "10px 18px 0" }}>
+          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 Back to More"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>My Movement</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 22 }}>Shape how movement fits into your life.</div>
+
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, margin: "0 4px 8px" }}>Workout Reminders</div>
+          {/* No workout-reminder setting exists in the app yet — same honest
+              treatment as My Capacity, rather than a toggle with nothing behind it. */}
+          <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "24px 20px", textAlign: "center", marginBottom: program ? 22 : 14 }}>
+            <div style={{ fontSize: 20, marginBottom: 8 }}>{"\ud83d\udd14"}</div>
+            <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Nothing to configure yet. Workout reminders aren't built yet — when they are, they'll live here.</div>
+          </div>
+
+          {program && (
+            <>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, margin: "0 4px 8px" }}>Current Program</div>
+              <div style={{ borderRadius: 16, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: program.started ? 10 : 0 }}>
+                  <span style={{ fontSize: 18 }}>{program.emoji}</span>
+                  <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, color: BASE.cream }}>{program.name}</span>
+                </div>
+                {program.started ? (
+                  <div style={{ fontSize: 13, color: BASE.creamDim }}>{program.complete ? `All ${program.totalWeeks} weeks complete` : `Week ${program.week} of ${program.totalWeeks}`}</div>
+                ) : (
+                  <div style={{ fontSize: 13, color: BASE.taupe, fontStyle: "italic" }}>Chosen, not yet started</div>
+                )}
+              </div>
+            </>
+          )}
+
+          {!program && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", textAlign: "center", lineHeight: 1.6, padding: "0 10px" }}>More movement preferences will appear here as your Move experience grows.</div>}
         </div>
       )
     }
