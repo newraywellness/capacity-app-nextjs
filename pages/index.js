@@ -142,6 +142,8 @@ export default function App() {
   const [cycArticle, setCycArticle] = useState(null)
   const [cycleLogs, setCycleLogs] = useState({})
   const [useAvgCycle, setUseAvgCycleRaw] = useState(false)
+  const [greetingOn, setGreetingOnRaw] = useState(true) // default ON unless an existing preference says otherwise
+  const [greetingStyle, setGreetingStyleRaw] = useState("name_formal")
   const [cycLogDate, setCycLogDate] = useState(new Date().toISOString().slice(0, 10))
   // Which slice of the suggestion pool is showing. Scoped to the day so
   // Surprise Me keeps moving forward rather than repeating within a day.
@@ -166,6 +168,8 @@ export default function App() {
     try { const sb = localStorage.getItem("nr_bloom_saved"); if (sb) setSavedBloom(JSON.parse(sb)) } catch (e) {}
     try { const cl = localStorage.getItem("nr_cycle_logs"); if (cl) setCycleLogs(JSON.parse(cl)) } catch (e) {}
     try { setUseAvgCycleRaw(localStorage.getItem("nr_use_avg_cycle") === "1") } catch (e) {}
+    try { const go = localStorage.getItem("nr_greeting_on"); if (go !== null) setGreetingOnRaw(go === "1") } catch (e) {}
+    try { const gs = localStorage.getItem("nr_greeting_style"); if (gs) setGreetingStyleRaw(gs) } catch (e) {}
     try {
       const rs = JSON.parse(localStorage.getItem("nr_reset_seed") || "null")
       if (rs && rs.d === new Date().toISOString().slice(0, 10)) setResetSeed(rs)
@@ -284,6 +288,8 @@ export default function App() {
             if (Array.isArray(sd.savedBloom)) { setSavedBloom(sd.savedBloom); try { localStorage.setItem("nr_bloom_saved", JSON.stringify(sd.savedBloom)) } catch (e) {} }
             if (sd.cycleLogs && typeof sd.cycleLogs === "object") { setCycleLogs(sd.cycleLogs); try { localStorage.setItem("nr_cycle_logs", JSON.stringify(sd.cycleLogs)) } catch (e) {} }
             if (typeof sd.useAvgCycle === "boolean") { setUseAvgCycleRaw(sd.useAvgCycle); try { localStorage.setItem("nr_use_avg_cycle", sd.useAvgCycle ? "1" : "0") } catch (e) {} }
+            if (typeof sd.greetingOn === "boolean") { setGreetingOnRaw(sd.greetingOn); try { localStorage.setItem("nr_greeting_on", sd.greetingOn ? "1" : "0") } catch (e) {} }
+            if (sd.greetingStyle) { setGreetingStyleRaw(sd.greetingStyle); try { localStorage.setItem("nr_greeting_style", sd.greetingStyle) } catch (e) {} }
             try { localStorage.setItem("nr_setup", JSON.stringify(sd)) } catch (e) {}
           } else if (p.data.first_name) {
             setFirstName(p.data.first_name)
@@ -372,13 +378,13 @@ export default function App() {
   const handleLogout = async () => {
     await db.auth.signOut()
     setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
-    setNutrition(null); setSavedBloom([]); setCycleLogs({}); setUseAvgCycleRaw(false); setResetSeed({ d: "", day: 0, night: 0 }); setResetPage(null); setFlourishTime(null); setFlourishProject(null); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
+    setNutrition(null); setSavedBloom([]); setCycleLogs({}); setUseAvgCycleRaw(false); setGreetingOnRaw(true); setGreetingStyleRaw("name_formal"); setResetSeed({ d: "", day: 0, night: 0 }); setResetPage(null); setFlourishTime(null); setFlourishProject(null); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
     setPct(50); setFactors([]); setSupports([]); setOneThing("")
     setProgramId(null); setWoLog([]); setSetupData(null); setFirstName("")
     setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
     setTab("today"); setBodyView("gym")
     try {
-      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_bloom_saved", "nr_cycle_logs", "nr_use_avg_cycle", "nr_reset_seed", "nr_food_days", "nr_saved_foods", "nr_my_foods", "nr_my_meals", "nr_my_foods", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
+      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_bloom_saved", "nr_cycle_logs", "nr_use_avg_cycle", "nr_greeting_on", "nr_greeting_style", "nr_reset_seed", "nr_food_days", "nr_saved_foods", "nr_my_foods", "nr_my_meals", "nr_my_foods", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
     } catch (e) {}
   }
 
@@ -566,6 +572,17 @@ export default function App() {
     setUseAvgCycleRaw(v)
     try { localStorage.setItem("nr_use_avg_cycle", v ? "1" : "0") } catch (e) {}
     try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), useAvgCycle: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
+  }
+
+  const setGreetingOn = (v) => {
+    setGreetingOnRaw(v)
+    try { localStorage.setItem("nr_greeting_on", v ? "1" : "0") } catch (e) {}
+    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), greetingOn: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
+  }
+  const setGreetingStyle = (v) => {
+    setGreetingStyleRaw(v)
+    try { localStorage.setItem("nr_greeting_style", v) } catch (e) {}
+    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), greetingStyle: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
   }
 
   const saveCycleSettings = (start, len) => {
@@ -990,7 +1007,7 @@ export default function App() {
 
 
   const renderContent = () => {
-    const ctx = { Chips, Label, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    const ctx = { Chips, Label, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
     return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderProgress(ctx) || renderMore(ctx) || null
   }
 
