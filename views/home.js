@@ -1,8 +1,9 @@
-import { FACTORS, SUPPORTS } from '../data/checkin'
-import { CYCLE_PHASES, computeCycle } from '../data/cycle'
-import { sumEntries } from '../data/nourish'
-import { PROGRAM_SCHEDULE, PROG_BY_ID, WORKOUT_TEMPLATES, progSchedule } from '../data/train'
-import { ENV, THEMES, dayIndex } from '../lib/theme'
+import { FACTORS, SUPPORTS } from '../data/checkin.js'
+import { CYCLE_PHASES, computeCycle } from '../data/cycle.js'
+import { sumEntries } from '../data/nourish.js'
+import { PROGRAM_SCHEDULE, PROG_BY_ID, WORKOUT_TEMPLATES, progSchedule } from '../data/train.js'
+import { ENV, THEMES, dayIndex } from '../lib/theme.js'
+import { GREETING_BY_KEY, greetWordFor } from '../lib/greeting.js'
 
 // ── Phase 2 comparison switch ────────────────────────────────────────────────
 // "bubble"    → soft rounded container behind each Your Day card (current)
@@ -36,7 +37,7 @@ const FOR_TODAY = [
 ]
 
 export function renderHome(ctx) {
-  const { Chips, Label, checkedIn, ctxOpen, cur, cycleLength, dateStr, factors, foodDays, forceTrainMenu, lastPeriod, nutrition, oneThing, pct, programId, programStart, saveCheckin, saving, selectedWoKey, setBodyView, setCheckedIn, setCtxOpen, setFactors, setMealFilter, setMealType, setNourishView, setOneThing, setPct, setPlanView, setSupports, setTab, setTrainView, setupData, supports, tab, toggle, woLog } = ctx
+  const { Chips, Label, checkedIn, ctxOpen, cur, cycleLength, dateStr, factors, foodDays, forceTrainMenu, greetingOn, greetingStyle, lastPeriod, nutrition, oneThing, pct, programId, programStart, saveCheckin, saving, selectedWoKey, setBodyView, setCheckedIn, setCtxOpen, setFactors, setMealFilter, setMealType, setNourishView, setOneThing, setPct, setPlanView, setSupports, setTab, setTrainView, setupData, supports, tab, toggle, woLog } = ctx
 
   if (tab === "today") {
     // ── Atmosphere: untouched. Same ENV engine, same time-of-day behaviour. ──
@@ -49,7 +50,8 @@ export function renderHome(ctx) {
     const cardBd = env.dark ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.85)"
     const accent = env.dark ? "#F0C879" : "#C9558E"
     const nm = (setupData && setupData.name) || ""
-    const greetWord = env.mode === "morning" ? "Good morning" : env.mode === "afternoon" ? "Good afternoon" : "Good evening"
+    const greetWord = greetWordFor(env.mode)
+    const greeting = GREETING_BY_KEY(greetingStyle).build(greetWord, nm)
 
     // ── Derived day state. Home READS from Move / Nourish / Cycle. No new sources of truth. ──
     const recovery = pct < 15
@@ -121,7 +123,7 @@ export function renderHome(ctx) {
 
         {/* ────────── GREETING ────────── */}
         <div style={{ paddingTop: 26, textAlign: "center" }}>
-          <div className="fade-in" style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 21, color: ink, lineHeight: 1.1 }}>{greetWord}{nm ? ", " + nm : ""}</div>
+          {greetingOn && <div className="fade-in" style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 21, color: ink, lineHeight: 1.1 }}>{greeting}</div>}
           <div style={{ fontSize: 8.5, letterSpacing: 2.6, color: mut, textTransform: "uppercase", marginTop: 8 }}>{dateStr}</div>
         </div>
 
