@@ -8,6 +8,7 @@ import { F_BY_ID, F_IMG } from '../data/flourish.js'
 import { PROG_BY_ID, progSchedule } from '../data/train.js'
 import { GREETING_STYLES, GREETING_BY_KEY, greetWordFor } from '../lib/greeting.js'
 import { LEGAL_DOCS } from '../data/legal.js'
+import { M_BY_ID } from '../data/move.js'
 
 export function renderMore(ctx) {
   const { Chips, Label, T, cycleAvg, cycleNow, editLife, firstName, greetingOn, greetingStyle, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, saveCycleSettings, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setUseAvgCycle, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, useAvgCycle, user } = ctx
@@ -598,6 +599,11 @@ export function renderMore(ctx) {
           const P = F_BY_ID(id.slice(9))
           return P ? { id, cat: "Flourish", ic: P.emoji, title: P.title, sub: P.sub, img: F_IMG(P.id), time: P.time, category: P.category,
             open: () => { setBloomPillar("flourish"); setFlourishProject(P.id); setTab("bloom") } } : null
+        }
+        if (id.indexOf("move:") === 0) {
+          const P = M_BY_ID(id.slice(5))
+          return P ? { id, cat: "Move", ic: P.emoji, title: P.title, sub: P.hook,
+            open: () => { setTab("body"); setBodyView("gym") } } : null
         }
         // Legacy IDs from before the Glow rebuild — resolved best-effort so an
         // old save doesn't just vanish, but not surfaced as its own filter
