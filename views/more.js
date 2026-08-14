@@ -555,7 +555,7 @@ export function renderMore(ctx) {
         </div>
       )
     }
-    if (tab === "more" && moreView === "saved") {
+    if (tab === "taste" || (tab === "more" && moreView === "saved")) {
       // One resolver per current save-ID scheme. Each returns the real content's
       // own metadata plus an `open` action that sets exactly the state the
       // original screen already expects — Saved Ideas never renders its own
@@ -635,7 +635,7 @@ export function renderMore(ctx) {
 
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
-          <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 More"}</div>
+          {tab === "more" && <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 More"}</div>}
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Saved Ideas</div>
           <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 20 }}>Everything you've kept, in one place.</div>
 
