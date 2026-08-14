@@ -22,6 +22,33 @@ export function renderBloom(ctx) {
         </span>
       )
     }
+
+    // Pass 1 navigation only — the four sections stay exactly as they were;
+    // this is just a consistent way to jump directly between their top-level
+    // views. Deep nested state (a specific Glow item, a specific Flourish
+    // project, a Reset Explore page) is cleared on switch so each tab always
+    // opens at that section's own landing, never a stale sub-screen.
+    const switchPillar = (k) => {
+      setGlowTopic(null); setGlowItem(null); setGlowSheet(null)
+      setFlourishProject(null); setFlourishTime(null)
+      setResetPage(null)
+      setBloomPillar(k)
+    }
+    const BloomTabs = () => (
+      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+        {[["foryou", "For You"], ["glow", "Glow"], ["flourish", "Flourish"], ["seasonal", "Seasonal"]].map(([k, lbl]) => {
+          const active = k === "foryou" ? !bloomPillar : bloomPillar === k
+          return (
+            <span key={k} onClick={() => switchPillar(k === "foryou" ? null : k)}
+              style={{ flex: 1, textAlign: "center", padding: "10px 4px", borderRadius: 999, cursor: "pointer", fontSize: 12.5, fontWeight: 700,
+                background: active ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface,
+                color: active ? "#fff" : BASE.creamDim,
+                border: `1px solid ${active ? "transparent" : BASE.border}` }}>{lbl}</span>
+          )
+        })}
+      </div>
+    )
+
     if (tab === "bloom" && bloomCard) {
       const sec = BLOOM_PILLARS.find((x) => x.cards.some((c) => c.n === bloomCard.n)) || BLOOM_PILLARS[0]
       const card = bloomCard
@@ -809,8 +836,9 @@ export function renderBloom(ctx) {
       )
       return (
         <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <BloomTabs />
           <div onClick={() => setBloomPillar(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 18 }}>{"\u2039 Bloom"}</div>
-          <div style={{ fontSize: 30 }}>📖</div>
+          <div style={{ fontSize: 30 }}>{"\ud83d\udcd6"}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 2 }}>Flourish</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 6, marginBottom: 32 }}>Learn, create, and become her.</div>
 
@@ -844,10 +872,24 @@ export function renderBloom(ctx) {
     }
 
     // ── INSIDE A PILLAR ──────────────────────────────────────────────────
+    // ══════════════ SEASONAL · Pass 1 placeholder only ══════════════
+    if (tab === "bloom" && bloomPillar === "seasonal") {
+      return (
+        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <BloomTabs />
+          <div style={{ textAlign: "center", padding: "60px 14px" }}>
+            <div style={{ fontSize: 30, marginBottom: 14 }}>{"\ud83c\udf42"}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream }}>Seasonal</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.taupe, marginTop: 10, lineHeight: 1.55 }}>Something new is always around the corner.</div>
+          </div>
+        </div>
+      )
+    }
     if (tab === "bloom" && bloomPillar) {
       const P = BLOOM_PILLARS.find((x) => x.key === bloomPillar) || BLOOM_PILLARS[0]
       return (
         <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+          <BloomTabs />
           <div onClick={() => setBloomPillar(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 16 }}>{"\u2039 Bloom"}</div>
           <div style={{ fontSize: 30 }}>{P.ic}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream, marginTop: 4 }}>{P.name}</div>
@@ -915,8 +957,10 @@ export function renderBloom(ctx) {
       return (
         <div className="fade-in" style={{ padding: "0 24px" }}>
 
+          <div style={{ paddingTop: 18 }}><BloomTabs /></div>
+
           {/* ── greeting · no date, no subtitle ── */}
-          <div style={{ paddingTop: 26, textAlign: "center" }}>
+          <div style={{ paddingTop: 8, textAlign: "center" }}>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: BASE.cream, lineHeight: 1.08, letterSpacing: 0.2 }}>Wonderful Discoveries</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.taupe, lineHeight: 1.4, marginTop: 10 }}>Things you didn't know you needed.</div>
           </div>
@@ -939,7 +983,7 @@ export function renderBloom(ctx) {
           {/* ── three pillars · stacked, so a fourth can join later ── */}
           <div style={{ height: 48 }} />
           {(BLOOM_PILLARS || []).map((P, i) => (
-            <div key={P.key} onClick={() => setBloomPillar(P.key)} style={{ display: "flex", alignItems: "center", gap: 16, borderRadius: 20, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 20px", cursor: "pointer", marginBottom: i < BLOOM_PILLARS.length - 1 ? 12 : 0, minHeight: 84 }}>
+            <div key={P.key} onClick={() => switchPillar(P.key)} style={{ display: "flex", alignItems: "center", gap: 16, borderRadius: 20, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 20px", cursor: "pointer", marginBottom: i < BLOOM_PILLARS.length - 1 ? 12 : 0, minHeight: 84 }}>
               <span style={{ fontSize: 26, lineHeight: 1 }}>{P.ic}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: BASE.cream, lineHeight: 1.1 }}>{P.name}</div>
@@ -955,7 +999,7 @@ export function renderBloom(ctx) {
             <div style={LABEL}>Today's invitation</div>
             <div style={{ fontSize: 28, marginTop: 16 }}>{invite.emoji}</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 26, color: BASE.cream, lineHeight: 1.4, marginTop: 10 }}>{invite.text}</div>
-            <div onClick={() => setBloomPillar("reset")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", marginTop: 18, cursor: "pointer", letterSpacing: 0.2 }}>More gentle ideas in Reset {"\u2192"}</div>
+            <div onClick={() => switchPillar("reset")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", marginTop: 18, cursor: "pointer", letterSpacing: 0.2 }}>More gentle ideas in Reset {"\u2192"}</div>
           </div>
 
         </div>
