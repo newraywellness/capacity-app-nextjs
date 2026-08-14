@@ -23,7 +23,7 @@ import { renderMore } from '../views/more.js'
 export default function App() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
-  const [tab, setTab] = useState("today")
+  const [tab, setTab] = useState("bloom")
   const [pct, setPct] = useState(50)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -1030,11 +1030,14 @@ export default function App() {
         {tab === "body" && bodyView === "cycle" && <CycleAir phase={cycleNow && cycleNow.phase} />}
         {tab === "progress" && <ProgressAir />}
         <div style={{ position: "relative", paddingTop: 14 }}>
-          {tab === "body" && (
+          {(tab === "today" || tab === "body") && (
             <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
-              {[["gym", "Move", "\ud83d\udcaa"], ["nourish", "Nourish", "\ud83c\udf7d\ufe0f"], ["cycle", "Cycle", "\ud83c\udf19"]].map(([k, lbl, ic]) => (
-                <button key={k} onClick={() => setBodyView(k)} style={{ flex: 1, padding: "10px 4px", borderRadius: 16, cursor: "pointer", fontSize: 12, fontWeight: 700, background: bodyView === k ? T.accent : BASE.surface, color: bodyView === k ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${bodyView === k ? T.accent : BASE.border}` }}><span style={{ fontSize: 16, display: "block", marginBottom: 2 }}>{ic}</span>{lbl}</button>
-              ))}
+              {[["today", "Today", "\u2600\ufe0f"], ["gym", "Move", "\ud83d\udcaa"], ["nourish", "Nourish", "\ud83c\udf7d\ufe0f"], ["cycle", "Cycle", "\ud83c\udf19"]].map(([k, lbl, ic]) => {
+                const active = k === "today" ? tab === "today" : (tab === "body" && bodyView === k)
+                return (
+                  <button key={k} onClick={() => { if (k === "today") setTab("today"); else { setTab("body"); setBodyView(k) } }} style={{ flex: 1, padding: "10px 4px", borderRadius: 16, cursor: "pointer", fontSize: 12, fontWeight: 700, background: active ? T.accent : BASE.surface, color: active ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${active ? T.accent : BASE.border}` }}><span style={{ fontSize: 16, display: "block", marginBottom: 2 }}>{ic}</span>{lbl}</button>
+                )
+              })}
             </div>
           )}
           {renderContent()}
@@ -1042,11 +1045,11 @@ export default function App() {
         </div>
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60 }}>
           <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", background: tab === "today" && envRoot.dark ? "rgba(40,28,64,0.92)" : "rgba(255,255,255,0.93)", borderTop: `1px solid ${tab === "today" && envRoot.dark ? "rgba(255,255,255,0.12)" : BASE.border}`, padding: "8px 6px 14px", boxShadow: "0 -6px 24px rgba(60,35,70,0.10)" }}>
-            {[["today", "Today", "\u2600\ufe0f"], ["body", "Body", "💪"], ["bloom", "Bloom", "🌸"], ["progress", "Progress", "📈"], ["more", "More", "🤍"]].map(([k, lbl, ic]) => {
-              const active = tab === k
+            {[["body", "Body", "\ud83d\udcaa"], ["bloom", "Bloom", "\ud83c\udf38"], ["progress", "Progress", "\ud83d\udcc8"], ["more", "More", "\ud83e\udd0d"]].map(([k, lbl, ic]) => {
+              const active = k === "body" ? (tab === "today" || tab === "body") : tab === k
               const darkbar = tab === "today" && envRoot.dark
               return (
-                <button key={k} onClick={() => { setBloomCard(null); setTab(k) }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
+                <button key={k} onClick={() => { setBloomCard(null); setTab(k === "body" ? "today" : k) }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
                   <span style={{ fontSize: 19, display: "block", marginBottom: 2, filter: active ? "none" : "grayscale(35%)" }}>{ic}</span>
                   <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: darkbar ? "#F5E9F2" : (active ? "#C9558E" : BASE.taupe) }}>{lbl}</span>
                 </button>
