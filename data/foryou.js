@@ -11,7 +11,7 @@
 
 const FOR_YOU_ITEMS = [
   {
-    id: "brown-butter-cookies", type: "recipe", emoji: "\ud83c\udf6a",
+    id: "brown-butter-cookies", type: "recipe", emoji: "\ud83c\udf6a", image: "/bloom/apple-cider-cookies.jpg",
     title: "Brown Butter Apple Cider Cookies", teaser: "The brown butter changes everything.",
     tags: ["Bake", "45 min", "$"], timeBucket: "I've got time",
     detail: {
@@ -32,7 +32,7 @@ const FOR_YOU_ITEMS = [
     },
   },
   {
-    id: "blanket-fort-movie-night", type: "home", emoji: "\ud83d\udecb\ufe0f",
+    id: "blanket-fort-movie-night", type: "home", emoji: "\ud83d\udecb\ufe0f", image: "/bloom/blanket-fort-movie-night.jpg",
     title: "Blanket Fort Movie Night", teaser: "Pillows, fairy lights, and permission to do nothing productive.",
     tags: ["Cozy", "At home", "Free"], timeBucket: "30 min",
     detail: {
