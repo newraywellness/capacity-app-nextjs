@@ -9,6 +9,7 @@ import { PROG_BY_ID, progSchedule } from '../data/train.js'
 import { GREETING_STYLES, GREETING_BY_KEY, greetWordFor } from '../lib/greeting.js'
 import { LEGAL_DOCS } from '../data/legal.js'
 import { M_BY_ID } from '../data/move.js'
+import { FY_BY_ID } from '../data/foryou.js'
 
 export function renderMore(ctx) {
   const { Chips, Label, T, cycleAvg, cycleNow, editLife, firstName, greetingOn, greetingStyle, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, saveCycleSettings, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setUseAvgCycle, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, useAvgCycle, user } = ctx
@@ -604,6 +605,14 @@ export function renderMore(ctx) {
           const P = M_BY_ID(id.slice(5))
           return P ? { id, cat: "Move", ic: P.emoji, title: P.title, sub: P.hook,
             open: () => { setTab("body"); setBodyView("gym") } } : null
+        }
+        if (id.indexOf("foryou:") === 0) {
+          const P = FY_BY_ID(id.slice(7))
+          if (!P) return null
+          const isMove = P.type === "movement"
+          const mv = isMove ? M_BY_ID(P.moveId) : null
+          return { id, cat: "For You", ic: isMove ? (mv ? mv.emoji : "\u2728") : P.emoji, title: isMove ? (mv ? mv.title : "Movement idea") : P.title, sub: isMove ? (mv ? mv.hook : "") : P.teaser,
+            open: () => { setBloomPillar(null); setTab("bloom") } }
         }
         // Legacy IDs from before the Glow rebuild — resolved best-effort so an
         // old save doesn't just vanish, but not surfaced as its own filter
