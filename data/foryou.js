@@ -21,7 +21,7 @@ const FOR_YOU_ITEMS = [
     },
   },
   {
-    id: "heatless-waves", type: "beauty", emoji: "\ud83c\udf80",
+    id: "heatless-waves", type: "beauty", emoji: "\ud83c\udf80", image: "/bloom/heatless-waves.jpeg",
     title: "Overnight Silk Heatless Waves", teaser: "Wake up with waves you didn't have to burn your hair for.",
     tags: ["Beauty", "10 min", "At home"], timeBucket: "15 min",
     detail: {
@@ -57,7 +57,7 @@ const FOR_YOU_ITEMS = [
     tags: ["Sweat", "15 min", "Pilates"], timeBucket: "15 min",
   },
   {
-    id: "simmer-pot", type: "home", emoji: "\ud83d\udd6f\ufe0f",
+    id: "simmer-pot", type: "home", emoji: "\ud83d\udd6f\ufe0f", image: "/bloom/cinnamon-vanilla-simmer-pot.jpeg",
     title: "Cinnamon-Vanilla Simmer Pot", teaser: "Your house smells like a candle you didn't have to buy.",
     tags: ["Make", "5 min", "At home"], timeBucket: "5 min",
     detail: {
