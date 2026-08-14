@@ -19,6 +19,7 @@ import { renderNourish } from '../views/nourish.js'
 import { renderBloom } from '../views/bloom.js'
 import { renderProgress } from '../views/progress.js'
 import { renderMore } from '../views/more.js'
+import { renderRebuild } from '../views/rebuild.js'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -1014,7 +1015,7 @@ export default function App() {
 
   const renderContent = () => {
     const ctx = { Chips, Label, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, moveCategory, moveMood, moveSurpriseIdx, moveTime, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
-    return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderProgress(ctx) || renderMore(ctx) || null
+    return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderProgress(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
   }
 
   return (
@@ -1043,13 +1044,16 @@ export default function App() {
           {renderContent()}
           <div style={{ height: 104 }} />
         </div>
+        <div onClick={() => { setMoreView("menu"); setTab("more") }} style={{ position: "fixed", top: 16, right: 18, zIndex: 70, width: 38, height: 38, borderRadius: "50%", background: "rgba(255,255,255,0.72)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 2px 8px rgba(60,35,70,0.12)" }}>
+          <span style={{ fontSize: 15, color: BASE.creamDim, lineHeight: 1 }}>{"\u2630"}</span>
+        </div>
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60 }}>
           <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", background: tab === "today" && envRoot.dark ? "rgba(40,28,64,0.92)" : "rgba(255,255,255,0.93)", borderTop: `1px solid ${tab === "today" && envRoot.dark ? "rgba(255,255,255,0.12)" : BASE.border}`, padding: "8px 6px 14px", boxShadow: "0 -6px 24px rgba(60,35,70,0.10)" }}>
-            {[["body", "Body", "\ud83d\udcaa"], ["bloom", "Bloom", "\ud83c\udf38"], ["progress", "Progress", "\ud83d\udcc8"], ["more", "More", "\ud83e\udd0d"]].map(([k, lbl, ic]) => {
+            {[["bloom", "Bloom", "\ud83c\udf38"], ["taste", "Taste", "\ud83e\udd0d"], ["body", "Body", "\ud83d\udcaa"], ["progress", "Progress", "\ud83d\udcc8"], ["rebuild", "Rebuild", "\ud83c\udf31"]].map(([k, lbl, ic]) => {
               const active = k === "body" ? (tab === "today" || tab === "body") : tab === k
               const darkbar = tab === "today" && envRoot.dark
               return (
-                <button key={k} onClick={() => { setBloomCard(null); setTab(k === "body" ? "today" : k) }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
+                <button key={k} onClick={() => { setBloomCard(null); if (k === "taste") setSavedFilter("All"); setTab(k === "body" ? "today" : k) }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
                   <span style={{ fontSize: 19, display: "block", marginBottom: 2, filter: active ? "none" : "grayscale(35%)" }}>{ic}</span>
                   <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: darkbar ? "#F5E9F2" : (active ? "#C9558E" : BASE.taupe) }}>{lbl}</span>
                 </button>
