@@ -4,7 +4,7 @@ import { M_BY_ID } from '../data/move.js'
 import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow.js'
 import { RESET_DAY, RESET_NIGHT, RESET_SONGS, RESET_EXPLORE } from '../data/reset.js'
 import { F_TIMES, F_IMG, F_BY_ID, byTag, seasonalSet, timeFeed, relatedByMood } from '../data/flourish.js'
-import { BASE, dayIndex } from '../lib/theme.js'
+import { BASE, ENV, dayIndex } from '../lib/theme.js'
 
 export function renderBloom(ctx) {
   const { bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, setBloomArticle, setBloomPillar, setBloomSearchOpen, setDoneFeed, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, surpriseReset, tab, toggleSaveBloom } = ctx
@@ -955,6 +955,15 @@ export function renderBloom(ctx) {
       const feat = trending.length ? trending[dayIndex(trending.length)] : null
       const fid = feat ? "article:" + feat.id : ""
       const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
+      // Same ENV engine Today already uses for this exact problem: text that
+      // sits directly on Bloom's atmosphere (not inside a white card) needs to
+      // flip light at night, since BASE.cream/taupe are dark tokens tuned for
+      // Bloom's pale daytime background. Anything inside a FeedCard stays
+      // untouched — those cards are solid white regardless of time of day.
+      const hour = new Date().getHours()
+      const env = ENV(hour, checkedIn ? cur : null)
+      const ink = env.dark ? "#F5E9F2" : BASE.cream
+      const mut = env.dark ? "rgba(240,220,240,0.72)" : BASE.taupe
 
       // ── For You-specific building blocks. Kept local to this block rather
       // than shared, so nothing here can ever touch Glow's or Flourish's own
@@ -975,15 +984,16 @@ export function renderBloom(ctx) {
         const saved = isSavedBloom(sid)
         const done = doneFeed.indexOf(item.id) >= 0
         const Btn = ({ on, onClick, onIcon, offIcon, label }) => (
-          <span onClick={(e) => { e.stopPropagation(); onClick() }} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12, fontWeight: 700, color: on ? "#C9558E" : BASE.taupe }}>
-            <span style={{ fontSize: 15 }}>{on ? onIcon : offIcon}</span>{label}
+          <span onClick={(e) => { e.stopPropagation(); onClick() }} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "8px 2px" }}>
+            <span style={{ fontSize: 16, lineHeight: 1, color: on ? "#C9558E" : BASE.taupe }}>{on ? onIcon : offIcon}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.2, color: on ? "#C9558E" : BASE.taupe }}>{label}</span>
           </span>
         )
         return (
-          <div style={{ display: "flex", gap: 20, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${BASE.border}` }}>
-            <Btn on={liked} onClick={() => setLikedFeed(liked ? likedFeed.filter((x) => x !== item.id) : [...likedFeed, item.id])} onIcon="\u2605" offIcon="\u2606" label="Like" />
-            <Btn on={saved} onClick={() => toggleSaveBloom(sid)} onIcon="\u2665" offIcon="\u2661" label="Save" />
-            <Btn on={done} onClick={() => setDoneFeed(done ? doneFeed.filter((x) => x !== item.id) : [...doneFeed, item.id])} onIcon="\u2713" offIcon="\u25cb" label="I Did This" />
+          <div style={{ display: "flex", marginTop: 14, paddingTop: 12, borderTop: `1px solid ${BASE.border}` }}>
+            <Btn on={liked} onClick={() => setLikedFeed(liked ? likedFeed.filter((x) => x !== item.id) : [...likedFeed, item.id])} onIcon={"\u2605"} offIcon={"\u2606"} label="Like" />
+            <Btn on={saved} onClick={() => toggleSaveBloom(sid)} onIcon={"\u2665"} offIcon={"\u2661"} label="Save" />
+            <Btn on={done} onClick={() => setDoneFeed(done ? doneFeed.filter((x) => x !== item.id) : [...doneFeed, item.id])} onIcon={"\u2713"} offIcon={"\u25cb"} label="I Did This" />
           </div>
         )
       }
@@ -1012,13 +1022,15 @@ export function renderBloom(ctx) {
         }
         const d = item.detail || {}
         return (
-          <div style={{ padding: "20px 20px 22px" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: BASE.cream, marginBottom: 12 }}>{item.title}</div>
+          <div style={{ padding: "22px 20px 24px" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: BASE.cream, letterSpacing: 0.1 }}>{item.title}</div>
+            <div style={{ height: 1, background: BASE.border, margin: "12px 0 18px" }} />
             {item.type === "recipe" && (
               <>
                 <div style={LABEL}>Ingredients</div>
                 {d.ingredients.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
-                <div style={{ ...LABEL, marginTop: 16 }}>How To</div>
+                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+                <div style={LABEL}>How To</div>
                 {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
                 {d.note && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>{d.note}</div>}
               </>
@@ -1027,7 +1039,8 @@ export function renderBloom(ctx) {
               <>
                 <div style={LABEL}>What You Need</div>
                 {d.need.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
-                <div style={{ ...LABEL, marginTop: 16 }}>How To</div>
+                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+                <div style={LABEL}>How To</div>
                 {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
                 {d.products && (
                   <>
@@ -1042,14 +1055,16 @@ export function renderBloom(ctx) {
               <>
                 <div style={LABEL}>Supplies</div>
                 {d.need.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
-                <div style={{ ...LABEL, marginTop: 16 }}>How To</div>
+                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+                <div style={LABEL}>How To</div>
                 {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
               </>
             )}
             {item.type === "outing" && (
               <>
                 <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65, fontStyle: "italic" }}>{d.idea}</div>
-                <div style={{ ...LABEL, marginTop: 16 }}>Make It Fun</div>
+                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+                <div style={LABEL}>Make It Fun</div>
                 {d.makeItFun.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{"\u2022 " + x}</div>)}
                 {d.details && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>{d.details}</div>}
               </>
@@ -1060,10 +1075,11 @@ export function renderBloom(ctx) {
       const FeedCard = ({ item }) => (
         <div style={{ borderRadius: 24, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 22 }}>
           <div style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
-            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
-              <div style={{ position: "relative", aspectRatio: "4 / 5", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontSize: 66 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).emoji || "\u2728") : item.emoji}</span>
-                <div style={{ position: "absolute", bottom: 12, right: 16, fontSize: 10.5, color: "rgba(80,50,70,0.55)", fontStyle: "italic" }}>Swipe for details {"\u2192"}</div>
+            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 660, overflowY: "auto" }}>
+              <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {item.image && <img src={item.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+                <span style={{ fontSize: 66, position: "relative" }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).emoji || "\u2728") : item.emoji}</span>
+                <div style={{ position: "absolute", bottom: 12, right: 14, fontSize: 10, fontWeight: 700, color: "#6B4A5E", fontStyle: "italic", background: "rgba(255,255,255,0.75)", padding: "5px 10px", borderRadius: 999 }}>Swipe for details {"\u2192"}</div>
               </div>
               <div style={{ padding: "16px 18px 6px" }}>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: BASE.cream, lineHeight: 1.2 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).title || "") : item.title}</div>
@@ -1072,7 +1088,7 @@ export function renderBloom(ctx) {
                 <ActionRow item={item} />
               </div>
             </div>
-            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}><DetailSide item={item} /></div>
+            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 660, overflowY: "auto" }}><DetailSide item={item} /></div>
           </div>
         </div>
       )
@@ -1082,22 +1098,22 @@ export function renderBloom(ctx) {
       return (
         <div className="fade-in" style={{ padding: "0 24px" }}>
 
-          <div style={{ paddingTop: 18 }}><BloomTabs /></div>
+          <div style={{ paddingTop: 48 }}><BloomTabs /></div>
 
           {/* ── greeting · no date, no subtitle ── */}
           <div style={{ paddingTop: 8, textAlign: "center" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: BASE.cream, lineHeight: 1.08, letterSpacing: 0.2 }}>Wonderful Discoveries</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.taupe, lineHeight: 1.4, marginTop: 10 }}>Things you didn't know you needed.</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: ink, lineHeight: 1.08, letterSpacing: 0.2 }}>Wonderful Discoveries</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.4, marginTop: 10 }}>Things you didn't know you needed.</div>
           </div>
 
           {/* ── subtle utility row: search + Browse by Time, neither clutters the page ── */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14, marginTop: 30 }}>
-            <span onClick={() => setFeedTimeFilter(feedTimeFilter ? null : "__open__")} style={{ fontSize: 11.5, fontWeight: 700, color: feedTimeFilter ? "#C9558E" : BASE.taupe, cursor: "pointer" }}>{"\u23f1\ufe0f Browse by Time"}</span>
-            <span onClick={() => setBloomSearchOpen(!bloomSearchOpen)} style={{ fontSize: 15, color: bloomSearchOpen ? "#C9558E" : BASE.taupe, cursor: "pointer" }}>{"\ud83d\udd0d"}</span>
+            <span onClick={() => setFeedTimeFilter(feedTimeFilter ? null : "__open__")} style={{ fontSize: 11.5, fontWeight: 700, color: feedTimeFilter ? "#C9558E" : mut, cursor: "pointer" }}>{"\u23f1\ufe0f Browse by Time"}</span>
+            <span onClick={() => setBloomSearchOpen(!bloomSearchOpen)} style={{ fontSize: 15, color: bloomSearchOpen ? "#C9558E" : mut, cursor: "pointer" }}>{"\ud83d\udd0d"}</span>
           </div>
           {bloomSearchOpen && (
             <div className="fade-in" style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "12px 15px", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <span style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>Search is coming soon \u2014 for now, explore Glow, Flourish, and Seasonal from the tabs above.</span>
+              <span style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>Search is coming soon {"\u2014"} for now, explore Glow, Flourish, and Seasonal from the tabs above.</span>
               <span onClick={() => setBloomSearchOpen(false)} style={{ fontSize: 15, color: BASE.taupe, cursor: "pointer", flexShrink: 0 }}>{"\u00d7"}</span>
             </div>
           )}
@@ -1121,7 +1137,7 @@ export function renderBloom(ctx) {
                 the feed now, not a section of its own. */}
             {!feedTimeFilter && feat && (
               <div style={{ marginBottom: 22 }}>
-                <div style={{ ...LABEL, textAlign: "center", marginBottom: 14 }}>Trending</div>
+                <div style={{ ...LABEL, color: mut, textAlign: "center", marginBottom: 14 }}>Trending</div>
                 <div onClick={() => setBloomArticle(feat)} style={{ borderRadius: 22, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "22px 22px 20px", cursor: "pointer", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: -14, right: -8, fontSize: 78, opacity: 0.08 }}>{feat.ic}</div>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", position: "relative" }}>
@@ -1138,18 +1154,22 @@ export function renderBloom(ctx) {
             {visibleItems.slice(2).map((item) => <FeedCard key={item.id} item={item} />)}
 
             {visibleItems.length === 0 && (
-              <div style={{ textAlign: "center", padding: "30px 10px", fontSize: 12.5, color: BASE.taupe, fontStyle: "italic" }}>Nothing at that length just yet \u2014 more ideas are on the way.</div>
+              <div style={{ textAlign: "center", padding: "30px 10px", fontSize: 12.5, color: mut, fontStyle: "italic" }}>Nothing at that length just yet {"\u2014"} more ideas are on the way.</div>
             )}
           </div>
 
           {/* ── TODAY'S INVITATION · closes the page, asks nothing ── */}
           <div style={{ height: 24 }} />
           <div style={{ textAlign: "center", paddingBottom: 48 }}>
-            <div style={LABEL}>Today's invitation</div>
+            <div style={{ ...LABEL, color: mut }}>Today's invitation</div>
             <div style={{ fontSize: 28, marginTop: 16 }}>{invite.emoji}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 26, color: BASE.cream, lineHeight: 1.4, marginTop: 10 }}>{invite.text}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 26, color: ink, lineHeight: 1.4, marginTop: 10 }}>{invite.text}</div>
             <div onClick={() => switchPillar("reset")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", marginTop: 18, cursor: "pointer", letterSpacing: 0.2 }}>More gentle ideas in Reset {"\u2192"}</div>
           </div>
+
+          {/* Clears the fixed bottom nav + iPhone home-indicator safe area —
+              same proven spacer already used in views/cycle.js. */}
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
 
         </div>
       )
