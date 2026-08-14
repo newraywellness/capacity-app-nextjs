@@ -1078,7 +1078,7 @@ export function renderBloom(ctx) {
             <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 660, overflowY: "auto" }}>
               <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {item.image && <img src={item.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
-                <span style={{ fontSize: 66, position: "relative" }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).emoji || "\u2728") : item.emoji}</span>
+                {!item.image && <span style={{ fontSize: 66, position: "relative" }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).emoji || "\u2728") : item.emoji}</span>}
                 <div style={{ position: "absolute", bottom: 12, right: 14, fontSize: 10, fontWeight: 700, color: "#6B4A5E", fontStyle: "italic", background: "rgba(255,255,255,0.75)", padding: "5px 10px", borderRadius: 999 }}>Swipe for details {"\u2192"}</div>
               </div>
               <div style={{ padding: "16px 18px 6px" }}>
