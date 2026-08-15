@@ -962,8 +962,14 @@ export function renderBloom(ctx) {
       // untouched — those cards are solid white regardless of time of day.
       const hour = new Date().getHours()
       const env = ENV(hour, checkedIn ? cur : null)
-      const ink = env.dark ? "#F5E9F2" : BASE.cream
-      const mut = env.dark ? "rgba(240,220,240,0.72)" : BASE.taupe
+      // Bloom's own background (BLOOM_BG in lib/bloomair.js) is only dark
+      // navy for mode==="night" — "evening" is a light lilac gradient. Using
+      // env.dark here was wrong: it's true for evening too (Today's own,
+      // wider definition of "dark"), which made this text pale-on-pale and
+      // unreadable all evening. Check Bloom's actual condition directly.
+      const bloomDark = env.mode === "night"
+      const ink = bloomDark ? "#F5E9F2" : BASE.cream
+      const mut = bloomDark ? "rgba(240,220,240,0.72)" : BASE.taupe
 
       // ── For You-specific building blocks. Kept local to this block rather
       // than shared, so nothing here can ever touch Glow's or Flourish's own
