@@ -20,6 +20,7 @@ const FOR_YOU_ITEMS = [
       note: "No cider on hand? Reduce apple juice the same way \u2014 you'll lose a little tang but keep the cozy.",
     },
   },
+
   {
     id: "heatless-waves", type: "beauty", emoji: "\ud83c\udf80", image: "/bloom/heatless-waves.jpeg",
     title: "Overnight Silk Heatless Waves", teaser: "Wake up with waves you didn't have to burn your hair for.",
@@ -31,6 +32,7 @@ const FOR_YOU_ITEMS = [
       products: ["A proper silk scrunchie (not synthetic satin, it matters)", "A lightweight leave-in \u2014 too heavy and the wave falls flat"],
     },
   },
+
   {
     id: "blanket-fort-movie-night", type: "home", emoji: "\ud83d\udecb\ufe0f", image: "/bloom/blanket-fort-movie-night.jpeg",
     title: "Blanket Fort Movie Night", teaser: "Pillows, fairy lights, and permission to do nothing productive.",
@@ -40,8 +42,9 @@ const FOR_YOU_ITEMS = [
       steps: ["Drape blankets between furniture to make a low ceiling \u2014 it doesn't need to be structurally sound, just cave-like.", "Pile in every pillow and blanket left over.", "Tuck in the lights, dim the real ones, and pick something you've already seen before \u2014 lower stakes, more comfort.", "Phones outside the fort. That's the whole rule."],
     },
   },
+
   {
-    id: "farmers-market-run", type: "outing", emoji: "\ud83e\uddfa",
+    id: "farmers-market-run", type: "outing", emoji: "\ud83e\uddfa", image: "/bloom/golden-hour-farmers-market-stroll.jpeg",
     title: "Golden Hour Farmers Market Run", teaser: "Go before the good tomatoes are gone.",
     tags: ["Go", "1 hr", "$"], timeBucket: "1 hour",
     detail: {
@@ -50,12 +53,18 @@ const FOR_YOU_ITEMS = [
       details: "Best an hour or two before the market closes, when it's quieter and vendors are often willing to let things go for less.",
     },
   },
+
   // Movement — pulled from data/move.js rather than duplicated. See M_BY_ID
   // below; this entry only carries display-specific fields (tags, timeBucket).
   {
-    id: "movement:nicole-pilates", type: "movement", moveId: "nicole-pilates",
-    tags: ["Sweat", "15 min", "Pilates"], timeBucket: "15 min",
+    id: "movement:nicole-pilates",
+    type: "movement",
+    moveId: "nicole-pilates",
+    image: "/bloom/serene-home-pilates-by-daylight.jpeg",
+    tags: ["Sweat", "15 min", "Pilates"],
+    timeBucket: "15 min",
   },
+
   {
     id: "simmer-pot", type: "home", emoji: "\ud83d\udd6f\ufe0f", image: "/bloom/cinnamon-vanilla-simmer-pot.jpeg",
     title: "Cinnamon-Vanilla Simmer Pot", teaser: "Your house smells like a candle you didn't have to buy.",
@@ -73,4 +82,3 @@ const byTimeBucket = (t) => FOR_YOU_ITEMS.filter((i) => i.timeBucket === t)
 const FY_BY_ID = (id) => FOR_YOU_ITEMS.find((i) => i.id === id) || null
 
 export { FOR_YOU_ITEMS, TIME_FILTERS, byTimeBucket, FY_BY_ID }
-// force redeploy
