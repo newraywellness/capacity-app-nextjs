@@ -10,9 +10,10 @@ import { GREETING_STYLES, GREETING_BY_KEY, greetWordFor } from '../lib/greeting.
 import { LEGAL_DOCS } from '../data/legal.js'
 import { M_BY_ID } from '../data/move.js'
 import { FY_BY_ID } from '../data/foryou.js'
+import { SE_BY_ID } from '../data/seasonal.js'
 
 export function renderMore(ctx) {
-  const { Chips, Label, T, cycleAvg, cycleNow, editLife, firstName, greetingOn, greetingStyle, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, moreView, openBloomCard, programId, programStart, savedBloom, savedFilter, saveCycleSettings, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setLifeMsg, setMoreView, setResetPage, setSavedFilter, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTmpLen, setTmpStart, setUseAvgCycle, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, useAvgCycle, user } = ctx
+  const { Chips, Label, T, cycleAvg, cycleNow, doneFeed, editLife, firstName, greetingOn, greetingStyle, handleCopyShare, handleLogout, handleShare, lastPeriod, lifeMsg, likedFeed, moreView, openBloomCard, programId, programStart, savedBloom, saveCycleSettings, setBloomArticle, setBloomPillar, setBodyView, setEditCycle, setEditLife, setFirstName, setFlourishProject, setGlowItem, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setLifeMsg, setMoreView, setResetPage, setSeasonalSeason, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setTab, setTasteMode, setTmpLen, setTmpStart, setUseAvgCycle, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, tab, tasteMode, tmpLen, tmpStart, toggle, toggleSaveBloom, useAvgCycle, user } = ctx
     if (tab === "more" && moreView === "menu") {
       const nm = (setupData && setupData.name) || firstName || "friend"
       // Every current entry point into My Life routes through here so a
@@ -73,7 +74,7 @@ export function renderMore(ctx) {
 
           {/* ── TRUE REVERIE — the ecosystem. Slightly more air, small icons. ── */}
           <Group title="True Reverie" spacious>
-            <Row icon="♡" label="Saved Ideas" sub="Everything you've kept, in one place." onClick={() => { setSavedFilter("All"); setMoreView("saved") }} spacious />
+            <Row icon="♡" label="Saved Ideas" sub="Everything you've kept, in one place." onClick={() => { setTasteMode("saved"); setMoreView("saved") }} spacious />
             <Row icon="✦" label="The Capacity Method" sub="Understand the method behind your days." onClick={() => setMoreView("capacitymethod")} spacious />
             <Row icon="💌" label="Share with a partner" sub="Send them your capacity check-in." onClick={() => setMoreView("share")} spacious />
             <Row icon="🛍" label="Shop" sub="Wearable reminders from True Reverie." onClick={() => setMoreView("shop")} spacious />
@@ -559,8 +560,10 @@ export function renderMore(ctx) {
     if (tab === "taste" || (tab === "more" && moreView === "saved")) {
       // One resolver per current save-ID scheme. Each returns the real content's
       // own metadata plus an `open` action that sets exactly the state the
-      // original screen already expects — Saved Ideas never renders its own
-      // detail view, only routes back into the real one.
+      // original screen already expects — Taste never renders its own detail
+      // view, only routes back into the real one. `tags` is passed through
+      // where the source actually has real tags (For You, Seasonal) — used
+      // below to honestly derive "Your Taste", never hard-coded.
       const resolve = (id) => {
         if (id.indexOf("article:") === 0) {
           const a = BLOOM_TRENDING.find((x) => x.id === id.slice(8))
@@ -611,8 +614,15 @@ export function renderMore(ctx) {
           if (!P) return null
           const isMove = P.type === "movement"
           const mv = isMove ? M_BY_ID(P.moveId) : null
-          return { id, cat: "For You", ic: isMove ? (mv ? mv.emoji : "\u2728") : P.emoji, title: isMove ? (mv ? mv.title : "Movement idea") : P.title, sub: isMove ? (mv ? mv.hook : "") : P.teaser,
+          return { id, cat: "For You", ic: isMove ? (mv ? mv.emoji : "\u2728") : P.emoji, title: isMove ? (mv ? mv.title : "Movement idea") : P.title, sub: isMove ? (mv ? mv.hook : "") : P.teaser, img: isMove ? null : P.image, tags: isMove ? null : P.tags,
             open: () => { setBloomPillar(null); setTab("bloom") } }
+        }
+        // Seasonal didn't exist when this resolver was first built — added
+        // the same way every other source was: same shape, same pattern.
+        if (id.indexOf("seasonal:") === 0) {
+          const P = SE_BY_ID(id.slice(9))
+          return P ? { id, cat: "Seasonal", ic: P.emoji, title: P.title, sub: P.teaser, img: P.image, tags: P.tags,
+            open: () => { setSeasonalSeason(P.season); setBloomPillar("seasonal"); setTab("bloom") } } : null
         }
         // Legacy IDs from before the Glow rebuild — resolved best-effort so an
         // old save doesn't just vanish, but not surfaced as its own filter
@@ -629,55 +639,105 @@ export function renderMore(ctx) {
         return null
       }
 
-      const items = (savedBloom || []).map(resolve).filter(Boolean)
-      const cats = Array.from(new Set(items.map((it) => it.cat)))
-      const shown = savedFilter === "All" ? items : items.filter((it) => it.cat === savedFilter)
+      // Liked/Did store the bare item id (no source prefix) — they only ever
+      // come from a FeedCard's Like/I Did This buttons, which today means For
+      // You or Seasonal. This is genuinely session/local state, not synced
+      // anywhere persistent — shown honestly as such, not pretended otherwise.
+      // TODO(production): once Like/Did have real persistence, resolve them
+      // the same way Saved does, straight from savedBloom-equivalent storage.
+      const resolveBare = (id) => {
+        const fy = FY_BY_ID(id)
+        if (fy) {
+          const isMove = fy.type === "movement"
+          const mv = isMove ? M_BY_ID(fy.moveId) : null
+          return { id, cat: "For You", ic: isMove ? (mv ? mv.emoji : "\u2728") : fy.emoji, title: isMove ? (mv ? mv.title : "Movement idea") : fy.title, img: isMove ? null : fy.image, tags: isMove ? null : fy.tags,
+            open: () => { setBloomPillar(null); setTab("bloom") } }
+        }
+        const se = SE_BY_ID(id)
+        if (se) return { id, cat: "Seasonal", ic: se.emoji, title: se.title, img: se.image, tags: se.tags,
+          open: () => { setSeasonalSeason(se.season); setBloomPillar("seasonal"); setTab("bloom") } }
+        return null
+      }
 
-      // A small photograph-shaped placeholder, matching Flourish's own visual
-      // language, for the one save type that has real imagery.
-      const SavedImg = ({ src, emoji }) => (
-        <div style={{ position: "relative", width: 60, height: 75, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontSize: 20, opacity: 0.28 }}>{emoji}</span>
-          {src && <img src={src} alt="" loading="lazy" onError={(e) => { e.target.style.display = "none" }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+      const savedItems = (savedBloom || []).map(resolve).filter(Boolean)
+      const likedItems = (likedFeed || []).map(resolveBare).filter(Boolean)
+      const didItems = (doneFeed || []).map(resolveBare).filter(Boolean)
+      const shown = tasteMode === "liked" ? likedItems : tasteMode === "did" ? didItems : savedItems
+
+      // Honest derivation, not a personalization algorithm: tally real tags
+      // across everything she's saved/liked/done, keep the ones that read as
+      // taste rather than logistics (drop anything with a digit — "45 min",
+      // "2–3 hr" — or a bare cost symbol), and show the most common few. If
+      // there isn't enough yet, say so plainly instead of inventing interests.
+      const tagTally = {}
+      ;[...savedItems, ...likedItems, ...didItems].forEach((it) => (it.tags || []).forEach((t) => {
+        if (/\d/.test(t) || /^\$+$/.test(t) || t === "Free") return
+        tagTally[t] = (tagTally[t] || 0) + 1
+      }))
+      const topTags = Object.entries(tagTally).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([t]) => t)
+
+      const Tile = ({ it }) => (
+        <div onClick={it.open} style={{ cursor: "pointer" }}>
+          <div style={{ position: "relative", width: "100%", aspectRatio: "4 / 5", borderRadius: 16, overflow: "hidden", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {it.img && <img src={it.img} alt="" loading="lazy" onError={(e) => { e.target.style.display = "none" }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+            {!it.img && <span style={{ fontSize: 30, opacity: 0.85, position: "relative" }}>{it.ic}</span>}
+            {tasteMode === "saved" && (
+              <span onClick={(e) => { e.stopPropagation(); toggleSaveBloom(it.id) }} style={{ position: "absolute", top: 7, right: 7, width: 26, height: 26, borderRadius: "50%", background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 13, color: "#C9558E" }}>{"\u2665"}</span>
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: 7 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontWeight: 700, color: BASE.cream, lineHeight: 1.25 }}>{it.title}</div>
+            {it.cat && <div style={{ fontSize: 9.5, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>{it.cat}</div>}
+          </div>
         </div>
       )
+
+      const EMPTY_COPY = {
+        saved: { ic: "\u2661", title: "Nothing saved yet.", body: "Tap the heart on anything you want to find again." },
+        liked: { ic: "\u2606", title: "Nothing here yet.", body: "Tap Like when something feels very you." },
+        did: { ic: "\u25cb", title: "Nothing here yet.", body: "Things you actually try will live here." },
+      }
+      const empty = EMPTY_COPY[tasteMode]
 
       return (
         <div className="fade-in" style={{ padding: "10px 18px 0" }}>
           {tab === "more" && <div onClick={() => setMoreView("menu")} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", marginBottom: 14 }}>{"\u2039 More"}</div>}
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Saved Ideas</div>
-          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 20 }}>Everything you've kept, in one place.</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Taste</div>
+          <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.6, marginBottom: 20 }}>The things that feel most like you.</div>
 
-          {cats.length > 1 && (
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 18 }}>
-              {["All", ...cats].map((c) => (
-                <span key={c} onClick={() => setSavedFilter(c)} style={{ padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer", background: savedFilter === c ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface, color: savedFilter === c ? "#fff" : BASE.creamDim, border: `1px solid ${savedFilter === c ? "transparent" : BASE.border}` }}>{c}</span>
-              ))}
+          {/* ── Your Taste · small, quiet, honestly derived ── */}
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: BASE.taupe, marginBottom: 6 }}>Your Taste</div>
+            <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.5, marginBottom: topTags.length >= 2 ? 8 : 0 }}>Shaped by what you save, love, and actually do.</div>
+            {topTags.length >= 2 ? (
+              <div style={{ fontSize: 13, color: "#C9558E", fontWeight: 700 }}>{topTags.join("  \u00b7  ")}</div>
+            ) : (
+              <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>Your taste will take shape as you save, love, and try things.</div>
+            )}
+          </div>
+
+          {/* ── Saved · Liked · Did ── */}
+          <div style={{ display: "flex", gap: 6, padding: 4, background: BASE.surface, borderRadius: 999, border: `1px solid ${BASE.border}`, marginBottom: 20 }}>
+            {[["saved", "Saved"], ["liked", "Liked"], ["did", "Did"]].map(([k, lbl]) => (
+              <span key={k} onClick={() => setTasteMode(k)} style={{ flex: 1, textAlign: "center", padding: "9px 0", borderRadius: 999, cursor: "pointer", fontSize: 12.5, fontWeight: 700,
+                background: tasteMode === k ? "linear-gradient(135deg,#E984B4,#A87BD1)" : "transparent",
+                color: tasteMode === k ? "#fff" : BASE.creamDim }}>{lbl}</span>
+            ))}
+          </div>
+
+          {shown.length === 0 ? (
+            <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "30px 22px", textAlign: "center" }}>
+              <div style={{ fontSize: 24, marginBottom: 10 }}>{empty.ic}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: BASE.cream, marginBottom: 6 }}>{empty.title}</div>
+              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>{empty.body}</div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              {shown.map((it) => <Tile key={it.id} it={it} />)}
             </div>
           )}
-
-          {items.length === 0 ? (
-            <div style={{ borderRadius: 16, background: BASE.surface, border: `1px dashed ${BASE.border}`, padding: "30px 22px", textAlign: "center" }}>
-              <div style={{ fontSize: 24, marginBottom: 10 }}>{"\u2661"}</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: BASE.cream, marginBottom: 6 }}>Nothing saved yet.</div>
-              <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Tap the heart on anything you want to find again.</div>
-            </div>
-          ) : shown.map((it) => (
-            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px", borderRadius: 16, background: "#FDFBFA", border: `1px solid ${BASE.border}`, marginBottom: 10 }}>
-              <div onClick={it.open} style={{ cursor: "pointer", flexShrink: 0 }}>
-                {it.img !== undefined
-                  ? <SavedImg src={it.img} emoji={it.ic} />
-                  : <div style={{ width: 44, height: 44, borderRadius: 12, background: BASE.surface2 || BASE.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19 }}>{it.ic}</div>}
-              </div>
-              <div onClick={it.open} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
-                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C9558E", marginBottom: 3 }}>{it.cat}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontWeight: 700, color: BASE.cream, lineHeight: 1.25 }}>{it.title}</div>
-                {it.sub && <div style={{ fontSize: 11.5, color: BASE.taupe, marginTop: 2, lineHeight: 1.35 }}>{it.sub}</div>}
-                {it.time && <div style={{ fontSize: 10.5, color: BASE.taupe, marginTop: 3 }}>{it.time}{it.category && it.category.length ? " \u00b7 " + it.category[0] : ""}</div>}
-              </div>
-              <span onClick={() => toggleSaveBloom(it.id)} style={{ fontSize: 18, color: "#C9558E", cursor: "pointer", flexShrink: 0 }}>{"\u2665"}</span>
-            </div>
-          ))}
           <div style={{ height: 20 }} />
         </div>
       )
