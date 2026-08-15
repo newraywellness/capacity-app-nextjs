@@ -1,5 +1,6 @@
 import { BLOOM_INVITATIONS, BLOOM_PILLARS, BLOOM_SECTIONS, BLOOM_TRENDING } from '../data/bloom.js'
 import { FOR_YOU_ITEMS, TIME_FILTERS, byTimeBucket } from '../data/foryou.js'
+import { SEASONS, SEASONAL_ITEMS, bySeason, SEASON_LABEL } from '../data/seasonal.js'
 import { M_BY_ID } from '../data/move.js'
 import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow.js'
 import { RESET_DAY, RESET_NIGHT, RESET_SONGS, RESET_EXPLORE } from '../data/reset.js'
@@ -7,7 +8,7 @@ import { F_TIMES, F_IMG, F_BY_ID, byTag, seasonalSet, timeFeed, relatedByMood } 
 import { BASE, ENV, dayIndex } from '../lib/theme.js'
 
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, setBloomArticle, setBloomPillar, setBloomSearchOpen, setDoneFeed, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, surpriseReset, tab, toggleSaveBloom } = ctx
+  const { bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomPillar, setBloomSearchOpen, setDoneFeed, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom } = ctx
 
     // One save control for all of Glow/Reset/Flourish, so "obvious and
     // consistent" is true by construction rather than by copying styles
@@ -48,6 +49,159 @@ export function renderBloom(ctx) {
                 border: `1px solid ${active ? "transparent" : BASE.border}` }}>{lbl}</span>
           )
         })}
+      </div>
+    )
+
+    // ── Shared by every Bloom feed (currently For You and Seasonal). Text
+    // color logic matches Bloom's real atmosphere condition exactly (see the
+    // earlier fix: BLOOM_BG is only dark for mode==="night", not "evening").
+    const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
+    const hour = new Date().getHours()
+    const env = ENV(hour, checkedIn ? cur : null)
+    const bloomDark = env.mode === "night"
+    const ink = bloomDark ? "#F5E9F2" : BASE.cream
+    const mut = bloomDark ? "rgba(240,220,240,0.72)" : BASE.taupe
+
+    const Tag = ({ children }) => (
+      <span style={{ display: "inline-block", padding: "5px 11px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: BASE.taupe, background: BASE.bg2 || BASE.surface2, border: `1px solid ${BASE.border}`, marginRight: 6, marginBottom: 6 }}>{children}</span>
+    )
+    const NurseTip = ({ children }) => (
+      <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", margin: "16px 0 6px" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C97BA8", marginBottom: 6 }}>Nurse's tip</div>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.cream, lineHeight: 1.45 }}>{children}</div>
+      </div>
+    )
+    const ActionRow = ({ item, prefix }) => {
+      const sid = (prefix || "foryou") + ":" + item.id
+      const liked = likedFeed.indexOf(item.id) >= 0
+      const saved = isSavedBloom(sid)
+      const done = doneFeed.indexOf(item.id) >= 0
+      const Btn = ({ on, onClick, onIcon, offIcon, label }) => (
+        <span onClick={(e) => { e.stopPropagation(); onClick() }} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "8px 2px" }}>
+          <span style={{ fontSize: 16, lineHeight: 1, color: on ? "#C9558E" : BASE.taupe }}>{on ? onIcon : offIcon}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.2, color: on ? "#C9558E" : BASE.taupe }}>{label}</span>
+        </span>
+      )
+      return (
+        <div style={{ display: "flex", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BASE.border}` }}>
+          <Btn on={liked} onClick={() => setLikedFeed(liked ? likedFeed.filter((x) => x !== item.id) : [...likedFeed, item.id])} onIcon={"\u2605"} offIcon={"\u2606"} label="Like" />
+          <Btn on={saved} onClick={() => toggleSaveBloom(sid)} onIcon={"\u2665"} offIcon={"\u2661"} label="Save" />
+          <Btn on={done} onClick={() => setDoneFeed(done ? doneFeed.filter((x) => x !== item.id) : [...doneFeed, item.id])} onIcon={"\u2713"} offIcon={"\u25cb"} label="I Did This" />
+        </div>
+      )
+    }
+    // The detail side's shape depends on the idea's type — a recipe, a
+    // beauty ritual, a home project, and an outing all need genuinely
+    // different information, not one template stretched over all four.
+    const DetailSide = ({ item }) => {
+      if (item.type === "movement") {
+        const mv = M_BY_ID(item.moveId)
+        if (!mv) return null
+        return (
+          <div style={{ padding: "20px 20px 22px" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: BASE.cream }}>{mv.title}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14, color: BASE.creamDim, marginTop: 6, lineHeight: 1.5 }}>{mv.hook}</div>
+            {mv.creator ? (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#9B6BC3", marginBottom: 4 }}>From</div>
+                <div style={{ fontSize: 13, color: BASE.creamDim }}>{mv.creator}</div>
+                <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", marginTop: 8 }}>True Reverie doesn't host this content. A link to the creator's official page will appear here once connected.</div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 16, fontSize: 11, color: BASE.taupe, fontStyle: "italic" }}>Find more like this in Move, under the {"\u201c"}{(mv.category && mv.category[0]) || "Move"}{"\u201d"} category.</div>
+            )}
+          </div>
+        )
+      }
+      const d = item.detail || {}
+      // Generic labeled-sections format — for content that doesn't fit the
+      // four named templates below (e.g. Seasonal's "Make It a Day"). Checked
+      // first and independent of item.type, so recipe/beauty/home/outing are
+      // completely unaffected by this branch existing.
+      if (d.sections) {
+        return (
+          <div style={{ padding: "22px 20px 24px" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: BASE.cream, letterSpacing: 0.1 }}>{item.title}</div>
+            <div style={{ height: 1, background: BASE.border, margin: "12px 0 18px" }} />
+            {d.sections.map((sec, i) => (
+              <div key={i}>
+                {i > 0 && <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />}
+                <div style={LABEL}>{sec.heading}</div>
+                {sec.body.map((x, j) => <div key={j} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{"\u2022 " + x}</div>)}
+              </div>
+            ))}
+          </div>
+        )
+      }
+      return (
+        <div style={{ padding: "22px 20px 24px" }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: BASE.cream, letterSpacing: 0.1 }}>{item.title}</div>
+          <div style={{ height: 1, background: BASE.border, margin: "12px 0 18px" }} />
+          {item.type === "recipe" && (
+            <>
+              <div style={LABEL}>Ingredients</div>
+              {d.ingredients.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
+              <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+              <div style={LABEL}>How To</div>
+              {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
+              {d.note && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>{d.note}</div>}
+            </>
+          )}
+          {item.type === "beauty" && (
+            <>
+              <div style={LABEL}>What You Need</div>
+              {d.need.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
+              <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+              <div style={LABEL}>How To</div>
+              {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
+              {d.products && (
+                <>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "18px 0 8px" }}>Products we love</div>
+                  {d.products.map((x, i) => <div key={i} style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.6 }}>{"\u2022 " + x}</div>)}
+                </>
+              )}
+              {d.nurseTip && <NurseTip>{d.nurseTip}</NurseTip>}
+            </>
+          )}
+          {item.type === "home" && (
+            <>
+              <div style={LABEL}>Supplies</div>
+              {d.need.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
+              <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+              <div style={LABEL}>How To</div>
+              {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
+            </>
+          )}
+          {item.type === "outing" && (
+            <>
+              <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65, fontStyle: "italic" }}>{d.idea}</div>
+              <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
+              <div style={LABEL}>Make It Fun</div>
+              {d.makeItFun.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{"\u2022 " + x}</div>)}
+              {d.details && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>{d.details}</div>}
+            </>
+          )}
+        </div>
+      )
+    }
+    const FeedCard = ({ item, prefix }) => (
+      <div style={{ borderRadius: 24, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
+          <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
+            <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {item.image && <img src={item.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+              {!item.image && <span style={{ fontSize: 66, position: "relative" }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).emoji || "\u2728") : item.emoji}</span>}
+              <div style={{ position: "absolute", bottom: 12, right: 14, fontSize: 10, fontWeight: 700, color: "#6B4A5E", fontStyle: "italic", background: "rgba(255,255,255,0.75)", padding: "5px 10px", borderRadius: 999 }}>Swipe for details {"\u2192"}</div>
+            </div>
+            <div style={{ padding: "16px 18px 20px" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: BASE.cream, lineHeight: 1.2 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).title || "") : item.title}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.taupe, marginTop: 5, lineHeight: 1.4 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).hook || "") : item.teaser}</div>
+              <div style={{ marginTop: 11 }}>{item.tags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
+              <ActionRow item={item} prefix={prefix} />
+            </div>
+          </div>
+          <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 700, overflowY: "auto" }}><DetailSide item={item} /></div>
+        </div>
       </div>
     )
 
@@ -876,14 +1030,49 @@ export function renderBloom(ctx) {
     // ── INSIDE A PILLAR ──────────────────────────────────────────────────
     // ══════════════ SEASONAL · Pass 1 placeholder only ══════════════
     if (tab === "bloom" && bloomPillar === "seasonal") {
+      const items = bySeason(seasonalSeason)
+      const seasonLabel = SEASON_LABEL(seasonalSeason)
       return (
-        <div className="fade-in" style={{ padding: "10px 22px 0" }}>
-          <BloomTabs />
-          <div style={{ textAlign: "center", padding: "60px 14px" }}>
-            <div style={{ fontSize: 30, marginBottom: 14 }}>{"\ud83c\udf42"}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream }}>Seasonal</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.taupe, marginTop: 10, lineHeight: 1.55 }}>Something new is always around the corner.</div>
+        <div className="fade-in" style={{ padding: "0 24px" }}>
+
+          <div style={{ paddingTop: 48 }}><BloomTabs /></div>
+
+          <div style={{ paddingTop: 8, textAlign: "center" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: ink, lineHeight: 1.08, letterSpacing: 0.2 }}>Seasonal</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.4, marginTop: 10 }}>Make the season feel like yours.</div>
           </div>
+
+          {/* ── subtle utility control, same visual weight as For You's Browse by Time ── */}
+          <div style={{ textAlign: "center", marginTop: 26 }}>
+            <span onClick={() => setSeasonalBrowseOpen(!seasonalBrowseOpen)} style={{ fontSize: 11.5, fontWeight: 700, color: seasonalBrowseOpen ? "#C9558E" : mut, cursor: "pointer" }}>Browse seasons {seasonalBrowseOpen ? "\u25b4" : "\u25be"}</span>
+          </div>
+          {seasonalBrowseOpen && (
+            <div className="fade-in" style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginTop: 12 }}>
+              {SEASONS.map((s) => (
+                <span key={s.key} onClick={() => { setSeasonalSeason(s.key); setSeasonalBrowseOpen(false) }}
+                  style={{ padding: "8px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    background: seasonalSeason === s.key ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface,
+                    color: seasonalSeason === s.key ? "#fff" : BASE.creamDim,
+                    border: `1px solid ${seasonalSeason === s.key ? "transparent" : BASE.border}` }}>{s.label}</span>
+              ))}
+            </div>
+          )}
+
+          {/* ── the season's own feed, or an honest empty state ── */}
+          <div style={{ marginTop: 28 }}>
+            {items.length ? items.map((item) => <FeedCard key={item.id} item={item} prefix="seasonal" />) : (
+              <div style={{ textAlign: "center", padding: "60px 14px" }}>
+                <div style={{ fontSize: 26, marginBottom: 12 }}>{"\u2728"}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: ink }}>{seasonLabel} is coming</div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14, color: mut, marginTop: 8, lineHeight: 1.5 }}>We're still gathering wonderful things for this season.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Clears the fixed bottom nav + iPhone home-indicator safe area —
+              same proven spacer already used on For You and in views/cycle.js. */}
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
+
         </div>
       )
     }
@@ -954,150 +1143,6 @@ export function renderBloom(ctx) {
       const trending = Array.isArray(BLOOM_TRENDING) ? BLOOM_TRENDING : []
       const feat = trending.length ? trending[dayIndex(trending.length)] : null
       const fid = feat ? "article:" + feat.id : ""
-      const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
-      // Same ENV engine Today already uses for this exact problem: text that
-      // sits directly on Bloom's atmosphere (not inside a white card) needs to
-      // flip light at night, since BASE.cream/taupe are dark tokens tuned for
-      // Bloom's pale daytime background. Anything inside a FeedCard stays
-      // untouched — those cards are solid white regardless of time of day.
-      const hour = new Date().getHours()
-      const env = ENV(hour, checkedIn ? cur : null)
-      // Bloom's own background (BLOOM_BG in lib/bloomair.js) is only dark
-      // navy for mode==="night" — "evening" is a light lilac gradient. Using
-      // env.dark here was wrong: it's true for evening too (Today's own,
-      // wider definition of "dark"), which made this text pale-on-pale and
-      // unreadable all evening. Check Bloom's actual condition directly.
-      const bloomDark = env.mode === "night"
-      const ink = bloomDark ? "#F5E9F2" : BASE.cream
-      const mut = bloomDark ? "rgba(240,220,240,0.72)" : BASE.taupe
-
-      // ── For You-specific building blocks. Kept local to this block rather
-      // than shared, so nothing here can ever touch Glow's or Flourish's own
-      // presentation code. Visual language (Nurse's Tip panel, Products We
-      // Love label) is copied from Glow's existing look, not imported from it.
-      const Tag = ({ children }) => (
-        <span style={{ display: "inline-block", padding: "5px 11px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: BASE.taupe, background: BASE.bg2 || BASE.surface2, border: `1px solid ${BASE.border}`, marginRight: 6, marginBottom: 6 }}>{children}</span>
-      )
-      const NurseTip = ({ children }) => (
-        <div style={{ borderRadius: 16, background: "rgba(201,123,168,0.1)", padding: "16px 18px", margin: "16px 0 6px" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#C97BA8", marginBottom: 6 }}>Nurse's tip</div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.cream, lineHeight: 1.45 }}>{children}</div>
-        </div>
-      )
-      const ActionRow = ({ item }) => {
-        const sid = "foryou:" + item.id
-        const liked = likedFeed.indexOf(item.id) >= 0
-        const saved = isSavedBloom(sid)
-        const done = doneFeed.indexOf(item.id) >= 0
-        const Btn = ({ on, onClick, onIcon, offIcon, label }) => (
-          <span onClick={(e) => { e.stopPropagation(); onClick() }} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "8px 2px" }}>
-            <span style={{ fontSize: 16, lineHeight: 1, color: on ? "#C9558E" : BASE.taupe }}>{on ? onIcon : offIcon}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.2, color: on ? "#C9558E" : BASE.taupe }}>{label}</span>
-          </span>
-        )
-        return (
-          <div style={{ display: "flex", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BASE.border}` }}>
-            <Btn on={liked} onClick={() => setLikedFeed(liked ? likedFeed.filter((x) => x !== item.id) : [...likedFeed, item.id])} onIcon={"\u2605"} offIcon={"\u2606"} label="Like" />
-            <Btn on={saved} onClick={() => toggleSaveBloom(sid)} onIcon={"\u2665"} offIcon={"\u2661"} label="Save" />
-            <Btn on={done} onClick={() => setDoneFeed(done ? doneFeed.filter((x) => x !== item.id) : [...doneFeed, item.id])} onIcon={"\u2713"} offIcon={"\u25cb"} label="I Did This" />
-          </div>
-        )
-      }
-      // The detail side's shape depends on the idea's type — a recipe, a
-      // beauty ritual, a home project, and an outing all need genuinely
-      // different information, not one template stretched over all four.
-      const DetailSide = ({ item }) => {
-        if (item.type === "movement") {
-          const mv = M_BY_ID(item.moveId)
-          if (!mv) return null
-          return (
-            <div style={{ padding: "20px 20px 22px" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: BASE.cream }}>{mv.title}</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14, color: BASE.creamDim, marginTop: 6, lineHeight: 1.5 }}>{mv.hook}</div>
-              {mv.creator ? (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#9B6BC3", marginBottom: 4 }}>From</div>
-                  <div style={{ fontSize: 13, color: BASE.creamDim }}>{mv.creator}</div>
-                  <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", marginTop: 8 }}>True Reverie doesn't host this content. A link to the creator's official page will appear here once connected.</div>
-                </div>
-              ) : (
-                <div style={{ marginTop: 16, fontSize: 11, color: BASE.taupe, fontStyle: "italic" }}>Find more like this in Move, under the {"\u201c"}{(mv.category && mv.category[0]) || "Move"}{"\u201d"} category.</div>
-              )}
-            </div>
-          )
-        }
-        const d = item.detail || {}
-        return (
-          <div style={{ padding: "22px 20px 24px" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: BASE.cream, letterSpacing: 0.1 }}>{item.title}</div>
-            <div style={{ height: 1, background: BASE.border, margin: "12px 0 18px" }} />
-            {item.type === "recipe" && (
-              <>
-                <div style={LABEL}>Ingredients</div>
-                {d.ingredients.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
-                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
-                <div style={LABEL}>How To</div>
-                {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
-                {d.note && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>{d.note}</div>}
-              </>
-            )}
-            {item.type === "beauty" && (
-              <>
-                <div style={LABEL}>What You Need</div>
-                {d.need.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
-                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
-                <div style={LABEL}>How To</div>
-                {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
-                {d.products && (
-                  <>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#C9558E", margin: "18px 0 8px" }}>Products we love</div>
-                    {d.products.map((x, i) => <div key={i} style={{ fontSize: 12.5, color: BASE.creamDim, lineHeight: 1.6 }}>{"\u2022 " + x}</div>)}
-                  </>
-                )}
-                {d.nurseTip && <NurseTip>{d.nurseTip}</NurseTip>}
-              </>
-            )}
-            {item.type === "home" && (
-              <>
-                <div style={LABEL}>Supplies</div>
-                {d.need.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7 }}>{"\u2022 " + x}</div>)}
-                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
-                <div style={LABEL}>How To</div>
-                {d.steps.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{(i + 1) + ". " + x}</div>)}
-              </>
-            )}
-            {item.type === "outing" && (
-              <>
-                <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65, fontStyle: "italic" }}>{d.idea}</div>
-                <div style={{ height: 1, background: BASE.border, margin: "18px 0 16px" }} />
-                <div style={LABEL}>Make It Fun</div>
-                {d.makeItFun.map((x, i) => <div key={i} style={{ fontSize: 13, color: BASE.creamDim, lineHeight: 1.7, marginBottom: 4 }}>{"\u2022 " + x}</div>)}
-                {d.details && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>{d.details}</div>}
-              </>
-            )}
-          </div>
-        )
-      }
-      const FeedCard = ({ item }) => (
-        <div style={{ borderRadius: 24, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 22 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
-            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
-              <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {item.image && <img src={item.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
-                {!item.image && <span style={{ fontSize: 66, position: "relative" }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).emoji || "\u2728") : item.emoji}</span>}
-                <div style={{ position: "absolute", bottom: 12, right: 14, fontSize: 10, fontWeight: 700, color: "#6B4A5E", fontStyle: "italic", background: "rgba(255,255,255,0.75)", padding: "5px 10px", borderRadius: 999 }}>Swipe for details {"\u2192"}</div>
-              </div>
-              <div style={{ padding: "16px 18px 20px" }}>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: BASE.cream, lineHeight: 1.2 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).title || "") : item.title}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.taupe, marginTop: 5, lineHeight: 1.4 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).hook || "") : item.teaser}</div>
-                <div style={{ marginTop: 11 }}>{item.tags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
-                <ActionRow item={item} />
-              </div>
-            </div>
-            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 700, overflowY: "auto" }}><DetailSide item={item} /></div>
-          </div>
-        </div>
-      )
 
       const visibleItems = feedTimeFilter ? byTimeBucket(feedTimeFilter) : FOR_YOU_ITEMS
 
