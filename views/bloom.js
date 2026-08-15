@@ -38,7 +38,7 @@ export function renderBloom(ctx) {
     }
     const BloomTabs = () => (
       <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
-        {[["foryou", "For You"], ["glow", "Glow"], ["flourish", "Flourish"], ["seasonal", "Seasonal"]].map(([k, lbl]) => {
+        {[["foryou", "For You"], ["glow", "Glow"], ["seasonal", "Seasonal"]].map(([k, lbl]) => {
           const active = k === "foryou" ? !bloomPillar : bloomPillar === k
           return (
             <span key={k} onClick={() => switchPillar(k === "foryou" ? null : k)}
@@ -1109,7 +1109,7 @@ export function renderBloom(ctx) {
           {/* ── greeting · no date, no subtitle ── */}
           <div style={{ paddingTop: 8, textAlign: "center" }}>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: ink, lineHeight: 1.08, letterSpacing: 0.2 }}>Wonderful Discoveries</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.4, marginTop: 10 }}>Things you didn't know you needed.</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.4, marginTop: 10 }}>Small ways to live more like her, shaped by what you love.</div>
           </div>
 
           {/* ── subtle utility row: search + Browse by Time, neither clutters the page ── */}
@@ -1119,7 +1119,7 @@ export function renderBloom(ctx) {
           </div>
           {bloomSearchOpen && (
             <div className="fade-in" style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "12px 15px", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <span style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>Search is coming soon {"\u2014"} for now, explore Glow, Flourish, and Seasonal from the tabs above.</span>
+              <span style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>Search is coming soon {"\u2014"} for now, explore Glow and Seasonal from the tabs above.</span>
               <span onClick={() => setBloomSearchOpen(false)} style={{ fontSize: 15, color: BASE.taupe, cursor: "pointer", flexShrink: 0 }}>{"\u00d7"}</span>
             </div>
           )}
