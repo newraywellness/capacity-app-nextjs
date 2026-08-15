@@ -996,7 +996,7 @@ export function renderBloom(ctx) {
           </span>
         )
         return (
-          <div style={{ display: "flex", marginTop: 14, paddingTop: 12, borderTop: `1px solid ${BASE.border}` }}>
+          <div style={{ display: "flex", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BASE.border}` }}>
             <Btn on={liked} onClick={() => setLikedFeed(liked ? likedFeed.filter((x) => x !== item.id) : [...likedFeed, item.id])} onIcon={"\u2605"} offIcon={"\u2606"} label="Like" />
             <Btn on={saved} onClick={() => toggleSaveBloom(sid)} onIcon={"\u2665"} offIcon={"\u2661"} label="Save" />
             <Btn on={done} onClick={() => setDoneFeed(done ? doneFeed.filter((x) => x !== item.id) : [...doneFeed, item.id])} onIcon={"\u2713"} offIcon={"\u25cb"} label="I Did This" />
@@ -1080,21 +1080,21 @@ export function renderBloom(ctx) {
       }
       const FeedCard = ({ item }) => (
         <div style={{ borderRadius: 24, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 22 }}>
-          <div style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
-            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 660, overflowY: "auto" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
+            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
               <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {item.image && <img src={item.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
                 {!item.image && <span style={{ fontSize: 66, position: "relative" }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).emoji || "\u2728") : item.emoji}</span>}
                 <div style={{ position: "absolute", bottom: 12, right: 14, fontSize: 10, fontWeight: 700, color: "#6B4A5E", fontStyle: "italic", background: "rgba(255,255,255,0.75)", padding: "5px 10px", borderRadius: 999 }}>Swipe for details {"\u2192"}</div>
               </div>
-              <div style={{ padding: "16px 18px 6px" }}>
+              <div style={{ padding: "16px 18px 20px" }}>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: BASE.cream, lineHeight: 1.2 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).title || "") : item.title}</div>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.taupe, marginTop: 5, lineHeight: 1.4 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).hook || "") : item.teaser}</div>
                 <div style={{ marginTop: 11 }}>{item.tags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
                 <ActionRow item={item} />
               </div>
             </div>
-            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 660, overflowY: "auto" }}><DetailSide item={item} /></div>
+            <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 700, overflowY: "auto" }}><DetailSide item={item} /></div>
           </div>
         </div>
       )
