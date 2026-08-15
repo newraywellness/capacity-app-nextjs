@@ -77,5 +77,6 @@ const SEASONAL_ITEMS = [
 
 const bySeason = (key) => SEASONAL_ITEMS.filter((i) => i.season === key)
 const SEASON_LABEL = (key) => (SEASONS.find((s) => s.key === key) || {}).label || "This season"
+const SE_BY_ID = (id) => SEASONAL_ITEMS.find((i) => i.id === id) || null
 
-export { SEASONS, SEASONAL_ITEMS, bySeason, SEASON_LABEL }
+export { SEASONS, SEASONAL_ITEMS, bySeason, SEASON_LABEL, SE_BY_ID }
