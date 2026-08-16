@@ -101,16 +101,14 @@ export function renderTrain(ctx) {
 
       {/* ═══ YOUR CAPACITY — a suggestion, never a restriction; everything
            below remains fully browsable regardless of this section. ═══ */}
-      <div style={{ margin: "0 -22px" }}>
-        <div style={{ padding: "0 22px" }}>
-          <Head ic="\ud83c\udf38" name={"Your Capacity \u00b7 " + zone.label + " " + pct + "%"} sub={zone.line} />
-        </div>
+      <div>
+        <Head ic={"\ud83c\udf38"} name={"Your Capacity \u00b7 " + zone.label + " " + pct + "%"} sub={zone.line} />
         <Rail items={recSuggestions} />
       </div>
 
       {/* ═══ SURPRISE ME ═══ */}
       <div style={{ marginTop: 34 }}>
-        <Head ic="\u2728" name="Surprise Me" sub="Let True Reverie choose for you." />
+        <Head ic={"\u2728"} name="Surprise Me" sub="Let True Reverie choose for you." />
         <div style={{ borderRadius: 20, background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 55%,#DCD3E8 100%)", border: "1px solid rgba(168,123,209,0.25)", padding: "20px 20px 18px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
             <span style={{ fontSize: 30 }}>{surpriseIdea.emoji}</span>
@@ -127,28 +125,28 @@ export function renderTrain(ctx) {
 
       {/* ═══ MOVE FOR YOUR MOOD ═══ */}
       <div style={{ marginTop: 34 }}>
-        <Head ic="\ud83d\udcad" name="Move For Your Mood" sub="What are you in the mood for?" />
+        <Head ic={"\ud83d\udcad"} name="Move For Your Mood" sub="What are you in the mood for?" />
         <div>{MOODS.map((m) => <Chip key={m} label={m} selected={moveMood === m} onClick={() => setMoveMood(moveMood === m ? null : m)} />)}</div>
         {moveMood && <Reveal items={byMood(moveMood)} />}
       </div>
 
       {/* ═══ QUICK MOVES ═══ */}
       <div style={{ marginTop: 34 }}>
-        <Head ic="\u23f1\ufe0f" name="Quick Moves" sub="Something that fits your actual day." />
+        <Head ic={"\u23f1\ufe0f"} name="Quick Moves" sub="Something that fits your actual day." />
         <div>{TIMES.map((t) => <Chip key={t.key} label={t.key} ic={t.ic} selected={moveTime === t.key} onClick={() => setMoveTime(moveTime === t.key ? null : t.key)} />)}</div>
         {moveTime && <Reveal items={byTime(moveTime)} />}
       </div>
 
       {/* ═══ EXPLORE ═══ */}
       <div style={{ marginTop: 34 }}>
-        <Head ic="\ud83e\udded" name="Explore" sub="Browse by what you already know you love." />
+        <Head ic={"\ud83e\udded"} name="Explore" sub="Browse by what you already know you love." />
         <div>{CATEGORIES.map((c) => <Chip key={c} label={c} selected={moveCategory === c} onClick={() => setMoveCategory(moveCategory === c ? null : c)} />)}</div>
         {moveCategory && <Reveal items={byCategory(moveCategory)} emptyNote={"More " + moveCategory + " ideas are coming soon."} />}
       </div>
 
       {/* ═══ CREATORS WE LOVE ═══ */}
       <div style={{ marginTop: 34 }}>
-        <Head ic="\ud83c\udf9e\ufe0f" name="Creators We Love" sub="Movement from voices outside True Reverie." />
+        <Head ic={"\ud83c\udf9e\ufe0f"} name="Creators We Love" sub="Movement from voices outside True Reverie." />
         {CREATORS.map((c) => (
           <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px 15px", borderRadius: 15, background: BASE.surface, border: `1px solid ${BASE.border}`, marginBottom: 9 }}>
             <span style={{ fontSize: 20 }}>{c.ic}</span>
@@ -164,13 +162,17 @@ export function renderTrain(ctx) {
 
       {/* ═══ SAVED ═══ */}
       <div style={{ marginTop: 34 }}>
-        <Head ic="\u2661" name="Saved" sub="Ideas you've kept, ready when you are." />
+        <Head ic={"\u2661"} name="Saved" sub="Ideas you've kept, ready when you are." />
         {savedMoveIdeas.length ? (
-          <div style={{ margin: "0 -22px" }}><Rail items={savedMoveIdeas} /></div>
+          <Rail items={savedMoveIdeas} />
         ) : (
           <div style={{ fontSize: 12.5, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.6 }}>Tap the heart on any idea to keep it here.</div>
         )}
       </div>
+
+      {/* Clears the fixed bottom nav + iPhone home-indicator safe area —
+          same proven spacer already used in views/cycle.js and Bloom. */}
+      <div style={{ height: 20, paddingBottom: "env(safe-area-inset-bottom)" }} />
     </div>
   )
 }
