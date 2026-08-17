@@ -1,5 +1,5 @@
-import { ACTIVITY_LEVELS, EATING_OUT, GROCERY_CATS2, LEARN_TOPICS, MACRO_PLAIN, MEALS, MEAL_FILTERS, MEAL_TYPES, NOURISH_CAP, NOURISH_RECOVERY, NOURISH_TIMING, NUTRITION_PLANS, PLAN_BY_ID, QUICK_HELP, RATE_OPTIONS, STARTER_FOODS, SUPPLEMENTS, calcTargets, foodUnitList, nutrientsFor, proteinSplit, r1, searchFoods, sumEntries } from '../data/nourish'
-import { BASE, dayIndex } from '../lib/theme'
+import { ACTIVITY_LEVELS, EATING_OUT, GROCERY_CATS2, LEARN_TOPICS, MACRO_PLAIN, MEALS, MEAL_FILTERS, MEAL_TYPES, NOURISH_CAP, NOURISH_RECOVERY, NOURISH_TIMING, NUTRITION_PLANS, PLAN_BY_ID, QUICK_HELP, RATE_OPTIONS, STARTER_FOODS, SUPPLEMENTS, calcTargets, foodUnitList, nutrientsFor, proteinSplit, r1, searchFoods, sumEntries } from '../data/nourish.js'
+import { BASE, dayIndex } from '../lib/theme.js'
 
 // Closing lines for Nourish. Sufficiency, not perfection.
 const NOURISH_LINES = [
@@ -1123,6 +1123,7 @@ export function renderNourish(ctx) {
             </div>
             )
           })()}
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
