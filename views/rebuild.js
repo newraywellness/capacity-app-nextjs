@@ -222,7 +222,7 @@ export function renderRebuild(ctx) {
   }
 
   if (rebuildView === "exp") {
-    const exp = EXP_BY_ID(rebuildFLYA.currentExp)
+    const exp = EXP_BY_ID(Math.min(rebuildFLYA.currentExp, 28))
     const entry = (rebuildFLYA.log && rebuildFLYA.log[exp.id]) || {}
     const rs = exp.reaction || DEFAULT_REACTION
     const dose = exp.capacity[capKey]
