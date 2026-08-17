@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Head from 'next/head'
-import { CYCLEPREF, EQUIP, HOPES, LEVELS, QUOTES, SEASONS, SHARE_LEVELS } from '../data/checkin.js'
+import { QUOTES, SHARE_LEVELS } from '../data/checkin.js'
+import { GOALS, INTERESTS, EXPERIENCES, DESIRES, CAPACITY_FACTORS } from '../data/onboarding.js'
 import { PHASE_ORDER, computeCycle } from '../data/cycle.js'
 import { STARTER_FOODS, gramsFor, mealAsFood, r1 } from '../data/nourish.js'
 import { WO_TYPES } from '../data/train.js'
@@ -44,15 +45,14 @@ export default function App() {
   const [periodDismissed, setPeriodDismissed] = useState(false)
   const [tmpLen, setTmpLen] = useState("28")
   const [tmpStart, setTmpStart] = useState("")
-  // auth UX: guest preview, password recovery, status messages
-  const [guest, setGuest] = useState(false)
+  // auth UX: password recovery, status messages
   const [authView, setAuthView] = useState("welcome")
   const [firstName, setFirstName] = useState("")
   const [confirmPw, setConfirmPw] = useState("")
   const [setupData, setSetupData] = useState(null)
   const [setupStep, setSetupStep] = useState(0)
   const [introStep, setIntroStep] = useState(0)
-  const [draftSetup, setDraftSetup] = useState({ season: "", hopes: [], level: "", equip: "", cyclePref: "" })
+  const [draftSetup, setDraftSetup] = useState({ goals: [], interest_categories: [], experience_preferences: [], desired_feelings: [], capacity_factors: [] })
   const [recovery, setRecovery] = useState(false)
   const [authMsg, setAuthMsg] = useState("")
   const [newPass, setNewPass] = useState("")
@@ -754,7 +754,7 @@ export default function App() {
     )
   }
 
-  if (!user && !guest) {
+  if (!user) {
     const envA = ENV(new Date().getHours(), null)
     return (
       <><Fonts /><GlobalStyle />
@@ -764,12 +764,10 @@ export default function App() {
           {authView === "welcome" && (
             <div className="fade-in" style={{ textAlign: "center", position: "relative" }}>
               <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 54, color: envA.dark ? "#FFF6EC" : "#4A2F45", marginBottom: 2 }}>True Reverie</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: envA.dark ? "rgba(255,246,236,0.72)" : "#A97FA0", marginBottom: 4 }}>Dream her. Become Her.</div>
-              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, color: envA.dark ? "#FFF6EC" : "#3D2545", margin: "18px 0 8px", lineHeight: 1.25 }}>A wellness app that adapts to your real life.</h1>
-              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: envA.dark ? "rgba(255,246,236,0.8)" : "#8E6C88", marginBottom: 34 }}>Less thinking. More living.</p>
-              <button onClick={() => { setAuthView("signup"); setAuthMsg("") }} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 15, boxShadow: "0 10px 26px rgba(168,123,209,0.4)" }}>Get Started</button>
-              <button onClick={() => { setAuthView("login"); setAuthMsg("") }} style={{ width: "100%", marginTop: 12, padding: 14, background: envA.dark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.6)", color: envA.dark ? "#FFF6EC" : "#4A2F45", border: `1px solid ${envA.dark ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.9)"}`, borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Already have an account? Log In</button>
-              <div onClick={() => { setGuest(true); setAuthMsg("") }} style={{ marginTop: 22, fontSize: 13, fontWeight: 600, color: envA.dark ? "#F0C879" : "#C9558E", cursor: "pointer" }}>Try a Preview {"→"}</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: envA.dark ? "rgba(255,246,236,0.72)" : "#A97FA0", marginBottom: 22 }}>Dream Her. Become Her.</div>
+              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: envA.dark ? "rgba(255,246,236,0.85)" : "#5A4458", lineHeight: 1.5, marginBottom: 34 }}>One place to discover what you love, understand what you need, and build more of the life you actually want.</p>
+              <button onClick={() => { setAuthView("signup"); setAuthMsg("") }} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 15, boxShadow: "0 10px 26px rgba(168,123,209,0.4)" }}>Create Account</button>
+              <button onClick={() => { setAuthView("login"); setAuthMsg("") }} style={{ width: "100%", marginTop: 12, padding: 14, background: envA.dark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.6)", color: envA.dark ? "#FFF6EC" : "#4A2F45", border: `1px solid ${envA.dark ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.9)"}`, borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Sign In</button>
             </div>
           )}
           {authView === "login" && (
@@ -806,131 +804,64 @@ export default function App() {
     )
   }
 
-  if (!user && guest) {
-    const gcur = colorFromPct(pct)
-    const GT = THEMES[gcur]
-    return (
-      <><Fonts /><GlobalStyle />
-        <div style={{ "--accent": GT.accent, background: BASE.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", padding: "0 22px 40px" }}>
-          <header style={{ padding: "26px 0 6px", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 40, color: BASE.cream }}>True Reverie</div>
-            <div style={{ fontSize: 11, letterSpacing: 4, textTransform: "uppercase", color: BASE.taupe, marginTop: 6 }}>The Capacity Method</div>
-          </header>
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 24, textAlign: "center", margin: "24px 0 4px" }}>How's your capacity today?</h2>
-          <div style={{ textAlign: "center", margin: "10px 0 4px" }}>
-            <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 64, fontWeight: 600, color: GT.accent }}>{pct}</span>
-            <span style={{ fontSize: 22, color: BASE.taupe }}>%</span>
-          </div>
-          <input type="range" min="0" max="100" step="5" value={pct} onChange={(e) => setPct(+e.target.value)} style={{ width: "100%", margin: "8px 0 14px", background: `linear-gradient(90deg, ${GT.accent} ${pct}%, ${BASE.surface2} ${pct}%)` }} />
-          <div style={{ textAlign: "center", fontSize: 14, color: BASE.taupe, textTransform: "uppercase", letterSpacing: 1, marginBottom: 22 }}>{gcur === "red" ? "Red Day — Restoration Mode" : gcur === "yellow" ? "Yellow Day — Steady Pace" : "Green Day — Full Capacity"}</div>
-          <div style={{ padding: 20, borderRadius: 16, background: GT.tint, border: `1px solid rgba(${GT.glow},0.3)`, textAlign: "center", marginBottom: 24 }}>
-            <p style={{ fontFamily: "'Sacramento', cursive", fontSize: 26, lineHeight: 1.35, color: GT.accent }}>{"\u201C"}{QUOTES[gcur]}{"\u201D"}</p>
-            <p style={{ fontSize: 11, color: BASE.taupe, marginTop: 8, letterSpacing: 1 }}>— VANESSA, RN</p>
-          </div>
-          <p style={{ fontSize: 14, color: BASE.creamDim, textAlign: "center", lineHeight: 1.6, marginBottom: 18 }}>This is your daily check-in. Create a free account to save your days, see your trends, and unlock your cycle insights.</p>
-          <button onClick={() => { setGuest(false); setAuthMsg("") }} style={{ width: "100%", padding: 16, background: GT.accent, color: "#FFFFFF", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Create my free account</button>
-          <button onClick={() => setGuest(false)} style={{ width: "100%", padding: 12, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, borderRadius: 12, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Back</button>
-        </div>
-      </>
-    )
-  }
-
-  if (user && !setupData && introStep < 2) {
-    const envS = ENV(new Date().getHours(), null)
-    if (introStep === 0) {
-      return (
-        <><Fonts /><GlobalStyle />
-          <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 30px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -30, right: -20, fontSize: 130, opacity: 0.08 }}>🌸</div>
-            <div style={{ position: "absolute", bottom: 40, left: -24, fontSize: 90, opacity: 0.07 }}>🌷</div>
-            <div className="fade-in" style={{ position: "relative" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "#C9558E", marginBottom: 20 }}>True Reverie</div>
-              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 40, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.1, marginBottom: 24 }}>Welcome to<br />True Reverie</h1>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 21, color: envS.dark ? "#F0C879" : "#C9558E", lineHeight: 1.35, marginBottom: 22 }}>Your capacity changes every day.</div>
-              <p style={{ fontSize: 15.5, color: envS.dark ? "rgba(255,246,236,0.9)" : "#5A4458", lineHeight: 1.7, marginBottom: 14 }}>Some days you have energy to build. Some days you're simply trying to make it through.</p>
-              <p style={{ fontSize: 15.5, color: envS.dark ? "rgba(255,246,236,0.9)" : "#5A4458", lineHeight: 1.7, marginBottom: 40 }}>True Reverie helps you stop fighting your body and start working with it — by matching your workouts, nutrition, recovery, and support to the version of you that showed up today.</p>
-              <button onClick={() => setIntroStep(1)} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: 15, letterSpacing: 0.3, boxShadow: "0 10px 26px rgba(200,110,170,0.28)" }}>Get Started</button>
-            </div>
-          </div>
-        </>
-      )
-    }
-    const CAP_CARDS = [
-      { emoji: "🟢", label: "Green", range: "71–100%", lines: ["I have energy today.", "Let's build."], color: "#7FA054", soft: "rgba(127,160,84,0.12)" },
-      { emoji: "🟡", label: "Yellow", range: "36–70%", lines: ["I'm functioning, but running low.", "Let's protect progress."], color: "#D08F2E", soft: "rgba(208,143,46,0.12)" },
-      { emoji: "🔴", label: "Red", range: "0–35%", lines: ["I'm depleted.", "Recovery IS the workout."], color: "#D65C4E", soft: "rgba(214,92,78,0.12)" },
-    ]
-    return (
-      <><Fonts /><GlobalStyle />
-        <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "36px 26px" }}>
-          <div className="fade-in">
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 30, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.15, marginBottom: 22, textAlign: "center" }}>Meet the Capacity Method</h1>
-            {CAP_CARDS.map((c) => (
-              <div key={c.label} style={{ borderRadius: 18, background: envS.dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)", border: `1px solid ${c.color}`, borderLeft: `5px solid ${c.color}`, padding: "16px 18px", marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 6 }}>
-                  <span style={{ fontSize: 18 }}>{c.emoji}</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: envS.dark ? "#FFF6EC" : "#3D2545" }}>{c.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.range}</span>
-                </div>
-                {c.lines.map((ln, i) => (
-                  <div key={i} style={{ fontSize: 14, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.5, fontWeight: i === c.lines.length - 1 ? 700 : 400 }}>{ln}</div>
-                ))}
-              </div>
-            ))}
-            <div style={{ textAlign: "center", margin: "22px 0 30px" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 19, color: envS.dark ? "#F0C879" : "#C9558E", marginBottom: 8 }}>Your capacity isn't your character.</div>
-              <div style={{ fontSize: 14, color: envS.dark ? "rgba(255,246,236,0.85)" : "#5A4458", lineHeight: 1.6 }}>It changes every day. True Reverie changes with you.</div>
-            </div>
-            <button onClick={() => setIntroStep(2)} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: 15, letterSpacing: 0.3, boxShadow: "0 10px 26px rgba(200,110,170,0.28)" }}>Continue</button>
-          </div>
-        </div>
-      </>
-    )
-  }
-
   if (user && !setupData) {
     const envS = ENV(new Date().getHours(), null)
     const steps = [
-      { key: "season", q: "What season are you in?", opts: SEASONS, multi: false },
-      { key: "hopes", q: "What are you hoping True Reverie helps with most?", opts: HOPES, multi: true },
-      { key: "level", q: "Your movement experience?", opts: LEVELS, multi: false },
-      { key: "equip", q: "Where will you move?", opts: EQUIP, multi: false },
-      { key: "cyclePref", q: "Would you like cycle tracking?", opts: CYCLEPREF, multi: false },
+      { key: "goals", type: "q", q: "What sounds most like you right now?", sub: "Choose any that fit.", opts: GOALS },
+      { key: "interest_categories", type: "q", q: "What are you naturally drawn to?", sub: "Pick everything that sounds fun.", opts: INTERESTS },
+      { key: "experience_preferences", type: "q", q: "What kind of experiences do you enjoy?", opts: EXPERIENCES },
+      { key: "desired_feelings", type: "q", q: "What do you want more of?", opts: DESIRES },
+      { type: "capacityIntro" },
+      { key: "capacity_factors", type: "q", q: "What tends to affect your Capacity most?", opts: CAPACITY_FACTORS },
+      { type: "final" },
     ]
     const st = steps[setupStep]
-    const val = draftSetup[st.key]
-    const pick = (o) => {
-      if (st.multi) {
-        const arr = val.includes(o) ? val.filter((x) => x !== o) : [...val, o]
-        setDraftSetup({ ...draftSetup, [st.key]: arr })
-      } else setDraftSetup({ ...draftSetup, [st.key]: o })
-    }
-    const canNext = st.multi ? val.length > 0 : !!val
+    const val = st.key ? draftSetup[st.key] : null
+    const pick = (o) => setDraftSetup({ ...draftSetup, [st.key]: val.includes(o) ? val.filter((x) => x !== o) : [...val, o] })
+    const canNext = st.type === "q" ? val.length > 0 : true
     const finish = () => {
       const data = { ...draftSetup, name: firstName }
       setSetupData(data)
       try { localStorage.setItem("nr_setup", JSON.stringify(data)); localStorage.setItem("nr_name", firstName) } catch (e) {}
       try { db.from("profiles").update({ setup: data, first_name: firstName }).eq("id", user.id).then(() => {}) } catch (e) {}
     }
+    const advance = () => (setupStep < steps.length - 1 ? setSetupStep(setupStep + 1) : finish())
     return (
       <><Fonts /><GlobalStyle />
         <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 26px" }}>
           <div className="fade-in" key={setupStep}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "#C9558E", marginBottom: 8 }}>TELL US ABOUT YOU {"·"} {setupStep + 1} OF {steps.length}</div>
-            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, color: envS.dark ? "#FFF6EC" : "#3D2545", marginBottom: 20, lineHeight: 1.25 }}>{st.q}</h2>
-            {st.opts.map((o) => {
-              const on = st.multi ? val.includes(o) : val === o
-              return (
-                <div key={o} onClick={() => pick(o)} style={{ padding: "15px 17px", borderRadius: 14, marginBottom: 9, cursor: "pointer", background: on ? "linear-gradient(135deg,rgba(233,132,180,0.9),rgba(168,123,209,0.9))" : "rgba(255,255,255,0.75)", color: on ? "#FFFFFF" : "#4A3050", border: `1px solid ${on ? "transparent" : "rgba(255,255,255,0.9)"}`, fontSize: 14.5, fontWeight: 600 }}>{o}</div>
-              )
-            })}
+            {st.type === "q" && (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "#C9558E", marginBottom: 8 }}>TELL US ABOUT YOU {"·"} {setupStep + 1} OF {steps.length}</div>
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, color: envS.dark ? "#FFF6EC" : "#3D2545", marginBottom: st.sub ? 6 : 20, lineHeight: 1.25 }}>{st.q}</h2>
+                {st.sub && <div style={{ fontSize: 13.5, color: envS.dark ? "rgba(255,246,236,0.75)" : "#8E6C88", fontStyle: "italic", marginBottom: 18 }}>{st.sub}</div>}
+                {st.opts.map((o) => {
+                  const on = val.includes(o)
+                  return (
+                    <div key={o} onClick={() => pick(o)} style={{ padding: "15px 17px", borderRadius: 14, marginBottom: 9, cursor: "pointer", background: on ? "linear-gradient(135deg,rgba(233,132,180,0.9),rgba(168,123,209,0.9))" : "rgba(255,255,255,0.75)", color: on ? "#FFFFFF" : "#4A3050", border: `1px solid ${on ? "transparent" : "rgba(255,255,255,0.9)"}`, fontSize: 14.5, fontWeight: 600 }}>{o}</div>
+                  )
+                })}
+              </>
+            )}
+            {st.type === "capacityIntro" && (
+              <>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.2, marginBottom: 18 }}>True Reverie adapts to the life you actually have.</h1>
+                <p style={{ fontSize: 15, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.65, marginBottom: 8 }}>Some days you have plenty to give. Some days you don't. Capacity helps True Reverie adjust what it suggests without treating a hard day like a failed one.</p>
+              </>
+            )}
+            {st.type === "final" && (
+              <>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.2, marginBottom: 18 }}>Your True Reverie starts here.</h1>
+                <p style={{ fontSize: 15, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.65, marginBottom: 8 }}>We'll start with what you told us — then keep learning from what you save, love, skip, and actually do.</p>
+              </>
+            )}
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               {setupStep > 0 && <button onClick={() => setSetupStep(setupStep - 1)} style={{ flex: 1, padding: 14, background: "rgba(255,255,255,0.6)", color: "#4A3050", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Back</button>}
-              {setupStep < steps.length - 1
-                ? <button disabled={!canNext} onClick={() => setSetupStep(setupStep + 1)} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>Continue</button>
-                : <button disabled={!canNext} onClick={finish} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>Done {"→"}</button>}
+              <button disabled={!canNext} onClick={advance} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>
+                {st.type === "final" ? "Enter True Reverie" : "Continue"}
+              </button>
             </div>
-            <div onClick={finish} style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: envS.dark ? "rgba(255,246,236,0.6)" : "#8E6C88", cursor: "pointer" }}>Skip for now</div>
+            {st.type === "q" && <div onClick={finish} style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: envS.dark ? "rgba(255,246,236,0.6)" : "#8E6C88", cursor: "pointer" }}>Skip for now</div>}
           </div>
         </div>
       </>
