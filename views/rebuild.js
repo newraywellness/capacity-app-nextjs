@@ -136,7 +136,7 @@ export function renderRebuild(ctx) {
         <BackLink label="Rebuild" onClick={backToLanding} />
         <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, lineHeight: 1.15 }}>Feel Like Yourself Again</div>
         <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: "#9B6BC3", marginTop: 10 }}>Reconnect with the woman underneath survival mode.</div>
-        <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65, marginTop: 14 }}>Rediscover what makes life feel like yours, notice what genuinely lights you up, and build more of it back in \u2014 at the pace your life can hold.</div>
+        <div style={{ fontSize: 13.5, color: BASE.creamDim, lineHeight: 1.65, marginTop: 14 }}>{"Rediscover what makes life feel like yours, notice what genuinely lights you up, and build more of it back in \u2014 at the pace your life can hold."}</div>
 
         <div style={{ display: "flex", gap: 10, marginTop: 26 }}>
           {["28 experiences", "Moves at your pace", "Adapts to your Capacity"].map((t) => (
@@ -147,7 +147,7 @@ export function renderRebuild(ctx) {
         </div>
 
         <div style={{ marginTop: 30 }}>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.cream, marginBottom: 12 }}>By the end, you'll know more about\u2026</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.cream, marginBottom: 12 }}>{"By the end, you'll know more about\u2026"}</div>
           {knowList.map((k) => (
             <div key={k} style={{ display: "flex", gap: 10, marginBottom: 9 }}>
               <span style={{ color: "#C9558E", fontSize: 13, marginTop: 1 }}>{"\u2726"}</span>
@@ -205,7 +205,7 @@ export function renderRebuild(ctx) {
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, color: BASE.cream }}>Your Rebuild So Far</div>
         </div>
         {done === 0 ? (
-          <div style={{ fontSize: 12.5, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.6, marginTop: 8 }}>This will fill in as you go \u2014 sparks found, things you loved, patterns starting to show.</div>
+          <div style={{ fontSize: 12.5, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.6, marginTop: 8 }}>{"This will fill in as you go \u2014 sparks found, things you loved, patterns starting to show."}</div>
         ) : (
           <div style={{ marginTop: 8 }}>
             {signals.loved.length > 0 && <div style={{ fontSize: 13, color: BASE.creamDim, marginBottom: 6 }}>{"\u2726 Sparks found: " + signals.loved.length}</div>}
@@ -308,7 +308,7 @@ export function renderRebuild(ctx) {
           <div style={{ marginTop: 22, padding: "0 8px" }}>
             {signals.topDims.length >= 2 ? (
               <>
-                <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.6 }}>You seem especially drawn to\u2026</div>
+                <div style={{ fontSize: 14, color: BASE.creamDim, lineHeight: 1.6 }}>{"You seem especially drawn to\u2026"}</div>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: "#C9558E", marginTop: 10, lineHeight: 1.5 }}>{signals.topDims.slice(0, 3).map((d) => DIM_PHRASE[d]).join("  \u00b7  ")}</div>
               </>
             ) : (
@@ -364,19 +364,19 @@ export function renderRebuild(ctx) {
         <div style={{ textAlign: "center", paddingTop: 10 }}>
           <div style={{ fontSize: 26 }}>{"\u2728"}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 12, lineHeight: 1.2 }}>Your Reverie</div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.creamDim, marginTop: 16, lineHeight: 1.6 }}>You were never supposed to become exactly who you used to be. We were looking for what still feels like you \u2014 and what wants to come next.</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.creamDim, marginTop: 16, lineHeight: 1.6 }}>{"You were never supposed to become exactly who you used to be. We were looking for what still feels like you \u2014 and what wants to come next."}</div>
         </div>
 
         <div style={{ height: 1, background: BASE.border, margin: "28px 0 24px" }} />
 
-        <Section title="You Feel Most Like Yourself When\u2026">
+        <Section title={"You Feel Most Like Yourself When\u2026"}>
           {signals.topDims.length > 0
             ? <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: BASE.cream, lineHeight: 1.55 }}>{"You're leaning into " + DIM_PHRASE[signals.topDims[0]] + "."}</div>
-            : <div style={{ fontSize: 13, color: BASE.taupe, fontStyle: "italic" }}>Still coming into focus \u2014 that's alright.</div>}
+            : <div style={{ fontSize: 13, color: BASE.taupe, fontStyle: "italic" }}>{"Still coming into focus \u2014 that's alright."}</div>}
         </Section>
 
         {signals.loved.length > 0 && <Section title="Your Biggest Sparks"><List items={signals.loved.slice(0, 5).map((e) => e.title)} /></Section>}
-        {signals.notLoved.length > 0 && <Section title="Things You Thought You'd Like \u2014 But Didn't"><List items={signals.notLoved.slice(0, 4).map((e) => e.title)} /></Section>}
+        {signals.notLoved.length > 0 && <Section title={"Things You Thought You'd Like \u2014 But Didn't"}><List items={signals.notLoved.slice(0, 4).map((e) => e.title)} /></Section>}
         {signals.surprises.length > 0 && <Section title="Unexpectedly You"><List items={signals.surprises.slice(0, 4).map((e) => e.title)} /></Section>}
 
         <Section title="Your Pleasure Style">
