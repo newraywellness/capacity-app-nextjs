@@ -1084,7 +1084,7 @@ export default function App() {
         </div>
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60 }}>
           <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", background: tab === "today" && envRoot.dark ? "rgba(40,28,64,0.92)" : "rgba(255,255,255,0.93)", borderTop: `1px solid ${tab === "today" && envRoot.dark ? "rgba(255,255,255,0.12)" : BASE.border}`, padding: "8px 6px 14px", boxShadow: "0 -6px 24px rgba(60,35,70,0.10)" }}>
-            {[["bloom", "Bloom", "\ud83c\udf38"], ["taste", "Taste", "\ud83e\udd0d"], ["body", "Body", "\ud83d\udcaa"], ["progress", "Progress", "\ud83d\udcc8"], ["rebuild", "Rebuild", "\ud83c\udf31"]].map(([k, lbl, ic]) => {
+            {[["bloom", "Bloom", "\ud83c\udf38"], ["taste", "Taste", "\ud83e\udd0d"], ["body", "Body", "\ud83d\udcaa"], ["rebuild", "Rebuild", "\ud83c\udf31"], ["progress", "Progress", "\ud83d\udcc8"]].map(([k, lbl, ic]) => {
               const active = k === "body" ? (tab === "today" || tab === "body") : tab === k
               const darkbar = tab === "today" && envRoot.dark
               return (
