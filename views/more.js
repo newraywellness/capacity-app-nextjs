@@ -94,6 +94,7 @@ export function renderMore(ctx) {
           </Group>
 
           <button onClick={handleLogout} style={{ width: "100%", padding: 14, borderRadius: 14, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Log Out</button>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -113,6 +114,7 @@ export function renderMore(ctx) {
             <div style={{ fontSize: 22, marginBottom: 10 }}>{"\ud83e\udd0d"}</div>
             <div style={{ fontSize: 13, color: BASE.taupe, lineHeight: 1.65 }}>Nothing to configure yet. As Capacity-specific reminders and preferences are built, they'll live here.</div>
           </div>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -159,6 +161,7 @@ export function renderMore(ctx) {
           )}
 
           {!program && <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", textAlign: "center", lineHeight: 1.6, padding: "0 10px" }}>More movement preferences will appear here as your Move experience grows.</div>}
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -223,6 +226,7 @@ export function renderMore(ctx) {
               </div>
             )}
           </div>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -288,6 +292,7 @@ export function renderMore(ctx) {
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.taupe }}>Morning greeting is turned off.</div>
             )}
           </div>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -310,6 +315,7 @@ export function renderMore(ctx) {
             <div style={{ fontSize: 12.5, fontWeight: 600, color: BASE.creamDim, marginBottom: 5 }}>Sound</div>
             <div style={{ fontSize: 12.5, color: BASE.taupe, lineHeight: 1.6 }}>Sound controls will appear here when supported experiences use audio.</div>
           </div>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -331,6 +337,7 @@ export function renderMore(ctx) {
             </div>
           </div>
           <div style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic", textAlign: "center", lineHeight: 1.6, marginTop: 16, padding: "0 10px" }}>More appearance options can live here as True Reverie grows.</div>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -357,6 +364,7 @@ export function renderMore(ctx) {
             </div>
             <a href={"mailto:" + SUPPORT_EMAIL + "?subject=" + encodeURIComponent("True Reverie Feedback")} style={{ display: "block", padding: "14px 18px", borderTop: `1px solid ${BASE.border}`, textAlign: "center", fontSize: 13, fontWeight: 700, color: "#C9558E", textDecoration: "none" }}>Send Feedback</a>
           </div>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -377,6 +385,7 @@ export function renderMore(ctx) {
               </div>
             ))}
           </div>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -481,6 +490,7 @@ export function renderMore(ctx) {
 
           <button onClick={saveLife} style={{ width: "100%", padding: 15, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", fontSize: 14.5, fontWeight: 700, boxShadow: "0 8px 22px rgba(168,123,209,0.3)" }}>Save my life details</button>
           {lifeMsg && <div className="fade-in" style={{ textAlign: "center", color: T.accent, fontSize: 13, fontWeight: 700, marginTop: 12 }}>{lifeMsg}</div>}
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -529,6 +539,7 @@ export function renderMore(ctx) {
           <button onClick={handleShare} style={{ width: "100%", marginTop: 18, padding: 16, borderRadius: 14, border: "none", cursor: "pointer", background: ST.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700 }}>Send to my partner</button>
           <button onClick={handleCopyShare} style={{ width: "100%", marginTop: 10, padding: 13, borderRadius: 12, background: "transparent", color: BASE.creamDim, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Copy message</button>
           {shareStatus && <div style={{ marginTop: 12, textAlign: "center", fontSize: 13, color: ST.accent, fontWeight: 700 }}>{shareStatus}</div>}
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -554,6 +565,7 @@ export function renderMore(ctx) {
               </div>
             </a>
           ))}
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -738,7 +750,7 @@ export function renderMore(ctx) {
               {shown.map((it) => <Tile key={it.id} it={it} />)}
             </div>
           )}
-          <div style={{ height: 20 }} />
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -773,6 +785,7 @@ export function renderMore(ctx) {
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: BASE.cream, lineHeight: 1.5 }}>Your color isn't a grade.</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: BASE.taupe, lineHeight: 1.5, marginTop: 2 }}>It's information about what you have available today.</div>
           </div>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
@@ -792,6 +805,7 @@ export function renderMore(ctx) {
             </div>
           </div>
           <button onClick={handleLogout} style={{ width: "calc(100% - 40px)", margin: "18px 20px 0", padding: 13, borderRadius: 12, background: "transparent", color: BASE.taupe, border: `1px solid ${BASE.border}`, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Log Out</button>
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
         </div>
       )
     }
