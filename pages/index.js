@@ -23,13 +23,25 @@ import { renderMore } from '../views/more.js'
 import { renderRebuild } from '../views/rebuild.js'
 
 export default function App() {
-  const [user, setUser] = useState(null)
+  // PROTOTYPE-ONLY AUTH BYPASS — remove when rebuilding production auth.
+  // This is not a production auth change: Supabase, checkAuth, login/signup/
+  // recovery, and the onboarding wizard are all left fully intact below —
+  // they simply never fire, because `user` and `setupData` are seeded
+  // truthy from the very first render, so every existing gate (`!user`,
+  // `user && !setupData`, `loading`) is satisfied immediately. The existing
+  // localStorage-loading effect further down is untouched and still runs:
+  // if real nr_setup/nr_name data exists, it overwrites these placeholders
+  // moments later exactly as it always has.
+  const PROTOTYPE_MODE = true
+  const PROTOTYPE_USER = { id: "prototype-user", email: "prototype@truereverie.local" }
+
+  const [user, setUser] = useState(PROTOTYPE_MODE ? PROTOTYPE_USER : null)
   const [profile, setProfile] = useState(null)
   const [tab, setTab] = useState("bloom")
   const [pct, setPct] = useState(50)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(PROTOTYPE_MODE ? false : true)
   const [history, setHistory] = useState([])
   const [checkedIn, setCheckedIn] = useState(false)
   const [factors, setFactors] = useState([])
@@ -47,9 +59,9 @@ export default function App() {
   const [tmpStart, setTmpStart] = useState("")
   // auth UX: password recovery, status messages
   const [authView, setAuthView] = useState("welcome")
-  const [firstName, setFirstName] = useState("")
+  const [firstName, setFirstName] = useState(PROTOTYPE_MODE ? "friend" : "")
   const [confirmPw, setConfirmPw] = useState("")
-  const [setupData, setSetupData] = useState(null)
+  const [setupData, setSetupData] = useState(PROTOTYPE_MODE ? { goals: [], interest_categories: [], experience_preferences: [], desired_feelings: [], capacity_factors: [], name: "" } : null)
   const [setupStep, setSetupStep] = useState(0)
   const [introStep, setIntroStep] = useState(0)
   const [draftSetup, setDraftSetup] = useState({ goals: [], interest_categories: [], experience_preferences: [], desired_feelings: [], capacity_factors: [] })
@@ -404,6 +416,10 @@ export default function App() {
   }
 
   const handleLogout = async () => {
+    // PROTOTYPE-ONLY AUTH BYPASS — remove when rebuilding production auth.
+    // Logging out would otherwise wipe local Rebuild/Bloom/Cycle/Nourish data
+    // and strand the app on a login screen there's no real account to use.
+    if (PROTOTYPE_MODE) return
     await db.auth.signOut()
     setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
     setNutrition(null); setSavedBloom([]); setCycleLogs({}); setUseAvgCycleRaw(false); setGreetingOnRaw(true); setGreetingStyleRaw("name_formal"); setResetSeed({ d: "", day: 0, night: 0 }); setResetPage(null); setFlourishTime(null); setFlourishProject(null); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
@@ -467,7 +483,7 @@ export default function App() {
     else next[date] = entry
     setCycleLogs(next)
     try { localStorage.setItem("nr_cycle_logs", JSON.stringify(next)) } catch (e) {}
-    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), cycleLogs: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), cycleLogs: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
   }
 
   const isSavedBloom = (id) => savedBloom.indexOf(id) >= 0
@@ -476,12 +492,12 @@ export default function App() {
     const next = wasSaved ? savedBloom.filter((x) => x !== id) : [...savedBloom, id]
     setSavedBloom(next)
     try { localStorage.setItem("nr_bloom_saved", JSON.stringify(next)) } catch (e) {}
-    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), savedBloom: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), savedBloom: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
     // Anonymous aggregate count — fires ONLY on the unsaved -> saved transition.
     // Not on unsave, not on reload, not on cross-device sync: those paths never
     // reach here, they only ever call setSavedBloom directly. Signed-in only,
     // because EXECUTE is granted to authenticated alone.
-    if (!wasSaved && user) {
+    if (!wasSaved && user && user.id !== "prototype-user") {
       try { db.rpc("bump_bloom_save", { item: id }).then(() => {}, () => {}) } catch (e) {}
     }
   }
@@ -495,7 +511,7 @@ export default function App() {
     setRebuildFLYA((prev) => {
       const next = typeof updater === "function" ? updater(prev) : { ...prev, ...updater }
       try { localStorage.setItem("nr_rebuild_flya", JSON.stringify(next)) } catch (e) {}
-      try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), rebuildFLYA: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
+      try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), rebuildFLYA: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
       return next
     })
   }
@@ -503,7 +519,7 @@ export default function App() {
   const saveNutrition = (n) => {
     setNutrition(n)
     try { localStorage.setItem("nr_nutrition", JSON.stringify(n)) } catch (e) {}
-    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), nutrition: n } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), nutrition: n } }).eq("id", user.id).then(() => {}) } catch (e) {}
   }
   // ---- Food log: persistent, per-date, per-meal ----
   const persistDays = (days) => { setFoodDays(days); try { localStorage.setItem("nr_food_days", JSON.stringify(days)) } catch (e) {} }
@@ -575,11 +591,11 @@ export default function App() {
     if (pid) {
       setProgramId(pid); setProgramStart(iso)
       try { localStorage.setItem("nr_program", pid); localStorage.setItem("nr_program_start", iso) } catch (e) {}
-      if (user && db) { try { db.from("profiles").update({ program: pid, program_start: iso }).eq("id", user.id).then(() => {}) } catch (e) {} }
+      if (user && db && user.id !== "prototype-user") { try { db.from("profiles").update({ program: pid, program_start: iso }).eq("id", user.id).then(() => {}) } catch (e) {} }
     } else {
       setProgramId(null)
       try { localStorage.removeItem("nr_program"); localStorage.removeItem("nr_program_start") } catch (e) {}
-      if (user && db) { try { db.from("profiles").update({ program: null, program_start: null }).eq("id", user.id).then(() => {}) } catch (e) {} }
+      if (user && db && user.id !== "prototype-user") { try { db.from("profiles").update({ program: null, program_start: null }).eq("id", user.id).then(() => {}) } catch (e) {} }
     }
   }
 
@@ -613,18 +629,18 @@ export default function App() {
   const setUseAvgCycle = (v) => {
     setUseAvgCycleRaw(v)
     try { localStorage.setItem("nr_use_avg_cycle", v ? "1" : "0") } catch (e) {}
-    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), useAvgCycle: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), useAvgCycle: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
   }
 
   const setGreetingOn = (v) => {
     setGreetingOnRaw(v)
     try { localStorage.setItem("nr_greeting_on", v ? "1" : "0") } catch (e) {}
-    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), greetingOn: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), greetingOn: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
   }
   const setGreetingStyle = (v) => {
     setGreetingStyleRaw(v)
     try { localStorage.setItem("nr_greeting_style", v) } catch (e) {}
-    try { if (user) db.from("profiles").update({ setup: { ...(setupData || {}), greetingStyle: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), greetingStyle: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
   }
 
   const saveCycleSettings = (start, len) => {
@@ -635,7 +651,7 @@ export default function App() {
       window.localStorage.setItem("cap_cycle_length", L)
       if (start) window.localStorage.setItem("cap_last_period", start)
     } catch (e) {}
-    if (user && db) { try { db.from("profiles").update({ setup: { ...(setupData || {}), cycleLength: L, lastPeriod: start || lastPeriod } }).eq("id", user.id).then(() => {}) } catch (e) {} }
+    if (user && db && user.id !== "prototype-user") { try { db.from("profiles").update({ setup: { ...(setupData || {}), cycleLength: L, lastPeriod: start || lastPeriod } }).eq("id", user.id).then(() => {}) } catch (e) {} }
   }
 
   const saveCycle = () => {
@@ -646,7 +662,7 @@ export default function App() {
       window.localStorage.setItem("cap_cycle_length", L)
       window.localStorage.setItem("cap_last_period", tmpStart)
     } catch (e) {}
-    if (user && db) { try { db.from("profiles").update({ setup: { ...(setupData || {}), cycleLength: L, lastPeriod: tmpStart } }).eq("id", user.id).then(() => {}) } catch (e) {} }
+    if (user && db && user.id !== "prototype-user") { try { db.from("profiles").update({ setup: { ...(setupData || {}), cycleLength: L, lastPeriod: tmpStart } }).eq("id", user.id).then(() => {}) } catch (e) {} }
     setEditCycle(false)
   }
 
