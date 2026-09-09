@@ -6,15 +6,11 @@ import { GLOW_TOPICS, GLOW_BY_KEY } from '../data/glow.js'
 import { RESET_DAY, RESET_NIGHT, RESET_SONGS, RESET_EXPLORE } from '../data/reset.js'
 import { F_TIMES, F_IMG, F_BY_ID, byTag, seasonalSet, timeFeed, relatedByMood } from '../data/flourish.js'
 import { BASE, ENV, dayIndex } from '../lib/theme.js'
+import GlowDiscovery from './GlowDiscovery.js'
 
 export function renderBloom(ctx) {
   const { bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomPillar, setBloomSearchOpen, setDoneFeed, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom } = ctx
 
-    // One save control for all of Glow/Reset/Flourish, so "obvious and
-    // consistent" is true by construction rather than by copying styles
-    // between call sites. `overlay` is for the two spots a heart sits on top
-    // of a photograph (Flourish rail cards, Flourish time-feed cards) rather
-    // than in a plain header row.
     const Heart = ({ id, overlay }) => {
       const saved = isSavedBloom(id)
       return (
@@ -26,11 +22,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // Pass 1 navigation only — the four sections stay exactly as they were;
-    // this is just a consistent way to jump directly between their top-level
-    // views. Deep nested state (a specific Glow item, a specific Flourish
-    // project, a Reset Explore page) is cleared on switch so each tab always
-    // opens at that section's own landing, never a stale sub-screen.
     const switchPillar = (k) => {
       setGlowTopic(null); setGlowItem(null); setGlowSheet(null)
       setFlourishProject(null); setFlourishTime(null)
@@ -52,9 +43,6 @@ export function renderBloom(ctx) {
       </div>
     )
 
-    // ── Shared by every Bloom feed (currently For You and Seasonal). Text
-    // color logic matches Bloom's real atmosphere condition exactly (see the
-    // earlier fix: BLOOM_BG is only dark for mode==="night", not "evening").
     const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
     const hour = new Date().getHours()
     const env = ENV(hour, checkedIn ? cur : null)
@@ -90,9 +78,7 @@ export function renderBloom(ctx) {
         </div>
       )
     }
-    // The detail side's shape depends on the idea's type — a recipe, a
-    // beauty ritual, a home project, and an outing all need genuinely
-    // different information, not one template stretched over all four.
+
     const DetailSide = ({ item }) => {
       if (item.type === "movement") {
         const mv = M_BY_ID(item.moveId)
@@ -114,10 +100,6 @@ export function renderBloom(ctx) {
         )
       }
       const d = item.detail || {}
-      // Generic labeled-sections format — for content that doesn't fit the
-      // four named templates below (e.g. Seasonal's "Make It a Day"). Checked
-      // first and independent of item.type, so recipe/beauty/home/outing are
-      // completely unaffected by this branch existing.
       if (d.sections) {
         return (
           <div style={{ padding: "22px 20px 24px" }}>
@@ -184,6 +166,7 @@ export function renderBloom(ctx) {
         </div>
       )
     }
+
     const FeedCard = ({ item, prefix }) => (
       <div style={{ borderRadius: 24, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 22 }}>
         <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
@@ -249,7 +232,7 @@ export function renderBloom(ctx) {
         </div>
       )
     }
-    // ── ARTICLE ──────────────────────────────────────────────────────────
+
     if (tab === "bloom" && bloomArticle) {
       const a = bloomArticle
       const sid = "article:" + a.id
@@ -281,6 +264,27 @@ export function renderBloom(ctx) {
       )
     }
 
+    // ══════════════ GLOW · discovery feed ══════════════
+    if (
+      tab === "bloom" &&
+      bloomPillar === "glow" &&
+      !glowItem &&
+      !glowSheet
+    ) {
+      return (
+        <GlowDiscovery
+          topicKey={glowTopic}
+          setTopicKey={(k) => {
+            setGlowTopic(k)
+            setGlowItem(null)
+            setGlowSheet(null)
+          }}
+          isSavedBloom={isSavedBloom}
+          toggleSaveBloom={toggleSaveBloom}
+          tabs={<BloomTabs />}
+        />
+      )
+    }
 
     // ══════════════ GLOW · quick-win sheet ══════════════
     if (tab === "bloom" && glowSheet) {
@@ -329,7 +333,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ══════════════ GLOW · an item inside a section ══════════════
     if (tab === "bloom" && glowTopic && glowItem) {
       const T = GLOW_BY_KEY(glowTopic), it = glowItem
       const Tier = ({ ic, label, item }) => (
@@ -381,7 +384,6 @@ export function renderBloom(ctx) {
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: BASE.cream, marginTop: 4, lineHeight: 1.18 }}>{it.title || it.n}</div>
           {(it.desc || it.b || it.i) && <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 8, lineHeight: 1.5 }}>{it.desc || it.b || it.i}</div>}
 
-          {/* Professional treatment record: what · who · downtime · best for · verdict · aftercare */}
           {it.what && (
             <>
               {[["What it is", it.what], ["Who it's for", it.who], ["Downtime", it.downtime]].map(([lbl, txt]) => (
@@ -458,8 +460,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ══════════════ GLOW · WARDROBE (editorial) ══════════════
-    // Images lead, text supports. Horizontal galleries rather than lists.
     if (tab === "bloom" && glowTopic === "wardrobe" && !glowItem) {
       const T = GLOW_BY_KEY("wardrobe"), WD = T.wardrobe
       const isOpen = (k) => (Array.isArray(glowOpen) ? glowOpen : ["guides", "wins"]).indexOf(k) >= 0
@@ -510,7 +510,6 @@ export function renderBloom(ctx) {
           <Head ic="💪" name="Gym Style" sub="Strong. Confident. Comfortable." />
           <Rail items={WD.gym} w={252} />
 
-          {/* full-width editorial plates */}
           {WD.plates.map((pl) => (
             <div key={pl.id} style={{ marginTop: 38 }}>
               <Head ic={pl.ic} name={pl.title} sub={pl.sub} />
@@ -519,7 +518,6 @@ export function renderBloom(ctx) {
             </div>
           ))}
 
-          {/* the only written section, kept deliberately short */}
           <div style={{ height: 34 }} />
           <div onClick={() => toggle("learn")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 4px 12px", cursor: "pointer" }}>
             <span style={{ fontSize: 19 }}>📖</span>
@@ -563,14 +561,8 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ══════════════ GLOW · a topic ══════════════
-    // Ordered the way she actually arrives: what should I buy, what should I do,
-    // how is my situation different, why does this work, what do others love.
-    // Products and Quick Wins are open on arrival; the rest wait to be asked for.
     if (tab === "bloom" && glowTopic) {
       const T = GLOW_BY_KEY(glowTopic)
-      // Defensive: if this view ever renders before the state that feeds it,
-      // fall back to the intended defaults rather than crashing the page.
       const open = Array.isArray(glowOpen) ? glowOpen : ["guides", "wins"]
       const isOpen = (k) => open.indexOf(k) >= 0
       const toggle = (k) => { if (setGlowOpen) setGlowOpen(isOpen(k) ? open.filter((x) => x !== k) : [...open, k]) }
@@ -652,7 +644,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ══════════════ RESET · an Explore More page ══════════════
     if (tab === "bloom" && bloomPillar === "reset" && resetPage) {
       const P = RESET_EXPLORE.find((x) => x.id === resetPage) || RESET_EXPLORE[0]
       const capKey3 = !checkedIn ? "yellow" : pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green"
@@ -733,9 +724,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ══════════════ RESET ══════════════
-    // Suggestions are the content. They open nothing, complete nothing, track
-    // nothing. The only navigation on this page is Explore More.
     if (tab === "bloom" && bloomPillar === "reset") {
       const capKey2 = !checkedIn ? "yellow" : pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green"
       const COUNT = { red: 3, yellow: 4, green: 5 }[capKey2]
@@ -752,7 +740,7 @@ export function renderBloom(ctx) {
       const nightList = window_(RESET_NIGHT[capKey2], seedFor("night"))
 
       const Label = ({ children }) => (
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe, textAlign: "center", opacity: 0.85 }}>{children}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: BASE.taupe, textAlign: "center", opacity: 0.85 }}>{children}</div>
       )
       const Line = ({ s, i, section }) => {
         const key = section + ":" + i + ":" + s.text
@@ -827,7 +815,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ── shared: image with a branded placeholder until photography exists ──
     const FImg = ({ p, radius, ratio }) => (
       <div style={{ position: "relative", width: "100%", aspectRatio: ratio || "4 / 5", borderRadius: radius === 0 ? 0 : (radius || 16), overflow: "hidden",
         background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)",
@@ -839,7 +826,6 @@ export function renderBloom(ctx) {
       </div>
     )
 
-    // ══════════════ FLOURISH · project ══════════════
     if (tab === "bloom" && bloomPillar === "flourish" && flourishProject) {
       const P = F_BY_ID(flourishProject)
       if (!P) { setFlourishProject(null); return null }
@@ -926,7 +912,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ══════════════ FLOURISH · a time feed ══════════════
     if (tab === "bloom" && bloomPillar === "flourish" && flourishTime) {
       const T2 = F_TIMES.find((t) => t.key === flourishTime) || F_TIMES[0]
       const feed = timeFeed(T2.key, new Date())
@@ -964,7 +949,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ══════════════ FLOURISH · landing ══════════════
     if (tab === "bloom" && bloomPillar === "flourish") {
       const season = seasonalSet(new Date(), 4)
       const Rail2 = ({ items }) => (
@@ -1027,8 +1011,6 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ── INSIDE A PILLAR ──────────────────────────────────────────────────
-    // ══════════════ SEASONAL · Pass 1 placeholder only ══════════════
     if (tab === "bloom" && bloomPillar === "seasonal") {
       const items = bySeason(seasonalSeason)
       const seasonLabel = SEASON_LABEL(seasonalSeason)
@@ -1042,7 +1024,6 @@ export function renderBloom(ctx) {
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.4, marginTop: 10 }}>Make the season feel like yours.</div>
           </div>
 
-          {/* ── subtle utility control, same visual weight as For You's Browse by Time ── */}
           <div style={{ textAlign: "center", marginTop: 26 }}>
             <span onClick={() => setSeasonalBrowseOpen(!seasonalBrowseOpen)} style={{ fontSize: 11.5, fontWeight: 700, color: seasonalBrowseOpen ? "#C9558E" : mut, cursor: "pointer" }}>Browse seasons {seasonalBrowseOpen ? "\u25b4" : "\u25be"}</span>
           </div>
@@ -1058,7 +1039,6 @@ export function renderBloom(ctx) {
             </div>
           )}
 
-          {/* ── the season's own feed, or an honest empty state ── */}
           <div style={{ marginTop: 28 }}>
             {items.length ? items.map((item) => <FeedCard key={item.id} item={item} prefix="seasonal" />) : (
               <div style={{ textAlign: "center", padding: "60px 14px" }}>
@@ -1069,13 +1049,12 @@ export function renderBloom(ctx) {
             )}
           </div>
 
-          {/* Clears the fixed bottom nav + iPhone home-indicator safe area —
-              same proven spacer already used on For You and in views/cycle.js. */}
           <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
 
         </div>
       )
     }
+
     if (tab === "bloom" && bloomPillar) {
       const P = BLOOM_PILLARS.find((x) => x.key === bloomPillar) || BLOOM_PILLARS[0]
       return (
@@ -1085,14 +1064,12 @@ export function renderBloom(ctx) {
           <div style={{ fontSize: 30 }}>{P.ic}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream, marginTop: 4 }}>{P.name}</div>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14.5, color: BASE.taupe, marginTop: 4, marginBottom: 22 }}>{P.sub}</div>
-          {/* Built topics lead with value: three tappable quick wins, then More. */}
           {P.key === "glow" && GLOW_TOPICS.map((T) => (
             <div key={T.key} style={{ borderRadius: 20, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "18px 18px 14px", marginBottom: 11 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 22 }}>{T.ic}</span>
                 <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 23, fontWeight: 700, color: BASE.cream }}>{T.name}</span>
               </div>
-              {/* Editorial topics lead with an image rather than a list. */}
               {T.editorial ? (
                 <>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.taupe, margin: "8px 0 12px" }}>Who do you want to be today?</div>
@@ -1119,7 +1096,6 @@ export function renderBloom(ctx) {
             </div>
           ))}
 
-          {/* Everything not yet built to that standard keeps its existing card. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
             {P.cards.filter((c) => !(P.key === "glow" && ["Hair", "Skincare", "Makeup", "Perfume", "Nails", "Brows", "Lips", "Jewelry", "Facials", "Body Care", "Wardrobe"].indexOf(c.n) >= 0)).map((c) => (
               <div key={c.n} onClick={() => openBloomCard(c)} style={{ borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "20px 12px", textAlign: "center", cursor: "pointer" }}>
@@ -1133,10 +1109,8 @@ export function renderBloom(ctx) {
       )
     }
 
-    // ── BLOOM LANDING ────────────────────────────────────────────────────
     if (tab === "bloom") {
       const capKey = checkedIn ? (pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green") : "yellow"
-      // Defensive: a partially-deployed data file should degrade, not white-screen.
       const invites = (BLOOM_INVITATIONS && BLOOM_INVITATIONS[capKey]) || []
       const inviteRaw = invites.length ? invites[dayIndex(invites.length)] : null
       const invite = inviteRaw && typeof inviteRaw === "object" ? inviteRaw : { emoji: "\ud83e\udd0d", text: inviteRaw || "Be gentle with yourself today." }
@@ -1151,13 +1125,11 @@ export function renderBloom(ctx) {
 
           <div style={{ paddingTop: 48 }}><BloomTabs /></div>
 
-          {/* ── greeting · no date, no subtitle ── */}
           <div style={{ paddingTop: 8, textAlign: "center" }}>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: ink, lineHeight: 1.08, letterSpacing: 0.2 }}>Wonderful Discoveries</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.4, marginTop: 10 }}>Small ways to live more like her, shaped by what you love.</div>
           </div>
 
-          {/* ── subtle utility row: search + Browse by Time, neither clutters the page ── */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14, marginTop: 30 }}>
             <span onClick={() => setFeedTimeFilter(feedTimeFilter ? null : "__open__")} style={{ fontSize: 11.5, fontWeight: 700, color: feedTimeFilter ? "#C9558E" : mut, cursor: "pointer" }}>{"\u23f1\ufe0f Browse by Time"}</span>
             <span onClick={() => setBloomSearchOpen(!bloomSearchOpen)} style={{ fontSize: 15, color: bloomSearchOpen ? "#C9558E" : mut, cursor: "pointer" }}>{"\ud83d\udd0d"}</span>
@@ -1180,12 +1152,9 @@ export function renderBloom(ctx) {
             </div>
           )}
 
-          {/* ── THE FEED · vertical, scroll to move from one idea to the next ── */}
           <div style={{ marginTop: 26 }}>
             {visibleItems.slice(0, 2).map((item) => <FeedCard key={item.id} item={item} />)}
 
-            {/* Trending stays exactly as it was — an editorial moment inside
-                the feed now, not a section of its own. */}
             {!feedTimeFilter && feat && (
               <div style={{ marginBottom: 22 }}>
                 <div style={{ ...LABEL, color: mut, textAlign: "center", marginBottom: 14 }}>Trending</div>
@@ -1209,7 +1178,6 @@ export function renderBloom(ctx) {
             )}
           </div>
 
-          {/* ── TODAY'S INVITATION · closes the page, asks nothing ── */}
           <div style={{ height: 24 }} />
           <div style={{ textAlign: "center", paddingBottom: 48 }}>
             <div style={{ ...LABEL, color: mut }}>Today's invitation</div>
@@ -1218,8 +1186,6 @@ export function renderBloom(ctx) {
             <div onClick={() => switchPillar("reset")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", marginTop: 18, cursor: "pointer", letterSpacing: 0.2 }}>More gentle ideas in Reset {"\u2192"}</div>
           </div>
 
-          {/* Clears the fixed bottom nav + iPhone home-indicator safe area —
-              same proven spacer already used in views/cycle.js. */}
           <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
 
         </div>
