@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { GLOW_TOPICS, GLOW_BY_KEY } from "../data/glow.js"
 import { BASE } from "../lib/theme.js"
 
@@ -835,6 +836,20 @@ export default function GlowDiscovery({
   const T = topicKey ? GLOW_BY_KEY(topicKey) : null
   const feed = T ? recordsForTopic(T) : mixedGlowFeed()
 
+  // Rendering every Glow record at once is too heavy for mobile Safari/Chrome.
+  // Start with a magazine-sized batch and reveal more only when requested.
+  // This keeps the feed smooth and prevents the browser tab from running out
+  // of memory when Glow opens.
+  const BATCH = 12
+  const [visibleCount, setVisibleCount] = useState(BATCH)
+
+  useEffect(() => {
+    setVisibleCount(BATCH)
+  }, [topicKey])
+
+  const visibleFeed = feed.slice(0, visibleCount)
+  const hasMore = visibleCount < feed.length
+
   return (
     <div className="fade-in" style={{ padding: "0 24px" }}>
       <div style={{ paddingTop: 48 }}>{tabs}</div>
@@ -887,7 +902,7 @@ export default function GlowDiscovery({
       </div>
 
       <div>
-        {feed.map((record, i) => (
+        {visibleFeed.map((record, i) => (
           <GlowFeedCard
             key={`${record.topic.key}:${record.kind}:${idOf(record.item, i)}`}
             record={record}
@@ -895,6 +910,26 @@ export default function GlowDiscovery({
             toggleSaveBloom={toggleSaveBloom}
           />
         ))}
+
+        {hasMore && (
+          <div style={{ textAlign: "center", margin: "6px 0 28px" }}>
+            <button
+              onClick={() => setVisibleCount((n) => Math.min(n + BATCH, feed.length))}
+              style={{
+                border: `1px solid ${BASE.border}`,
+                background: BASE.surface,
+                color: "#C9558E",
+                borderRadius: 999,
+                padding: "11px 18px",
+                fontSize: 12.5,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              More discoveries ↓
+            </button>
+          </div>
+        )}
       </div>
 
       <div
