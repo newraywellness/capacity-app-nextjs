@@ -155,78 +155,81 @@ export function renderNourish(ctx) {
             <div style={{ fontSize:8.5, letterSpacing:2.6, color:BASE.taupe, textTransform:"uppercase", marginTop:8 }}>{dateStr}</div>
           </div>
 
-          <div onClick={()=>setPlanView("targets")} style={{ textAlign:"center", padding:"26px 0 20px", cursor:"pointer" }}>
+          <div onClick={()=>setPlanView("targets")} style={{ textAlign:"center", padding:"28px 0 22px", cursor:"pointer" }}>
             <div style={{ fontSize:8.5,fontWeight:800,letterSpacing:2.4,textTransform:"uppercase",color:BASE.taupe }}>Fuel today</div>
-            <div style={{ fontFamily:"'Cormorant Garamond', serif",fontSize:56,color:BASE.cream,lineHeight:.95,marginTop:10 }}>{Math.round(eaten.p)}<span style={{fontSize:21,color:BASE.taupe}}>g</span></div>
+            <div style={{ fontFamily:"'Cormorant Garamond', serif",fontSize:58,color:BASE.cream,lineHeight:.95,marginTop:10 }}>{Math.round(eaten.p)}<span style={{fontSize:22,color:BASE.taupe}}>g</span></div>
             <div style={{ fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:13,color:BASE.taupe,marginTop:8 }}>{targets?`of ${targets.p}g protein today`:"Set your targets"}</div>
-            <div style={{display:"flex",justifyContent:"center",gap:28,marginTop:11,fontSize:11.5,color:BASE.creamDim}}><span>{Math.round(eaten.cal)} cal</span><span>{water*8} oz water</span></div>
+            <div style={{display:"flex",justifyContent:"center",gap:30,marginTop:12,fontSize:11.5,color:BASE.creamDim}}><span>{Math.round(eaten.cal)} cal</span><span>{water*8} oz water</span></div>
           </div>
 
           <div style={{ fontSize:9,fontWeight:800,letterSpacing:1.9,textTransform:"uppercase",color:BASE.taupe,margin:"8px 2px 10px" }}>Your Nourish tools</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:9 }}>
-            {[
-              ["🍽","Log","Food",()=>setPlanView("log")],
-              ["🛒","Grocery","List",()=>setPlanView("grocery")],
-              ["⭐","Favorites","Saved",()=>{setAddFoodFor(nextType);setAddTab("favorites")}],
-              ["💧","Water",`${water*8} oz`,()=>setPlanView("water")],
-              ["✨","Supps","Learn",()=>setNourishView("supps")],
-              ["📖","Learn","Nurse-informed",()=>setPlanView("learn")],
-            ].map(([ic,title,sub,fn])=><div key={title} onClick={fn} style={{ minHeight:76,borderRadius:16,background:BASE.surface,border:`1px solid ${BASE.border}`,padding:"11px 7px",textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center" }}><div style={{fontSize:17}}>{ic}</div><div style={{fontSize:11.5,fontWeight:800,color:BASE.cream,marginTop:5}}>{title}</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:10.5,color:BASE.taupe,marginTop:1}}>{sub}</div></div>)}
+          <div style={{ display:"flex", gap:10, overflowX:"auto", scrollSnapType:"x mandatory", WebkitOverflowScrolling:"touch", paddingBottom:5 }}>
+            <Mini emoji="🍽" title="Log Food" sub="Search · Recent" onClick={()=>setPlanView("log")} />
+            <Mini emoji="🛒" title="Grocery" sub="Your running list" onClick={()=>setPlanView("grocery")} />
+            <Mini emoji="⭐" title="Favorites" sub="Foods you've saved" onClick={()=>{setAddFoodFor(nextType);setAddTab("favorites")}} />
+            <Mini emoji="✨" title="Supplements" sub="Nurse-informed education" onClick={()=>setNourishView("supps")} />
+            <Mini emoji="💧" title="Water" sub={`${water*8} oz today`} onClick={()=>setPlanView("water")} />
+            <Mini emoji="📖" title="Learn" sub="Nutrition without homework" onClick={()=>setPlanView("learn")} />
           </div>
 
-          <div style={{ marginTop:30 }}>
-            <div style={{ display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10 }}>
-              <div>
-                <div style={{fontSize:9,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#C9558E"}}>Meal ideas</div>
-                <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:28,fontWeight:700,color:BASE.cream,marginTop:3}}>What sounds good?</div>
-              </div>
-              {(mealType || browse.time || browse.tag) && <div onClick={()=>{setMealType(null);setMealFilter(null)}} style={{fontSize:11.5,fontWeight:800,color:"#C9558E",cursor:"pointer"}}>Clear</div>}
-            </div>
-            <div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:13.5,color:BASE.taupe,marginTop:5,lineHeight:1.45}}>Scroll everything, or narrow it down when you want.</div>
+          <div style={{ marginTop:34,borderRadius:26,padding:"24px 20px 21px",background:"linear-gradient(145deg,rgba(244,229,220,.72),rgba(233,220,239,.72))",border:`1px solid ${BASE.border}` }}>
+            <div style={{fontSize:9,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#A86D8A"}}>Meal discovery</div>
+            <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,fontWeight:700,color:BASE.cream,marginTop:5,lineHeight:1.08}}>What sounds doable?</div>
+            <div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:14,color:BASE.taupe,marginTop:7,lineHeight:1.45}}>Pick the meal. Pick the time you have. Then just scroll.</div>
+            <button onClick={()=>{setPlanView("meals");setMealType(null);setMealFilter(null);setMealOpen(null)}} style={{width:"100%",marginTop:17,padding:14,borderRadius:14,border:"none",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:800}}>Find me something to eat →</button>
           </div>
 
-          <div style={{ marginTop:16 }}>
-            <div style={{fontSize:9,fontWeight:800,letterSpacing:1.6,textTransform:"uppercase",color:BASE.taupe,marginBottom:8}}>Meal</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>
-              {MEAL_TYPES.map(([k,lbl])=><div key={k} onClick={()=>setMealType(mealType===k?null:k)} style={{padding:"9px 3px",borderRadius:999,textAlign:"center",cursor:"pointer",fontSize:10.5,fontWeight:800,border:`1px solid ${mealType===k?"#C9558E":BASE.border}`,background:mealType===k?"#C9558E":BASE.surface,color:mealType===k?"#fff":BASE.creamDim}}>{lbl}</div>)}
+          <div style={{marginTop:34}}>
+            <div style={{fontSize:9,fontWeight:800,letterSpacing:1.9,textTransform:"uppercase",color:BASE.taupe}}>Quick help</div>
+            <div style={{display:"flex",gap:8,overflowX:"auto",WebkitOverflowScrolling:"touch",marginTop:10,paddingBottom:4}}>
+              {QUICK_HELP.map(q=><div key={q.label} onClick={()=>{setPlanView("meals");setMealType(nextType);setMealFilter(browseValue(q.filter==="No Cook"?"nocook":q.filter==="5 Minutes"?"5":"time",q.filter))}} style={{flex:"0 0 auto",whiteSpace:"nowrap",padding:"9px 12px",borderRadius:999,background:BASE.surface,border:`1px solid ${BASE.border}`,fontSize:11.5,fontWeight:700,color:BASE.creamDim,cursor:"pointer"}}>{q.emoji} {q.label}</div>)}
             </div>
           </div>
 
-          <div style={{ marginTop:14 }}>
-            <div style={{fontSize:9,fontWeight:800,letterSpacing:1.6,textTransform:"uppercase",color:BASE.taupe,marginBottom:8}}>Time</div>
-            <div style={{display:"flex",gap:7,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4}}>
-              {TIME_CHOICES.map(x=><div key={x.key} onClick={()=>setMealFilter(browseValue(browse.time===x.key?null:x.key,browse.tag))} style={{flex:"0 0 auto",padding:"9px 11px",borderRadius:999,whiteSpace:"nowrap",cursor:"pointer",fontSize:10.5,fontWeight:800,border:`1px solid ${browse.time===x.key?"#A87BD1":BASE.border}`,background:browse.time===x.key?"#A87BD1":BASE.surface,color:browse.time===x.key?"#fff":BASE.creamDim}}>{x.label}</div>)}
-            </div>
-          </div>
-
-          <div style={{ marginTop:14 }}>
-            <div style={{fontSize:9,fontWeight:800,letterSpacing:1.6,textTransform:"uppercase",color:BASE.taupe,marginBottom:8}}>Quick help</div>
-            <div style={{display:"flex",gap:7,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:5}}>
-              {QUICK_HELP.map(q=><div key={q.label} onClick={()=>setMealFilter(browseValue(browse.time,browse.tag===q.filter?null:q.filter))} style={{flex:"0 0 auto",whiteSpace:"nowrap",padding:"9px 11px",borderRadius:999,border:`1px solid ${browse.tag===q.filter?"#C9558E":BASE.border}`,background:browse.tag===q.filter?"#C9558E":BASE.surface,color:browse.tag===q.filter?"#fff":BASE.creamDim,fontSize:10.5,fontWeight:800,cursor:"pointer"}}>{q.emoji} {q.label}</div>)}
-            </div>
-          </div>
-
-          <div style={{ marginTop:20 }}>
-            {(() => {
-              let list = MEALS.filter(m => (!mealType || m.t===mealType) && (!timeChoice || timeChoice.test(m)) && (!browse.tag || (m.tags||[]).includes(browse.tag)))
-              if (!mealType) {
-                const groups = MEAL_TYPES.map(([k]) => list.filter(m => m.t===k))
-                const mixed = []
-                let i = 0
-                while (mixed.length < list.length) {
-                  groups.forEach(g => { if (g[i]) mixed.push(g[i]) })
-                  i++
-                }
-                list = mixed
-              }
-              return list.length ? list.map(m => <MealFeedCard key={m.n} m={m} />) : <Soft style={{textAlign:"center",padding:"28px 20px"}}><div style={{fontSize:25}}>🍽️</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:19,fontWeight:700,color:BASE.cream,marginTop:8}}>Nothing fits that combination yet.</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.55,marginTop:6}}>Clear one filter and keep browsing.</div></Soft>
-            })()}
-          </div>
-
-          <div style={{marginTop:20,textAlign:"center",paddingBottom:36}}>
+          <div style={{marginTop:35,textAlign:"center",paddingBottom:36}}>
             <div style={{fontSize:8.5,fontWeight:800,letterSpacing:2.3,textTransform:"uppercase",color:BASE.taupe}}>Nourish yourself</div>
             <div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15,color:BASE.taupe,marginTop:12}}>{NOURISH_LINES[dayIndex(NOURISH_LINES.length)]}</div>
           </div>
+        </div>
+      )}
+
+      {nourishView==="today" && planView==="meals" && (
+        <div className="fade-in">
+          <Back onClick={()=>{setPlanView(null);setMealType(null);setMealFilter(null)}} label="Nourish" />
+          <div style={{fontSize:9,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#C9558E"}}>Meal discovery</div>
+          <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,fontWeight:700,color:BASE.cream,marginTop:4}}>Let's narrow it down.</div>
+
+          {!mealType && <div style={{marginTop:24}}>
+            <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>1. What are you looking for?</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:14}}>
+              {MEAL_TYPES.map(([k,lbl])=><div key={k} onClick={()=>setMealType(k)} style={{borderRadius:18,background:BASE.surface,border:`1px solid ${BASE.border}`,padding:"20px 12px",textAlign:"center",cursor:"pointer"}}><div style={{fontSize:27}}>{MEAL_EMOJI[k]}</div><div style={{fontSize:13.5,fontWeight:800,color:BASE.cream,marginTop:7}}>{lbl}</div></div>)}
+            </div>
+          </div>}
+
+          {mealType && !browse.time && <div style={{marginTop:24}}>
+            <div onClick={()=>setMealType(null)} style={{fontSize:11.5,fontWeight:700,color:"#C9558E",cursor:"pointer",marginBottom:12}}>← Change meal</div>
+            <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>2. How much effort do you have?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:9,marginTop:14}}>
+              {TIME_CHOICES.map(x=><div key={x.key} onClick={()=>setMealFilter(browseValue(x.key,null))} style={{borderRadius:17,background:BASE.surface,border:`1px solid ${BASE.border}`,padding:"15px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}><span style={{fontSize:20}}>{x.emoji}</span><span style={{flex:1,fontSize:13.5,fontWeight:800,color:BASE.cream}}>{x.label}</span><span style={{color:BASE.taupe}}>›</span></div>)}
+            </div>
+          </div>}
+
+          {mealType && browse.time && (()=> {
+            const extraTags=["High Protein","Family Friendly","Budget Friendly","Grab & Go","Sweet","Salty"]
+            const list=MEALS.filter(m=>m.t===mealType && timeChoice.test(m) && (!browse.tag || (m.tags||[]).includes(browse.tag)))
+            return <div style={{marginTop:18}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap",marginBottom:14}}>
+                <div onClick={()=>{setMealType(null);setMealFilter(null)}} style={{fontSize:11,fontWeight:800,color:"#C9558E",cursor:"pointer",marginRight:4}}>Change</div>
+                <span style={{fontSize:10.5,fontWeight:800,padding:"6px 9px",borderRadius:999,background:"rgba(201,85,142,.1)",color:"#A75A7F"}}>{(MEAL_TYPES.find(x=>x[0]===mealType)||["",mealType])[1]}</span>
+                <span style={{fontSize:10.5,fontWeight:800,padding:"6px 9px",borderRadius:999,background:"rgba(168,123,209,.1)",color:"#8D68A8"}}>{timeChoice.label}</span>
+              </div>
+              <div style={{display:"flex",gap:7,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:8,marginBottom:10}}>
+                <div onClick={()=>setMealFilter(browseValue(browse.time,null))} style={{padding:"8px 11px",borderRadius:999,whiteSpace:"nowrap",border:`1px solid ${!browse.tag?"#C9558E":BASE.border}`,background:!browse.tag?"#C9558E":BASE.surface,color:!browse.tag?"#fff":BASE.creamDim,fontSize:10.5,fontWeight:800,cursor:"pointer"}}>All</div>
+                {extraTags.map(tag=><div key={tag} onClick={()=>setMealFilter(browseValue(browse.time,browse.tag===tag?null:tag))} style={{padding:"8px 11px",borderRadius:999,whiteSpace:"nowrap",border:`1px solid ${browse.tag===tag?"#C9558E":BASE.border}`,background:browse.tag===tag?"#C9558E":BASE.surface,color:browse.tag===tag?"#fff":BASE.creamDim,fontSize:10.5,fontWeight:800,cursor:"pointer"}}>{tag}</div>)}
+              </div>
+              {list.length ? list.map(m=><MealFeedCard key={m.n} m={m}/>) : <Soft style={{textAlign:"center",padding:"28px 20px"}}><div style={{fontSize:25}}>🍽️</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:19,fontWeight:700,color:BASE.cream,marginTop:8}}>Nothing fits that exact combination yet.</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.55,marginTop:6}}>Try removing the extra filter or choosing a little more time.</div></Soft>}
+            </div>
+          })()}
         </div>
       )}
 
