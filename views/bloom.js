@@ -43,6 +43,31 @@ export function renderBloom(ctx) {
       </div>
     )
 
+    const FloatingTop = ({ refresh = false }) => (
+      <button
+        onClick={() => { if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" }) }}
+        aria-label={refresh ? "Refresh and return to top" : "Return to top"}
+        style={{
+          position: "fixed",
+          right: 18,
+          bottom: "calc(92px + env(safe-area-inset-bottom))",
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          border: `1px solid ${BASE.border}`,
+          background: "rgba(255,255,255,0.93)",
+          boxShadow: "0 8px 24px rgba(62,42,60,0.16)",
+          color: "#C9558E",
+          fontSize: refresh ? 21 : 20,
+          fontWeight: 800,
+          cursor: "pointer",
+          zIndex: 75,
+        }}
+      >
+        {refresh ? "↻" : "↑"}
+      </button>
+    )
+
     const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
     const hour = new Date().getHours()
     const env = ENV(hour, checkedIn ? cur : null)
@@ -281,6 +306,12 @@ export function renderBloom(ctx) {
           }}
           isSavedBloom={isSavedBloom}
           toggleSaveBloom={toggleSaveBloom}
+          likedFeed={likedFeed}
+          setLikedFeed={setLikedFeed}
+          doneFeed={doneFeed}
+          setDoneFeed={setDoneFeed}
+          bloomSearchOpen={bloomSearchOpen}
+          setBloomSearchOpen={setBloomSearchOpen}
           tabs={<BloomTabs />}
         />
       )
@@ -1024,9 +1055,16 @@ export function renderBloom(ctx) {
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.4, marginTop: 10 }}>Make the season feel like yours.</div>
           </div>
 
-          <div style={{ textAlign: "center", marginTop: 26 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 26 }}>
             <span onClick={() => setSeasonalBrowseOpen(!seasonalBrowseOpen)} style={{ fontSize: 11.5, fontWeight: 700, color: seasonalBrowseOpen ? "#C9558E" : mut, cursor: "pointer" }}>Browse seasons {seasonalBrowseOpen ? "\u25b4" : "\u25be"}</span>
+            <span onClick={() => setBloomSearchOpen(!bloomSearchOpen)} style={{ fontSize: 16, color: bloomSearchOpen ? "#C9558E" : mut, cursor: "pointer", padding: 8, margin: -8 }}>🔍</span>
           </div>
+          {bloomSearchOpen && (
+            <div className="fade-in" style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "12px 15px", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <span style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>Search is coming soon — soon you’ll be able to find anything you remember seeing in Bloom.</span>
+              <span onClick={() => setBloomSearchOpen(false)} style={{ fontSize: 15, color: BASE.taupe, cursor: "pointer", flexShrink: 0 }}>×</span>
+            </div>
+          )}
           {seasonalBrowseOpen && (
             <div className="fade-in" style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginTop: 12 }}>
               {SEASONS.map((s) => (
@@ -1049,6 +1087,7 @@ export function renderBloom(ctx) {
             )}
           </div>
 
+          <FloatingTop />
           <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
 
         </div>
@@ -1186,6 +1225,7 @@ export function renderBloom(ctx) {
             <div onClick={() => switchPillar("reset")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", marginTop: 18, cursor: "pointer", letterSpacing: 0.2 }}>More gentle ideas in Reset {"\u2192"}</div>
           </div>
 
+          <FloatingTop />
           <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
 
         </div>
