@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import React, { cloneElement, useEffect, useMemo, useState } from "react"
 import { GLOW_TOPICS, GLOW_BY_KEY } from "../data/glow.js"
 import { BASE } from "../lib/theme.js"
 
@@ -29,6 +29,81 @@ const GRADS = {
   facials: "linear-gradient(150deg,#E9EEF0 0%,#E0E3EA 48%,#D9D5E6 100%)",
   body: "linear-gradient(150deg,#EEF0E8 0%,#E6E2DD 48%,#DDD5E2 100%)",
   wardrobe: "linear-gradient(150deg,#EFE8E2 0%,#E3D9D8 48%,#D9D2E1 100%)",
+}
+
+// Editorial photo fallbacks. If an item already has img/image/image_url, that wins.
+// These keep Glow visually rich now without changing data/glow.js.
+const TOPIC_PHOTOS = {
+  hair: [
+    "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=900&q=82",
+  ],
+  skin: [
+    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1612817288484-6f916006741a?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=900&q=82",
+  ],
+  makeup: [
+    "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1526045478516-99145907023c?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=900&q=82",
+  ],
+  perfume: [
+    "https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1615634260167-c8cdede054de?auto=format&fit=crop&w=900&q=82",
+  ],
+  nails: [
+    "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=900&q=82",
+  ],
+  brows: [
+    "https://images.unsplash.com/photo-1526045478516-99145907023c?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=900&q=82",
+  ],
+  lips: [
+    "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1526045478516-99145907023c?auto=format&fit=crop&w=900&q=82",
+  ],
+  jewelry: [
+    "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=900&q=82",
+  ],
+  facials: [
+    "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&w=900&q=82",
+  ],
+  body: [
+    "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?auto=format&fit=crop&w=900&q=82",
+    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=900&q=82",
+  ],
+}
+
+function hashString(value) {
+  let h = 0
+  const str = String(value || "")
+  for (let i = 0; i < str.length; i += 1) h = ((h << 5) - h + str.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+function photoFor(record) {
+  const { topic: T, item: x } = record
+  const direct = x.img || x.image || x.image_url
+  if (direct) return direct
+  const photos = TOPIC_PHOTOS[T.key] || []
+  if (!photos.length) return null
+  return photos[hashString(idOf(x, 0)) % photos.length]
+}
+
+function shuffleCopy(items) {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const t = out[i]
+    out[i] = out[j]
+    out[j] = t
+  }
+  return out
 }
 
 const titleOf = (x) => x.title || x.name || x.n || ""
@@ -99,7 +174,10 @@ function mixedGlowFeed() {
   return out
 }
 
-function Slide({ children }) {
+function Slide({ children, progressIndex, progressTotal }) {
+  const hasProgress = progressIndex && progressTotal
+  const isLast = hasProgress && progressIndex === progressTotal
+
   return (
     <div
       style={{
@@ -109,9 +187,30 @@ function Slide({ children }) {
         maxHeight: 690,
         overflowY: "auto",
         WebkitOverflowScrolling: "touch",
+        position: "relative",
       }}
     >
       {children}
+      {hasProgress && (
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 18px 16px" }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "6px 10px",
+              borderRadius: 999,
+              background: "rgba(201,85,142,0.09)",
+              color: isLast ? "#8A7480" : "#C9558E",
+              fontSize: 10.5,
+              fontWeight: 800,
+              letterSpacing: 0.2,
+            }}
+          >
+            {progressIndex} of {progressTotal} {isLast ? "✓" : "→"}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -567,15 +666,37 @@ function buildSlides(record) {
   return slides
 }
 
-function GlowFeedCard({ record, isSavedBloom, toggleSaveBloom }) {
+function GlowFeedCard({ record, isSavedBloom, toggleSaveBloom, likedFeed, setLikedFeed, doneFeed, setDoneFeed }) {
   const { kind, topic: T, item: x } = record
   const meta = TYPE_META[kind] || TYPE_META.extra
   const title = titleOf(x)
   const teaser = teaserOf(x)
-  const sid = `glow:${T.key}:${kind}:${idOf(x, 0)}`
+  const sid = kind === "win"
+    ? `win:${idOf(x, 0)}`
+    : `glow:${T.key}:${idOf(x, 0)}`
+  const actionId = `glow:${T.key}:${kind}:${idOf(x, 0)}`
   const saved = isSavedBloom ? isSavedBloom(sid) : false
+  const liked = (likedFeed || []).indexOf(actionId) >= 0
+  const done = (doneFeed || []).indexOf(actionId) >= 0
   const slides = buildSlides(record)
-  const img = x.img || x.image || null
+  const totalPages = slides.length + 1
+  const img = photoFor(record)
+
+  const toggleArrayValue = (arr, setter, value) => {
+    if (!setter) return
+    const list = arr || []
+    setter(list.indexOf(value) >= 0 ? list.filter((v) => v !== value) : [...list, value])
+  }
+
+  const Action = ({ on, iconOn, iconOff, label, onClick }) => (
+    <span
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+      style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "8px 2px" }}
+    >
+      <span style={{ fontSize: 16, lineHeight: 1, color: on ? "#C9558E" : BASE.taupe }}>{on ? iconOn : iconOff}</span>
+      <span style={{ fontSize: 10, fontWeight: 700, color: on ? "#C9558E" : BASE.taupe }}>{label}</span>
+    </span>
+  )
 
   return (
     <div
@@ -616,6 +737,7 @@ function GlowFeedCard({ record, isSavedBloom, toggleSaveBloom }) {
                 src={img}
                 alt={title}
                 loading="lazy"
+                onError={(e) => { e.currentTarget.style.display = "none" }}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -725,7 +847,7 @@ function GlowFeedCard({ record, isSavedBloom, toggleSaveBloom }) {
                   borderRadius: 999,
                 }}
               >
-                Swipe for details →
+                1 of {totalPages} →
               </div>
             )}
           </div>
@@ -757,10 +879,18 @@ function GlowFeedCard({ record, isSavedBloom, toggleSaveBloom }) {
                 {teaser}
               </div>
             )}
+
+            <div style={{ display: "flex", marginTop: 11, paddingTop: 10, borderTop: `1px solid ${BASE.border}` }}>
+              <Action on={liked} iconOn="★" iconOff="☆" label="Like" onClick={() => toggleArrayValue(likedFeed, setLikedFeed, actionId)} />
+              <Action on={saved} iconOn="♥" iconOff="♡" label="Save" onClick={() => toggleSaveBloom && toggleSaveBloom(sid)} />
+              <Action on={done} iconOn="✓" iconOff="○" label="I Did This" onClick={() => toggleArrayValue(doneFeed, setDoneFeed, actionId)} />
+            </div>
           </div>
         </Slide>
 
-        {slides}
+        {slides.map((slide, i) =>
+          cloneElement(slide, { progressIndex: i + 2, progressTotal: totalPages })
+        )}
       </div>
     </div>
   )
@@ -831,24 +961,44 @@ export default function GlowDiscovery({
   setTopicKey,
   isSavedBloom,
   toggleSaveBloom,
+  likedFeed,
+  setLikedFeed,
+  doneFeed,
+  setDoneFeed,
+  bloomSearchOpen,
+  setBloomSearchOpen,
   tabs,
 }) {
   const T = topicKey ? GLOW_BY_KEY(topicKey) : null
-  const feed = T ? recordsForTopic(T) : mixedGlowFeed()
-
-  // Rendering every Glow record at once is too heavy for mobile Safari/Chrome.
-  // Start with a magazine-sized batch and reveal more only when requested.
-  // This keeps the feed smooth and prevents the browser tab from running out
-  // of memory when Glow opens.
-  const BATCH = 12
-  const [visibleCount, setVisibleCount] = useState(BATCH)
+  const baseFeed = useMemo(() => (T ? recordsForTopic(T) : mixedGlowFeed()), [topicKey])
+  const [feed, setFeed] = useState(() => shuffleCopy(baseFeed))
+  const [visibleCount, setVisibleCount] = useState(12)
+  const [showRefresh, setShowRefresh] = useState(false)
 
   useEffect(() => {
-    setVisibleCount(BATCH)
+    setFeed(shuffleCopy(baseFeed))
+    setVisibleCount(12)
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
   }, [topicKey])
 
-  const visibleFeed = feed.slice(0, visibleCount)
-  const hasMore = visibleCount < feed.length
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined
+    const onScroll = () => setShowRefresh(window.scrollY > 650)
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  const refreshFeed = () => {
+    const currentTop = feed.slice(0, 10).map((r) => `${r.topic.key}:${r.kind}:${idOf(r.item, 0)}`)
+    let next = shuffleCopy(baseFeed)
+    const fresh = next.filter((r) => currentTop.indexOf(`${r.topic.key}:${r.kind}:${idOf(r.item, 0)}`) < 0)
+    const recent = next.filter((r) => currentTop.indexOf(`${r.topic.key}:${r.kind}:${idOf(r.item, 0)}`) >= 0)
+    next = [...fresh, ...recent]
+    setFeed(next)
+    setVisibleCount(12)
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   return (
     <div className="fade-in" style={{ padding: "0 24px" }}>
@@ -867,7 +1017,6 @@ export default function GlowDiscovery({
         >
           Glow
         </div>
-
         <div
           style={{
             fontFamily: "'Cormorant Garamond', serif",
@@ -882,7 +1031,23 @@ export default function GlowDiscovery({
         </div>
       </div>
 
-      <div style={{ marginTop: 25 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+        <span
+          onClick={() => setBloomSearchOpen && setBloomSearchOpen(!bloomSearchOpen)}
+          style={{ fontSize: 16, color: bloomSearchOpen ? "#C9558E" : BASE.taupe, cursor: "pointer", padding: 8, margin: -8 }}
+        >
+          🔍
+        </span>
+      </div>
+
+      {bloomSearchOpen && (
+        <div className="fade-in" style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "12px 15px", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>Search is coming soon — soon you’ll be able to find anything you remember seeing in Bloom.</span>
+          <span onClick={() => setBloomSearchOpen && setBloomSearchOpen(false)} style={{ fontSize: 15, color: BASE.taupe, cursor: "pointer", flexShrink: 0 }}>×</span>
+        </div>
+      )}
+
+      <div style={{ marginTop: 22 }}>
         <TopicRail topicKey={topicKey || null} onTopicChange={setTopicKey} />
       </div>
 
@@ -902,48 +1067,60 @@ export default function GlowDiscovery({
       </div>
 
       <div>
-        {visibleFeed.map((record, i) => (
+        {feed.slice(0, visibleCount).map((record, i) => (
           <GlowFeedCard
             key={`${record.topic.key}:${record.kind}:${idOf(record.item, i)}`}
             record={record}
             isSavedBloom={isSavedBloom}
             toggleSaveBloom={toggleSaveBloom}
+            likedFeed={likedFeed}
+            setLikedFeed={setLikedFeed}
+            doneFeed={doneFeed}
+            setDoneFeed={setDoneFeed}
           />
         ))}
-
-        {hasMore && (
-          <div style={{ textAlign: "center", margin: "6px 0 28px" }}>
-            <button
-              onClick={() => setVisibleCount((n) => Math.min(n + BATCH, feed.length))}
-              style={{
-                border: `1px solid ${BASE.border}`,
-                background: BASE.surface,
-                color: "#C9558E",
-                borderRadius: 999,
-                padding: "11px 18px",
-                fontSize: 12.5,
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              More discoveries ↓
-            </button>
-          </div>
-        )}
       </div>
 
-      <div
-        style={{
-          fontSize: 11,
-          color: BASE.taupe,
-          textAlign: "center",
-          fontStyle: "italic",
-          lineHeight: 1.6,
-          margin: "8px 12px 12px",
-        }}
-      >
+      {visibleCount < feed.length && (
+        <div style={{ textAlign: "center", margin: "4px 0 24px" }}>
+          <button
+            onClick={() => setVisibleCount((n) => Math.min(n + 12, feed.length))}
+            style={{ border: `1px solid ${BASE.border}`, background: BASE.surface, color: "#C9558E", borderRadius: 999, padding: "11px 18px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+          >
+            More discoveries ↓
+          </button>
+        </div>
+      )}
+
+      <div style={{ fontSize: 11, color: BASE.taupe, textAlign: "center", fontStyle: "italic", lineHeight: 1.6, margin: "8px 12px 12px" }}>
         General beauty and wellness education. Health-related guidance is informational, not individualized medical advice.
       </div>
+
+      {showRefresh && (
+        <button
+          onClick={refreshFeed}
+          aria-label="Refresh Glow and return to top"
+          title="Refresh Glow"
+          style={{
+            position: "fixed",
+            right: 18,
+            bottom: "calc(92px + env(safe-area-inset-bottom))",
+            width: 46,
+            height: 46,
+            borderRadius: "50%",
+            border: `1px solid ${BASE.border}`,
+            background: "rgba(255,255,255,0.93)",
+            boxShadow: "0 8px 24px rgba(62,42,60,0.18)",
+            color: "#C9558E",
+            fontSize: 22,
+            fontWeight: 800,
+            cursor: "pointer",
+            zIndex: 80,
+          }}
+        >
+          ↻
+        </button>
+      )}
 
       <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
     </div>
