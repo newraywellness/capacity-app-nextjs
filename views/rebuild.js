@@ -1,73 +1,107 @@
 // ============ REBUILD ============
-// Landing page: unchanged in structure. Only the featured card's tap
-// behavior changed — it now opens the real program instead of toggling a
-// coming-soon note. The other six cards are byte-for-byte the same.
-//
-// Feel Like Yourself Again: 28 experiences, not 28 days. No streaks, no
-// calendar, no "behind." Capacity changes the dose, never the destination.
-// Signals shown in reveals and the final Reverie are real arithmetic on her
-// own reactions (dimension tags × reaction weight) — never fabricated.
+// Rebuild home is a scroll-first discovery surface. Current programs appear
+// automatically above discovery; Rituals and Saved live beside Rebuild.
 
-import { featuredProgram, otherPrograms } from '../data/rebuild.js'
+import { REBUILD_PROGRAMS, RITUALS, otherPrograms } from '../data/rebuild.js'
 import { DIMENSIONS, DIM_PHRASE, DEFAULT_REACTION, WEEKLY_REVEALS, EXP_BY_ID } from '../data/rebuildProgram.js'
 import { BASE } from '../lib/theme.js'
 
-const CAP_TABS = [["green", "Green"], ["yellow", "Yellow"], ["red", "Active Red"], ["recovery", "Recovery"]]
+const CAP_TABS = [["green", "I've got room"], ["yellow", "Keep it doable"], ["red", "Make it small"], ["recovery", "Bare minimum"]]
 
 export function renderRebuild(ctx) {
-  const { checkedIn, pct, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildFLYA, rebuildView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildView, tab, updateRebuildFLYA } = ctx
+  const {
+    checkedIn, pct, rebuildActiveProgram, rebuildCapPick, rebuildFLYA, rebuildView,
+    rebuildSection, rebuildCurrent, rebuildSaved, rebuildPlus, rebuildStartWarning,
+    setRebuildActiveProgram, setRebuildCapPick, setRebuildView, setRebuildSection,
+    setRebuildCurrent, setRebuildSaved, setRebuildStartWarning,
+    tab, updateRebuildFLYA,
+  } = ctx
   if (tab !== "rebuild") return null
 
-  // ═══════════════════════ LANDING (unchanged) ═══════════════════════
-  const toggle = (id) => setRebuildComingSoon(rebuildComingSoon === id ? null : id)
-  const Badge = ({ light, label }) => (
-    <span style={{ display: "inline-block", padding: light ? "7px 15px" : "5px 12px", borderRadius: 999,
-      background: light ? "rgba(255,255,255,0.18)" : (BASE.bg2 || BASE.surface2), border: light ? "1px solid rgba(255,255,255,0.35)" : "none" }}>
-      <span style={{ fontSize: light ? 11 : 10, fontWeight: 700, letterSpacing: 0.4, color: light ? "#fff" : BASE.taupe }}>{label || "Coming Soon"}</span>
-    </span>
-  )
-  const Note = ({ light }) => (
-    <div className="fade-in" style={{ marginTop: 12, fontSize: light ? 12.5 : 12, fontStyle: "italic", color: light ? "rgba(255,255,255,0.95)" : "#9B6BC3" }}>We're still building this Rebuild. {"\u2728"}</div>
-  )
+  const saveKey = (key) => setRebuildSaved((prev) => prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key])
+  const isSaved = (key) => rebuildSaved.includes(key)
+  const programById = (id) => REBUILD_PROGRAMS.find((p) => p.id === id)
+
+  const openProgram = (p) => {
+    if (p.id === "feel-like-yourself-again") {
+      setRebuildActiveProgram(p.id)
+      setRebuildView(rebuildFLYA.started ? "home" : "intro")
+      return
+    }
+    // Interiors are intentionally being designed later. Keep the card useful
+    // without pretending content exists yet.
+    setRebuildStartWarning({ type: "preview", program: p })
+  }
+
+  const actuallyStart = (p) => {
+    if (!rebuildCurrent.includes(p.id)) setRebuildCurrent((prev) => [...prev, p.id])
+    setRebuildStartWarning(null)
+    if (p.id === "feel-like-yourself-again") {
+      if (!rebuildFLYA.started) updateRebuildFLYA({ started: true })
+      setRebuildActiveProgram(p.id)
+      setRebuildView("home")
+    }
+  }
+
+  const requestStart = (p) => {
+    if (p.premium && !rebuildPlus) { setRebuildStartWarning({ type: "plus", program: p }); return }
+    if (!rebuildCurrent.includes(p.id) && rebuildCurrent.length >= 3) { setRebuildStartWarning({ type: "too-many", program: p }); return }
+    actuallyStart(p)
+  }
+
+  const Pill = ({ children, light }) => <span style={{ display:"inline-block", padding:"6px 10px", borderRadius:999, fontSize:9.5, fontWeight:800, letterSpacing:1, textTransform:"uppercase", background:light?"rgba(255,255,255,.16)":BASE.surface, color:light?"#fff":BASE.taupe, border:`1px solid ${light?"rgba(255,255,255,.28)":BASE.border}` }}>{children}</span>
+  const SaveButton = ({ id, light }) => <button onClick={(e)=>{e.stopPropagation();saveKey(id)}} style={{ border:"none", background:"transparent", padding:5, cursor:"pointer", color:light?"#fff":"#6B435F", fontSize:20, lineHeight:1 }}>{isSaved(id)?"♥":"♡"}</button>
+
+  const ProgramCard = ({ p, compact }) => {
+    const current = rebuildCurrent.includes(p.id) || (p.id === "feel-like-yourself-again" && rebuildFLYA.started)
+    return <div style={{ borderRadius:24, overflow:"hidden", marginBottom:18, background:BASE.surface, border:`1px solid ${BASE.border}`, boxShadow:"0 8px 24px rgba(66,40,62,.07)" }}>
+      <div onClick={()=>openProgram(p)} style={{ minHeight:compact?145:235, padding:compact?"20px":"22px 20px", background:p.gradient, position:"relative", cursor:"pointer", display:"flex", flexDirection:"column", justifyContent:"space-between" }}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{p.premium&&<Pill light>True Reverie +</Pill>}<Pill light>{p.kind==="quick"?"Quick Rebuild":p.duration}</Pill></div>
+          <SaveButton id={"program:"+p.id} light />
+        </div>
+        <div style={{marginTop:compact?18:54}}>
+          <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:compact?25:29,fontWeight:700,color:"#fff",lineHeight:1.08}}>{p.title}</div>
+          <div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:14.5,color:"rgba(255,255,255,.92)",lineHeight:1.48,marginTop:9,maxWidth:350}}>{p.outcome}</div>
+        </div>
+      </div>
+      <div style={{padding:"13px 16px 15px",display:"flex",alignItems:"center",gap:10}}>
+        <div style={{flex:1,fontSize:10.5,fontWeight:700,color:BASE.taupe,textTransform:"uppercase",letterSpacing:.7}}>{p.kind==="quick"?p.duration+" · "+p.pace:p.duration+" · "+p.pace}</div>
+        <button onClick={()=>current?openProgram(p):requestStart(p)} style={{padding:"9px 14px",borderRadius:999,border:"none",background:"linear-gradient(135deg,#D86FA6,#A87BD1)",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer"}}>{current?"Continue":(p.premium&&!rebuildPlus?"Start with +":"Start Rebuild")}</button>
+      </div>
+    </div>
+  }
+
+  const RitualCard = ({ r }) => <div style={{borderRadius:22,overflow:"hidden",background:BASE.surface,border:`1px solid ${BASE.border}`,marginBottom:16}}>
+    <div style={{height:132,background:r.gradient,padding:"17px 17px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{r.premium&&<Pill light>True Reverie +</Pill>}<Pill light>{r.meta}</Pill></div><SaveButton id={"ritual:"+r.id} light />
+    </div>
+    <div style={{padding:"15px 17px 17px"}}><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:21,fontWeight:700,color:BASE.cream}}>{r.title}</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:13.5,color:BASE.taupe,lineHeight:1.5,marginTop:6}}>{r.desc}</div><button onClick={()=>setRebuildStartWarning({type:r.premium&&!rebuildPlus?"plus-ritual":"ritual-preview",ritual:r})} style={{marginTop:13,padding:"9px 14px",borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:"#6B435F",fontSize:11,fontWeight:800}}>Do Ritual</button></div>
+  </div>
 
   if (!rebuildActiveProgram) {
-    return (
-      <div className="fade-in" style={{ padding: "10px 22px 0" }}>
+    const currentIds = Array.from(new Set([...(rebuildFLYA.started?["feel-like-yourself-again"]:[]), ...rebuildCurrent]))
+    const savedPrograms = REBUILD_PROGRAMS.filter((p)=>isSaved("program:"+p.id))
+    const savedRituals = RITUALS.filter((r)=>isSaved("ritual:"+r.id))
+    return <div className="fade-in" style={{padding:"10px 18px 0"}}>
+      <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:31,fontWeight:600,color:BASE.cream,lineHeight:1.1}}>Rebuild</div>
+      <div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15.5,color:BASE.taupe,marginTop:6}}>What version of you are we building next?</div>
+      <div style={{display:"flex",gap:7,marginTop:18,marginBottom:22}}>{[["rebuild","Rebuild"],["rituals","Rituals"],["saved","Saved"]].map(([k,l])=><button key={k} onClick={()=>setRebuildSection(k)} style={{flex:1,padding:"10px 8px",borderRadius:14,border:`1px solid ${rebuildSection===k?"#C97BA8":BASE.border}`,background:rebuildSection===k?"rgba(201,123,168,.12)":BASE.surface,color:rebuildSection===k?"#A84E7D":BASE.taupe,fontWeight:800,fontSize:11.5}}>{l}</button>)}</div>
 
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: BASE.cream, lineHeight: 1.1 }}>Rebuild</div>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: BASE.taupe, marginTop: 8 }}>What version of you are we building next?</div>
-        <div style={{ fontSize: 12.5, color: BASE.taupe, marginTop: 10, lineHeight: 1.5 }}>Guided experiences designed to help something in your life actually change.</div>
+      {rebuildSection==="rebuild"&&<>
+        {currentIds.length>0&&<div style={{marginBottom:26}}><div style={{fontSize:9.5,fontWeight:800,letterSpacing:1.7,textTransform:"uppercase",color:BASE.taupe,marginBottom:10}}>Current Rebuilds</div><div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:5,scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch"}}>{currentIds.map((id)=>{const p=programById(id);if(!p)return null;const done=id==="feel-like-yourself-again"?rebuildFLYA.completed.length:0;return <div key={id} onClick={()=>openProgram(p)} style={{minWidth:"78%",scrollSnapAlign:"start",borderRadius:18,padding:"16px",background:p.gradient,color:"#fff",cursor:"pointer"}}><div style={{fontSize:9,fontWeight:800,letterSpacing:1.4,textTransform:"uppercase",opacity:.75}}>Continue your Rebuild</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:21,fontWeight:700,marginTop:7}}>{p.title}</div><div style={{fontSize:10.5,marginTop:6,opacity:.85}}>{id==="feel-like-yourself-again"?`Experience ${Math.min(rebuildFLYA.currentExp,28)} of 28`:"Ready when you are"}</div><div style={{height:4,borderRadius:999,background:"rgba(255,255,255,.24)",marginTop:11,overflow:"hidden"}}><div style={{height:"100%",width:id==="feel-like-yourself-again"?`${done/28*100}%`:"4%",background:"rgba(255,255,255,.9)"}}/></div></div>})}</div></div>}
+        <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream,marginBottom:4}}>Find your next Rebuild</div>
+        <div style={{fontSize:11.5,color:BASE.taupe,lineHeight:1.5,marginBottom:15}}>Longer journeys and small resets — start what fits, save what can wait.</div>
+        {REBUILD_PROGRAMS.map((p)=><ProgramCard key={p.id} p={p}/>)}
+      </>}
 
-        {featuredProgram && (
-          <div onClick={() => { setRebuildActiveProgram(featuredProgram.id); setRebuildView(rebuildFLYA.started ? "home" : "intro") }} style={{ borderRadius: 26, overflow: "hidden", cursor: "pointer", marginTop: 32, background: featuredProgram.gradient, padding: "34px 26px 30px", boxShadow: "0 14px 34px rgba(60,25,70,0.22)" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.72)", marginBottom: 16 }}>Featured</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: "#fff", lineHeight: 1.15 }}>{featuredProgram.title}</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.8)", marginTop: 10, letterSpacing: 0.2 }}>{featuredProgram.duration}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15.5, color: "rgba(255,255,255,0.94)", marginTop: 16, lineHeight: 1.55 }}>{featuredProgram.outcome}</div>
-            <div style={{ marginTop: 20 }}><Badge light label={rebuildFLYA.started ? (rebuildFLYA.completed.length >= 28 ? "Completed \u2014 revisit" : "Continue Rebuild") : "Start Rebuild"} /></div>
-          </div>
-        )}
+      {rebuildSection==="rituals"&&<><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Rituals</div><div style={{fontSize:11.5,color:BASE.taupe,lineHeight:1.55,margin:"5px 0 15px"}}>Little things worth coming back to. No streaks, no catching up — just repeat what makes life feel better.</div>{RITUALS.map((r)=><RitualCard key={r.id} r={r}/>)}</>}
 
-        <div style={{ marginTop: 40, marginBottom: 16 }}>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: BASE.cream }}>More ways to rebuild</div>
-        </div>
+      {rebuildSection==="saved"&&<>{savedPrograms.length===0&&savedRituals.length===0?<div style={{textAlign:"center",padding:"50px 24px",borderRadius:20,border:`1px dashed ${BASE.border}`,color:BASE.taupe}}><div style={{fontSize:24}}>♡</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:19,fontWeight:700,color:BASE.cream,marginTop:8}}>Saved for later</div><div style={{fontSize:12,marginTop:6,lineHeight:1.5}}>Tap the heart on a Rebuild or ritual you want to come back to.</div></div>:<><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream,marginBottom:14}}>Saved for later</div>{savedPrograms.map((p)=><ProgramCard key={p.id} p={p} compact/>)}{savedRituals.map((r)=><RitualCard key={r.id} r={r}/>)}</>}</>}
 
-        {otherPrograms.map((p) => (
-          <div key={p.id} onClick={() => toggle(p.id)} style={{ borderRadius: 20, overflow: "hidden", cursor: "pointer", marginBottom: 16, border: `1px solid ${BASE.border}`, background: BASE.surface }}>
-            <div style={{ height: 78, background: p.gradient }} />
-            <div style={{ padding: "16px 18px 18px" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: BASE.cream, lineHeight: 1.2 }}>{p.title}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#9B6BC3", marginTop: 6, letterSpacing: 0.2 }}>{p.duration}</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.creamDim, marginTop: 9, lineHeight: 1.5 }}>{p.outcome}</div>
-              <div style={{ marginTop: 13 }}><Badge /></div>
-              {rebuildComingSoon === p.id && <Note />}
-            </div>
-          </div>
-        ))}
-
-        <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
-      </div>
-    )
+      {rebuildStartWarning&&<div onClick={()=>setRebuildStartWarning(null)} style={{position:"fixed",inset:0,zIndex:120,background:"rgba(44,31,43,.38)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}><div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{width:"100%",maxWidth:440,borderRadius:"24px 24px 0 0",background:BASE.bg,padding:"24px 22px 30px",boxShadow:"0 -12px 40px rgba(45,25,42,.18)"}}>{rebuildStartWarning.type==="too-many"?<><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:24,fontWeight:700,color:BASE.cream}}>You already have 3 Rebuilds going.</div><div style={{fontSize:13,color:BASE.taupe,lineHeight:1.6,marginTop:9}}>Keeping your current list small can make it easier to actually finish what you started. But you know your life best.</div><button onClick={()=>{saveKey("program:"+rebuildStartWarning.program.id);setRebuildStartWarning(null)}} style={{width:"100%",padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800,marginTop:18}}>Save for later</button><button onClick={()=>actuallyStart(rebuildStartWarning.program)} style={{width:"100%",padding:13,borderRadius:999,border:"none",background:"linear-gradient(135deg,#D86FA6,#A87BD1)",color:"#fff",fontWeight:800,marginTop:9}}>Start it anyway</button></>:rebuildStartWarning.type==="plus"||rebuildStartWarning.type==="plus-ritual"?<><div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#A84E7D"}}>True Reverie +</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:25,fontWeight:700,color:BASE.cream,marginTop:7}}>Go deeper with True Reverie +</div><div style={{fontSize:13,color:BASE.taupe,lineHeight:1.6,marginTop:9}}>Your monthly membership unlocks every True Reverie + Rebuild and ritual. Start as many as you want, at your own pace.</div><button onClick={()=>setRebuildStartWarning(null)} style={{width:"100%",padding:13,borderRadius:999,border:"none",background:"linear-gradient(135deg,#D86FA6,#A87BD1)",color:"#fff",fontWeight:800,marginTop:18}}>Explore True Reverie +</button></>:<><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:24,fontWeight:700,color:BASE.cream}}>{rebuildStartWarning.program?.title||rebuildStartWarning.ritual?.title}</div><div style={{fontSize:13,color:BASE.taupe,lineHeight:1.6,marginTop:9}}>The discovery experience is ready. We're building the full content next, so this one isn't startable in the prototype yet.</div><button onClick={()=>setRebuildStartWarning(null)} style={{width:"100%",padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800,marginTop:18}}>Got it</button></>}</div></div>}
+      <div style={{height:44,paddingBottom:"env(safe-area-inset-bottom)"}}/>
+    </div>
   }
 
   // ═══════════════════════ FEEL LIKE YOURSELF AGAIN ═══════════════════════
@@ -419,3 +453,4 @@ export function renderRebuild(ctx) {
 
   return null
 }
+
