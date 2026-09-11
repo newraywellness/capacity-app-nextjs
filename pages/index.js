@@ -257,15 +257,8 @@ export default function App() {
     setWoTier(null)
   }, [programId])
 
-  useEffect(() => {
-    // Lock background scroll only for the cycle editor modal (a true overlay).
-    if (typeof document === "undefined") return
-    if (editCycle) {
-      const prev = document.body.style.overflow
-      document.body.style.overflow = "hidden"
-      return () => { document.body.style.overflow = prev }
-    }
-  }, [editCycle])
+  // Cycle tracking is a normal full-page screen now, not a modal.
+  // Do not lock document.body scrolling when editCycle is open.
 
   useEffect(() => {
     // Instant capacity restore from local cache (only if it's still today), before Supabase responds.
