@@ -116,7 +116,8 @@ export function renderCycle(ctx) {
 
         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: BASE.taupe, marginBottom: 14 }}>Daily Tracking</div>
 
-        <Group ic="◐" label="Capacity" k="capacity" col="#9B6BC3" hint="optional" opts={["Red", "Yellow", "Green"]} />
+        <Group ic="◐" label="Energy Capacity" k="capacity" col="#9B6BC3" hint="optional" opts={["Red · 0–35%", "Yellow · 36–70%", "Green · 71–100%"]} />
+        <div style={{ fontSize: 11, color: BASE.taupe, fontStyle: "italic", lineHeight: 1.45, marginTop: -12, marginBottom: 20 }}>How much usable energy you have today — not how productive you should be.</div>
         <Group ic="❤️" label="Period" k="period" col="#A8556B" opts={["Light", "Medium", "Heavy"]} />
         <Group ic="🟤" label="Spotting" k="spotting" col="#A8556B" opts={["Brown spotting", "Red spotting"]} />
         <Group ic="😊" label="Feelings" k="feelings" multi col="#C9558E" opts={["Calm", "Happy", "Motivated", "Sensitive", "Anxious", "Irritable", "Low"]} />
@@ -223,7 +224,12 @@ export function renderCycle(ctx) {
     ;(history || []).forEach((h) => { if (h.dateISO && h.color) capByDate[h.dateISO] = h.color })
     Object.keys(cycleLogs || {}).forEach((iso) => {
       const raw = (cycleLogs[iso] || {}).capacity
-      if (raw) capByDate[iso] = String(raw).toLowerCase()
+      if (raw) {
+        const v = String(raw).toLowerCase()
+        if (v.startsWith("red")) capByDate[iso] = "red"
+        else if (v.startsWith("yellow")) capByDate[iso] = "yellow"
+        else if (v.startsWith("green")) capByDate[iso] = "green"
+      }
     })
     const CAP_DOT = { red: "#D65C4E", yellow: "#E8B84B", green: "#7FA054" }
 
@@ -346,7 +352,7 @@ export function renderCycle(ctx) {
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", alignItems: "center", marginBottom: 22 }}>
-          {[["green", "Green"], ["yellow", "Yellow"], ["red", "Red"]].map(([k, lbl]) => (
+          {[["green", "Green 71–100%"], ["yellow", "Yellow 36–70%"], ["red", "Red 0–35%"]].map(([k, lbl]) => (
             <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: CAP_DOT[k] }} /><span style={{ fontSize: 9.5, color: BASE.taupe }}>{lbl}</span></div>
           ))}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 8, color: "#E3799F" }}>{"\u2665"}</span><span style={{ fontSize: 9.5, color: BASE.taupe }}>Sex</span></div>
