@@ -25,8 +25,8 @@ const hasAny = (arr, value) => !value || (arr || []).includes(value)
 
 export function renderTrain(ctx) {
   const {
-    bodyView, checkedIn, doneFeed = [], isSavedBloom, moveCategory, moveMood, moveTime,
-    pct, savedBloom, setDoneFeed, setMoveCategory, setMoveMood, setMoveTime,
+    bodyView, checkedIn, doneFeed = [], isSavedBloom, moveCategory, moveMood, moveSearch = "", moveTime,
+    pct, savedBloom, setDoneFeed, setMoveCategory, setMoveMood, setMoveSearch, setMoveTime,
     tab, toggleSaveBloom
   } = ctx
 
@@ -42,6 +42,7 @@ export function renderTrain(ctx) {
     setMoveCategory(null)
     setMoveMood(null)
     setMoveTime(null)
+    setMoveSearch("")
   }
 
   const isDone = (idea) => doneFeed.includes("move:" + idea.id)
@@ -51,12 +52,26 @@ export function renderTrain(ctx) {
     setDoneFeed(doneFeed.includes(id) ? doneFeed.filter(x => x !== id) : [...doneFeed, id])
   }
 
-  let feed = MOVE_IDEAS.filter(idea =>
-    (!savedOnly || savedIds.has(idea.id)) &&
-    hasAny(idea.time, moveTime) &&
-    hasAny(idea.mood, moveMood) &&
-    hasAny(idea.category, activeCategory)
-  )
+  const q = (moveSearch || "").trim().toLowerCase()
+
+  let feed = MOVE_IDEAS.filter(idea => {
+    const searchable = [
+      idea.title,
+      idea.hook,
+      idea.creator,
+      ...(idea.category || []),
+      ...(idea.mood || []),
+      ...(idea.time || [])
+    ].filter(Boolean).join(" ").toLowerCase()
+
+    return (
+      (!savedOnly || savedIds.has(idea.id)) &&
+      hasAny(idea.time, moveTime) &&
+      hasAny(idea.mood, moveMood) &&
+      hasAny(idea.category, activeCategory) &&
+      (!q || searchable.includes(q))
+    )
+  })
 
   // Capacity influences ranking quietly; it never hides content.
   feed = [...feed].sort((a, b) => {
@@ -204,15 +219,11 @@ export function renderTrain(ctx) {
     )
   }
 
-  const anyFilter = !!(moveTime || moveMood || moveCategory)
+  const anyFilter = !!(moveTime || moveMood || moveCategory || moveSearch)
 
   return (
     <div className="fade-in" style={{ padding: "10px 18px 60px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
-        <SmallTool icon="♡" label="Saved" selected={savedOnly} onClick={() => setMoveCategory(savedOnly ? null : "__saved__")} />
-      </div>
-
-      <div style={{ marginTop: 24 }}>
+      <div style={{ marginTop: 8 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 700, color: BASE.cream }}>Move Ideas</div>
           {anyFilter && <div onClick={clearFilters} style={{ fontSize: 11.5, fontWeight: 800, color: "#C9558E", cursor: "pointer" }}>Clear filters</div>}
@@ -238,8 +249,55 @@ export function renderTrain(ctx) {
         </div>
       </div>
 
-      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 12.5, color: BASE.taupe, marginTop: 14, marginBottom: 16 }}>
-        {savedOnly ? "Your saved movement ideas." : zone ? "Ideas that fit today are gently ranked first — nothing is hidden." : "Scroll everything, or narrow it down when you want."}
+      <div style={{ display: "grid", gridTemplateColumns: "112px 1fr", gap: 8, marginTop: 16, marginBottom: 16 }}>
+        <button
+          onClick={() => setMoveCategory(savedOnly ? null : "__saved__")}
+          style={{
+            minHeight: 44,
+            borderRadius: 14,
+            border: `1px solid ${savedOnly ? "#C9558E" : BASE.border}`,
+            background: savedOnly ? "rgba(201,85,142,.10)" : BASE.surface,
+            color: savedOnly ? "#C9558E" : BASE.creamDim,
+            fontSize: 12.5,
+            fontWeight: 800,
+            cursor: "pointer"
+          }}
+        >
+          {savedOnly ? "♥ Saved" : "♡ Saved"}
+        </button>
+
+        <div style={{ position: "relative" }}>
+          <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", fontSize: 14, opacity: .62 }}>⌕</span>
+          <input
+            value={moveSearch}
+            onChange={(e) => setMoveSearch(e.target.value)}
+            placeholder="Search Move"
+            aria-label="Search Move"
+            style={{
+              width: "100%",
+              minHeight: 44,
+              borderRadius: 14,
+              border: `1px solid ${BASE.border}`,
+              background: BASE.surface,
+              color: BASE.cream,
+              padding: "0 36px 0 36px",
+              fontSize: 12.5,
+              fontFamily: "'Nunito Sans', sans-serif",
+              outline: "none"
+            }}
+          />
+          {!!moveSearch && (
+            <button
+              onClick={() => setMoveSearch("")}
+              aria-label="Clear search"
+              style={{
+                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                width: 28, height: 28, borderRadius: "50%", border: "none",
+                background: "transparent", color: BASE.taupe, fontSize: 16, cursor: "pointer"
+              }}
+            >×</button>
+          )}
+        </div>
       </div>
 
       <div>
