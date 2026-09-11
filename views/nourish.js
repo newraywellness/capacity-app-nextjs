@@ -168,10 +168,10 @@ export function renderNourish(ctx) {
               ["💧","Water",`${water*8} oz`,()=>setPlanView("water")],
               ["✨","Supps","Learn",()=>setNourishView("supps")],
               ["📖","Learn","Nurse-informed",()=>setPlanView("learn")],
-            ].map(([ic,title,sub,fn])=><div key={title} onClick={fn} style={{ minHeight:68,borderRadius:15,background:BASE.surface,border:`1px solid ${BASE.border}`,padding:"9px 6px",textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center" }}><div style={{fontSize:16}}>{ic}</div><div style={{fontSize:11.5,fontWeight:800,color:BASE.cream,marginTop:4}}>{title}</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:10,color:BASE.taupe,marginTop:1}}>{sub}</div></div>)}
+            ].map(([ic,title,sub,fn])=><div key={title} onClick={fn} style={{ minHeight:40,borderRadius:12,background:BASE.surface,border:`1px solid ${BASE.border}`,padding:"5px 4px",textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center" }}><div style={{fontSize:13,lineHeight:1}}>{ic}</div><div style={{fontSize:10.5,fontWeight:800,color:BASE.cream,marginTop:2,lineHeight:1.05}}>{title}</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:8.5,color:BASE.taupe,marginTop:1,lineHeight:1}}>{sub}</div></div>)}
           </div>
 
-          <div style={{ marginTop:25 }}>
+          <div style={{ marginTop:15 }}>
             <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12 }}>
               <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:27,fontWeight:700,color:BASE.cream}}>Meal Ideas</div>
               {(mealType || browse.time || browse.tag) && <div onClick={()=>{setMealType(null);setMealFilter(null)}} style={{fontSize:11.5,fontWeight:800,color:"#C9558E",cursor:"pointer"}}>Clear filters</div>}
