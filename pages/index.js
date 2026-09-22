@@ -219,6 +219,7 @@ export default function App() {
     try { const rc = localStorage.getItem("nr_rebuild_current"); if (rc) setRebuildCurrentRaw(JSON.parse(rc)) } catch (e) {}
     try { const rs = localStorage.getItem("nr_rebuild_saved"); if (rs) setRebuildSavedRaw(JSON.parse(rs)) } catch (e) {}
     try { const re = localStorage.getItem("nr_reverie_entries"); if (re) setReverieEntries(JSON.parse(re)) } catch (e) {}
+    try { const df = localStorage.getItem("nr_done_feed"); if (df) setDoneFeed(JSON.parse(df)) } catch (e) {}
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
     try { const n = localStorage.getItem("nr_nutrition"); if (n) setNutrition(JSON.parse(n)) } catch (e) {}
     try { const sb = localStorage.getItem("nr_bloom_saved"); if (sb) setSavedBloom(JSON.parse(sb)) } catch (e) {}
