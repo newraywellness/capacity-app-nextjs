@@ -9,7 +9,7 @@ import { BASE, ENV, dayIndex } from '../lib/theme.js'
 import GlowDiscovery from './GlowDiscovery.js'
 
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomPillar, setBloomSearchOpen, setDoneFeed, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom } = ctx
+  const { bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom } = ctx
 
     const Heart = ({ id, overlay }) => {
       const saved = isSavedBloom(id)
@@ -99,7 +99,21 @@ export function renderBloom(ctx) {
         <div style={{ display: "flex", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BASE.border}` }}>
           <Btn on={liked} onClick={() => setLikedFeed(liked ? likedFeed.filter((x) => x !== item.id) : [...likedFeed, item.id])} onIcon={"\u2605"} offIcon={"\u2606"} label="Like" />
           <Btn on={saved} onClick={() => toggleSaveBloom(sid)} onIcon={"\u2665"} offIcon={"\u2661"} label="Save" />
-          <Btn on={done} onClick={() => setDoneFeed(done ? doneFeed.filter((x) => x !== item.id) : [...doneFeed, item.id])} onIcon={"\u2713"} offIcon={"\u25cb"} label="I Did This" />
+          <Btn on={done} onClick={() => {
+            const entryId = `bloom-done:${sid}`
+            if (done) {
+              setDoneFeed(doneFeed.filter((x) => x !== item.id)); try{localStorage.setItem('nr_done_feed',JSON.stringify(doneFeed.filter((x)=>x!==item.id)))}catch(err){}
+              setReverieEntries(prev => { const next=(prev||[]).filter(e=>e.id!==entryId); try{localStorage.setItem('nr_reverie_entries',JSON.stringify(next))}catch(err){} return next })
+            } else {
+              setDoneFeed([...doneFeed, item.id]); try{localStorage.setItem('nr_done_feed',JSON.stringify([...doneFeed,item.id]))}catch(err){}
+              setReverieEntries(prev => {
+                if ((prev||[]).some(e=>e.id===entryId)) return prev
+                const next=[...(prev||[]),{id:entryId,title:item.title||item.name||item.n||'Something I did',note:'',date:new Date().toISOString().slice(0,10),photo:null,originalImage:item.image||null,source:'bloom',contentId:sid,share:false}]
+                try{localStorage.setItem('nr_reverie_entries',JSON.stringify(next))}catch(err){}
+                return next
+              })
+            }
+          }} onIcon={"\u2713"} offIcon={"\u25cb"} label="I Did This" />
         </div>
       )
     }
