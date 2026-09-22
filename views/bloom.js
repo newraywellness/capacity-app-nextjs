@@ -821,7 +821,9 @@ export function renderBloom(ctx) {
       )
 
       return (
-        <div className="fade-in" style={{ padding: "0 24px" }}>
+        // Keep this wrapper untransformed: a transform/animation here makes the fixed
+        // Bloom search sheet position itself against the long feed instead of viewport.
+        <div style={{ padding: "0 24px" }}>
           <div onClick={() => setBloomPillar(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", paddingTop: 10, marginBottom: 20 }}>{"\u2039 Bloom"}</div>
 
           <div style={{ textAlign: "center", paddingTop: 6 }}>
@@ -1284,7 +1286,7 @@ export function renderBloom(ctx) {
 
           {bloomSearchOpen && <div onClick={() => setBloomSearchOpen(false)} style={{position:"fixed",inset:0,zIndex:120,background:"rgba(49,31,45,.28)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
             <div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{width:"100%",maxWidth:440,maxHeight:"78dvh",overflowY:"auto",background:"#FFF9F7",borderRadius:"28px 28px 0 0",padding:"22px 22px calc(28px + env(safe-area-inset-bottom))",boxShadow:"0 -16px 50px rgba(60,39,54,.16)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:28,fontWeight:700,color:BASE.cream}}>Find something for today</div><div style={{fontSize:12.5,color:BASE.taupe,marginTop:4}}>Browse the True Reverie world without needing to know where it lives.</div></div><span onClick={()=>setBloomSearchOpen(false)} style={{fontSize:22,cursor:"pointer",padding:8}}>×</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:28,fontWeight:700,color:BASE.cream}}>Find something for today</div><div style={{fontSize:12.5,color:BASE.taupe,marginTop:4}}>What sounds good right now?</div></div><span onClick={()=>setBloomSearchOpen(false)} style={{fontSize:22,cursor:"pointer",padding:8}}>×</span></div>
               <div style={{...LABEL,marginTop:24,marginBottom:11}}>What are you looking for?</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>{SEARCH_CATS.map(([ic,label,key])=><div key={key} onClick={()=>openCategory(key)} style={{padding:"14px 12px",borderRadius:16,background:"#fff",border:`1px solid ${BASE.border}`,fontSize:12.5,fontWeight:700,color:BASE.cream,cursor:"pointer"}}><span style={{fontSize:18,marginRight:7}}>{ic}</span>{label}</div>)}</div>
               <div style={{...LABEL,marginTop:24,marginBottom:10}}>Or start with a feeling</div>
