@@ -1050,12 +1050,12 @@ export default function App() {
         </div>
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60 }}>
           <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", background: tab === "today" && envRoot.dark ? "rgba(40,28,64,0.92)" : "rgba(255,255,255,0.93)", borderTop: `1px solid ${tab === "today" && envRoot.dark ? "rgba(255,255,255,0.12)" : BASE.border}`, padding: "8px 6px 14px", boxShadow: "0 -6px 24px rgba(60,35,70,0.10)" }}>
-            {[["bloom", "Bloom", "\ud83c\udf38"], ["body", "Body", "\ud83d\udcaa"], ["rebuild", "Rebuild", "\ud83c\udf31"], ["reverie", "My Reverie", "\u2661"], ["community", "Community", "\u2726"]].map(([k, lbl, ic]) => {
+            {[["bloom", "Bloom", "\ud83c\udf38"], ["body", "Body", "\ud83d\udcaa"], ["rebuild", "Rebuild", "\ud83c\udf31"], ["reverie", "My Reverie", "\u2661"], ["community", "Community", "✨"]].map(([k, lbl, ic]) => {
               const active = tab === k
               const darkbar = tab === "today" && envRoot.dark
               return (
                 <button key={k} onClick={() => { setBloomCard(null); if (k === "reverie") { setReverieSection("home"); setReverieSearch("") } if (k === "body") { setBodyView("gym"); setTab("body") } else { setTab(k) } }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
-                  <span style={{ fontSize: 19, display: "block", marginBottom: 2, filter: active ? "none" : "grayscale(35%)" }}>{ic}</span>
+                  <span style={{ fontSize: k === "community" ? 23 : 19, display: "block", marginBottom: 2, filter: k === "community" ? "none" : (active ? "none" : "grayscale(35%)") }}>{ic}</span>
                   <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: darkbar ? "#F5E9F2" : (active ? "#C9558E" : BASE.taupe) }}>{lbl}</span>
                 </button>
               )
