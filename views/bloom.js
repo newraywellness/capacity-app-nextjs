@@ -69,11 +69,12 @@ export function renderBloom(ctx) {
     )
 
     const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
-    const hour = new Date().getHours()
-    const env = ENV(hour, checkedIn ? cur : null)
-    const bloomDark = env.mode === "night"
-    const ink = bloomDark ? "#F5E9F2" : BASE.cream
-    const mut = bloomDark ? "rgba(240,220,240,0.72)" : BASE.taupe
+    // Bloom is intentionally a stable editorial/light environment.
+    // Do not derive its palette from new Date() during render; that caused
+    // the server/client night-to-day flash on refresh.
+    const bloomDark = false
+    const ink = BASE.cream
+    const mut = BASE.taupe
 
     const Tag = ({ children }) => (
       <span style={{ display: "inline-block", padding: "5px 11px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: BASE.taupe, background: BASE.bg2 || BASE.surface2, border: `1px solid ${BASE.border}`, marginRight: 6, marginBottom: 6 }}>{children}</span>
@@ -306,7 +307,7 @@ export function renderBloom(ctx) {
     // ══════════════ GLOW · discovery feed ══════════════
     if (
       tab === "bloom" &&
-      bloomPillar === "glow" &&
+      false && bloomPillar === "glow" &&
       !glowItem &&
       !glowSheet
     ) {
@@ -1058,7 +1059,7 @@ export function renderBloom(ctx) {
       )
     }
 
-    if (tab === "bloom" && bloomPillar === "seasonal") {
+    if (false && tab === "bloom" && bloomPillar === "seasonal") {
       const items = bySeason(seasonalSeason)
       const seasonLabel = SEASON_LABEL(seasonalSeason)
       return (
@@ -1110,7 +1111,7 @@ export function renderBloom(ctx) {
       )
     }
 
-    if (tab === "bloom" && bloomPillar) {
+    if (tab === "bloom" && bloomPillar && bloomPillar !== "glow" && bloomPillar !== "seasonal") {
       const P = BLOOM_PILLARS.find((x) => x.key === bloomPillar) || BLOOM_PILLARS[0]
       return (
         <div className="fade-in" style={{ padding: "10px 22px 0" }}>
@@ -1189,11 +1190,84 @@ export function renderBloom(ctx) {
       ]
       const rotate = (arr, n) => arr.length ? arr.slice(n % arr.length).concat(arr.slice(0, n % arr.length)) : arr
       const moodChoices = rotate(MOODS, feedRotation || 0).slice(0, 7)
-      const activeMood = MOODS.find((m) => m.key === feedMoodFilter) || null
-      const sourceItems = feedTimeFilter && feedTimeFilter !== "__open__" ? byTimeBucket(feedTimeFilter) : FOR_YOU_ITEMS
+      const CATEGORY_FILTERS = {
+        "__glow__": { label: "Glow", words: ["glow","hair","skin","makeup","perfume","nails","brows","lips","jewelry","facials","body care","wardrobe","beauty"] },
+        "__seasonal__": { label: "Seasonal", words: ["seasonal","fall","halloween","thanksgiving","christmas","winter","valentine","spring","summer"] },
+        "__food__": { label: "Food + baking", words: ["food","bake","baking","recipe","cook","cooking","breakfast","dessert"] },
+        "__home__": { label: "Home", words: ["home","porch","decor","organize","clean","cozy"] },
+        "__outside__": { label: "Outside", words: ["outside","outdoor","walk","outing","garden","orchard","nature"] },
+        "__make__": { label: "Make something", words: ["make","craft","diy","bake","recipe","create"] },
+        "__reset__": { label: "Gentle reset", words: ["reset","gentle","slow","self-care","care"] },
+        "__fun__": { label: "Things to do", words: ["fun","outing","date","party","try","play","go"] },
+      }
+      const activeCategory = CATEGORY_FILTERS[feedMoodFilter] || null
+      const activeMood = activeCategory ? null : (MOODS.find((m) => m.key === feedMoodFilter) || null)
+
+      const productLines = (p) => {
+        if (!p || typeof p !== "object") return []
+        return [p.budget, p.best, p.lux].filter(Boolean).map((x) => x.n + (x.w ? " — " + x.w : ""))
+      }
+      const arr = (v) => Array.isArray(v) ? v.filter(Boolean).map(String) : (v ? [String(v)] : [])
+      const glowCard = (topic, kind, x, index) => {
+        const title = x.title || x.name || x.n || (topic.name + " idea")
+        const emoji = x.ic || topic.ic || "✨"
+        const sections = []
+        if (x.why) sections.push({ heading: "Why it helps", body: arr(x.why) })
+        if (x.how) sections.push({ heading: "How to", body: arr(x.how) })
+        if (x.b) sections.push({ heading: "Know this", body: arr(x.b) })
+        if (x.do) sections.push({ heading: "Do this", body: arr(x.do) })
+        if (x.no) sections.push({ heading: "Skip this", body: arr(x.no) })
+        if (x.i) sections.push({ heading: "What it is", body: arr(x.i) })
+        if (x.body) sections.push({ heading: "Learn", body: arr(x.body) })
+        const products = productLines(x.prod || x.p)
+        if (products.length) sections.push({ heading: "Products we love", body: products })
+        if (x.items) sections.push({ heading: "The details", body: arr(x.items) })
+        if (x.tip) sections.push({ heading: "True Reverie tip", body: arr(x.tip) })
+        if (x.note) sections.push({ heading: "A nurse's note", body: arr(x.note) })
+        if (!sections.length) {
+          const fallback = Object.keys(x || {}).filter(k => !["id","ic","img","image","n","name","title","g","sub","eyebrow"].includes(k)).flatMap(k => arr(x[k]))
+          sections.push({ heading: "Details", body: fallback.length ? fallback : ["More from True Reverie Glow."] })
+        }
+        return {
+          id: "glow-" + topic.key + "-" + kind + "-" + (x.id || String(title).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || index),
+          type: "glow", emoji, image: x.img || x.image || null,
+          title, teaser: x.desc || x.i || x.sub || x.why || ("From " + topic.name + " in Glow."),
+          tags: ["Glow", topic.name, kind === "learn" ? "Learn" : kind === "guides" ? "Products" : kind === "wins" ? "Quick win" : "Guide"],
+          detail: { sections }, _source: "glow"
+        }
+      }
+      const glowItems = GLOW_TOPICS.flatMap((topic) => {
+        const cards = []
+        ;[["wins",topic.wins],["types",topic.types],["guides",topic.guides],["learn",topic.learn],["extra",topic.extra]].forEach(([kind,list]) => {
+          ;(Array.isArray(list) ? list : []).forEach((x,i) => cards.push(glowCard(topic,kind,x,i)))
+        })
+        if (topic.wardrobe && typeof topic.wardrobe === "object") {
+          Object.keys(topic.wardrobe).forEach((group) => {
+            ;(Array.isArray(topic.wardrobe[group]) ? topic.wardrobe[group] : []).forEach((x,i) => cards.push(glowCard(topic,"wardrobe-"+group,x,i)))
+          })
+        }
+        return cards
+      })
+      const seasonalItems = SEASONAL_ITEMS.map((item) => ({ ...item, tags: Array.from(new Set([...(item.tags || []), "Seasonal"])), _source: "seasonal" }))
+      const forYouItems = FOR_YOU_ITEMS.map((item) => ({ ...item, _source: "foryou" }))
+      const allBloomItems = [...forYouItems, ...seasonalItems, ...glowItems]
       const itemText = (item) => [item.title, item.teaser, item.type, ...(item.tags || [])].filter(Boolean).join(" ").toLowerCase()
+
+      let sourceItems = allBloomItems
+      if (feedTimeFilter && feedTimeFilter !== "__open__") {
+        const timedIds = new Set(byTimeBucket(feedTimeFilter).map((x) => x.id))
+        sourceItems = sourceItems.filter((x) => x._source !== "foryou" || timedIds.has(x.id))
+      }
+      if (activeCategory) {
+        sourceItems = sourceItems.filter((item) => {
+          if (feedMoodFilter === "__glow__") return item._source === "glow"
+          if (feedMoodFilter === "__seasonal__") return item._source === "seasonal"
+          const txt = itemText(item)
+          return activeCategory.words.some((w) => txt.indexOf(w) >= 0)
+        })
+      }
       const personalized = [...sourceItems].map((item, originalIndex) => {
-        const sid = "foryou:" + item.id
+        const sid = (item._source || "foryou") + ":" + item.id
         let score = 0
         if (likedFeed.indexOf(item.id) >= 0) score += 4
         if (isSavedBloom(sid)) score += 3
@@ -1214,19 +1288,14 @@ export function renderBloom(ctx) {
         background: active ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface, color: active ? "#fff" : BASE.creamDim,
         border:`1px solid ${active ? "transparent" : BASE.border}` })
       const openCategory = (key) => {
-        setBloomSearchOpen(false); setFeedMoodFilter(null); setFeedTimeFilter(null)
-        if (key === "glow") switchPillar("glow")
-        else if (key === "seasonal") switchPillar("seasonal")
-        else if (key === "reset") switchPillar("reset")
-        else if (key === "flourish") switchPillar("flourish")
-        else if (key === "food") setFeedMoodFilter("cozy")
-        else if (key === "outside") setFeedMoodFilter("outside")
-        else if (key === "home") setFeedMoodFilter("home")
-        else if (key === "fun") setFeedMoodFilter("fun")
+        setBloomSearchOpen(false); setFeedTimeFilter(null); setBloomPillar(null)
+        const map = { glow:"__glow__", seasonal:"__seasonal__", food:"__food__", home:"__home__", outside:"__outside__", make:"__make__", reset:"__reset__", fun:"__fun__" }
+        setFeedMoodFilter(map[key] || null)
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
       }
       const SEARCH_CATS = [
         ["✨","Glow","glow"],["🍂","Seasonal","seasonal"],["🍳","Food + baking","food"],["🏡","Home","home"],
-        ["🌿","Outside","outside"],["🎨","Make something","flourish"],["🤍","Gentle reset","reset"],["💃","Things to do","fun"],
+        ["🌿","Outside","outside"],["🎨","Make something","make"],["🤍","Gentle reset","reset"],["💃","Things to do","fun"],
       ]
 
       if (bloomSearchOpen) {
@@ -1285,13 +1354,13 @@ export function renderBloom(ctx) {
           </div>
 
           {(feedMoodFilter || feedTimeFilter) && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,fontSize:11.5,color:mut}}>
-            <span>{activeMood ? activeMood.ic+" "+activeMood.label : ""}{activeMood && feedTimeFilter ? " · " : ""}{feedTimeFilter || ""}</span>
+            <span>{activeCategory ? activeCategory.label : (activeMood ? activeMood.ic+" "+activeMood.label : "")}{(activeCategory || activeMood) && feedTimeFilter ? " · " : ""}{feedTimeFilter || ""}</span>
             <span onClick={() => {setFeedMoodFilter(null);setFeedTimeFilter(null)}} style={{color:"#C9558E",fontWeight:800,cursor:"pointer"}}>Clear</span>
           </div>}
 
-          <div style={{ ...LABEL, color:mut, marginTop:24, marginBottom:13 }}>For you</div>
+          <div style={{ ...LABEL, color:mut, marginTop:24, marginBottom:13 }}>{activeCategory ? activeCategory.label : "For you"}</div>
           <div>
-            {visibleItems.slice(0, 2).map((item) => <FeedCard key={item.id} item={item} />)}
+            {visibleItems.slice(0, 2).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
             {!feedTimeFilter && !feedMoodFilter && feat && (
               <div style={{ marginBottom: 22 }}>
                 <div style={{ ...LABEL, color: mut, textAlign: "center", marginBottom: 14 }}>Trending</div>
@@ -1304,7 +1373,7 @@ export function renderBloom(ctx) {
                 </div>
               </div>
             )}
-            {visibleItems.slice(2).map((item) => <FeedCard key={item.id} item={item} />)}
+            {visibleItems.slice(2).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
             {visibleItems.length === 0 && <div style={{ textAlign:"center",padding:"30px 10px",fontSize:12.5,color:mut,fontStyle:"italic" }}>Nothing at that length just yet — try another time.</div>}
           </div>
 
