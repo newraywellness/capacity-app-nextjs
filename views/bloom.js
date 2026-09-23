@@ -1061,6 +1061,38 @@ export function renderBloom(ctx) {
     if (tab === "bloom" && bloomPillar === "seasonal") {
       const items = bySeason(seasonalSeason)
       const seasonLabel = SEASON_LABEL(seasonalSeason)
+      if (bloomSearchOpen) {
+        return (
+          <div style={{ padding: "0 24px", minHeight: "100vh", background: "#FFF9F7" }}>
+            <div style={{ paddingTop: 58, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18 }}>
+              <div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 700, color: BASE.cream, lineHeight: 1.05 }}>Find something for today</div>
+                <div style={{ fontSize: 13.5, color: BASE.taupe, marginTop: 8 }}>What sounds good right now?</div>
+              </div>
+              <button onClick={() => setBloomSearchOpen(false)} aria-label="Close search" style={{ border: 0, background: "transparent", fontSize: 28, lineHeight: 1, padding: "0 2px", cursor: "pointer", color: BASE.cream }}>×</button>
+            </div>
+
+            <div style={{ ...LABEL, marginTop: 34, marginBottom: 13 }}>What are you looking for?</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {SEARCH_CATS.map(([ic,label,key]) => (
+                <div key={key} onClick={() => openCategory(key)} style={{ minHeight: 76, padding: "14px 13px", borderRadius: 18, background: "#fff", border: `1px solid ${BASE.border}`, fontSize: 13, fontWeight: 700, color: BASE.cream, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
+                  <span style={{ fontSize: 21 }}>{ic}</span><span>{label}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ ...LABEL, marginTop: 30, marginBottom: 11 }}>Or start with a feeling</div>
+            <ChipRail>{MOODS.map(m => <span key={m.key} onClick={() => { setFeedMoodFilter(m.key); setBloomSearchOpen(false) }} style={chipStyle(false)}>{m.ic} {m.label}</span>)}</ChipRail>
+
+            <div style={{ ...LABEL, marginTop: 23, marginBottom: 11 }}>How much time do you have?</div>
+            <ChipRail>{TIME_FILTERS.map(t => <span key={t} onClick={() => { setFeedTimeFilter(t); setBloomSearchOpen(false) }} style={chipStyle(false)}>⏱ {t}</span>)}</ChipRail>
+
+            <div onClick={() => setBloomSearchOpen(false)} style={{ marginTop: 34, marginBottom: 110, height: 46, borderRadius: 999, border: `1px solid ${BASE.border}`, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 800, color: BASE.cream, cursor: "pointer" }}>Back to Bloom</div>
+            <FloatingTop />
+          </div>
+        )
+      }
+
       return (
         <div className="fade-in" style={{ padding: "0 24px" }}>
 
@@ -1236,7 +1268,7 @@ export function renderBloom(ctx) {
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.45, marginTop: 9 }}>Wonderful discoveries for the life you’re building to live more like her.</div>
           </div>
 
-          <div onClick={() => setBloomSearchOpen(true)} style={{ marginTop:24, height:46, borderRadius:16, background:BASE.surface, border:`1px solid ${BASE.border}`, display:"flex", alignItems:"center", gap:10, padding:"0 15px", cursor:"pointer", boxShadow:"0 5px 18px rgba(78,53,71,0.05)" }}>
+          <div onClick={() => { setBloomSearchOpen(true); if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }), 0) }} style={{ marginTop:24, height:46, borderRadius:16, background:BASE.surface, border:`1px solid ${BASE.border}`, display:"flex", alignItems:"center", gap:10, padding:"0 15px", cursor:"pointer", boxShadow:"0 5px 18px rgba(78,53,71,0.05)" }}>
             <span style={{fontSize:15}}>⌕</span><span style={{fontSize:12.5,color:BASE.taupe}}>Search Bloom</span>
           </div>
 
@@ -1283,18 +1315,6 @@ export function renderBloom(ctx) {
             <div style={{ fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:26,color:ink,lineHeight:1.4,marginTop:10 }}>{invite.text}</div>
             <div onClick={() => switchPillar("reset")} style={{ fontSize:12.5,fontWeight:700,color:"#C9558E",marginTop:18,cursor:"pointer" }}>More gentle ideas in Reset →</div>
           </div>
-
-          {bloomSearchOpen && <div onClick={() => setBloomSearchOpen(false)} style={{position:"fixed",inset:0,zIndex:120,background:"rgba(49,31,45,.28)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-            <div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{width:"100%",maxWidth:440,maxHeight:"78dvh",overflowY:"auto",background:"#FFF9F7",borderRadius:"28px 28px 0 0",padding:"22px 22px calc(28px + env(safe-area-inset-bottom))",boxShadow:"0 -16px 50px rgba(60,39,54,.16)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:28,fontWeight:700,color:BASE.cream}}>Find something for today</div><div style={{fontSize:12.5,color:BASE.taupe,marginTop:4}}>What sounds good right now?</div></div><span onClick={()=>setBloomSearchOpen(false)} style={{fontSize:22,cursor:"pointer",padding:8}}>×</span></div>
-              <div style={{...LABEL,marginTop:24,marginBottom:11}}>What are you looking for?</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>{SEARCH_CATS.map(([ic,label,key])=><div key={key} onClick={()=>openCategory(key)} style={{padding:"14px 12px",borderRadius:16,background:"#fff",border:`1px solid ${BASE.border}`,fontSize:12.5,fontWeight:700,color:BASE.cream,cursor:"pointer"}}><span style={{fontSize:18,marginRight:7}}>{ic}</span>{label}</div>)}</div>
-              <div style={{...LABEL,marginTop:24,marginBottom:10}}>Or start with a feeling</div>
-              <ChipRail>{MOODS.map(m=><span key={m.key} onClick={()=>{setFeedMoodFilter(m.key);setBloomSearchOpen(false)}} style={chipStyle(false)}>{m.ic} {m.label}</span>)}</ChipRail>
-              <div style={{...LABEL,marginTop:18,marginBottom:10}}>How much time do you have?</div>
-              <ChipRail>{TIME_FILTERS.map(t=><span key={t} onClick={()=>{setFeedTimeFilter(t);setBloomSearchOpen(false)}} style={chipStyle(false)}>⏱ {t}</span>)}</ChipRail>
-            </div>
-          </div>}
 
           <FloatingTop />
           <div style={{ height:44,paddingBottom:"env(safe-area-inset-bottom)" }} />
