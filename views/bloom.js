@@ -119,17 +119,6 @@ export function renderBloom(ctx) {
     }
 
     const DetailSide = ({ item }) => {
-      if (item && item.glowRaw) {
-        const x = item.glowRaw || {}
-        const parts = [x.what, x.who, x.when, x.downtime, x.desc, x.b, x.i].filter((v) => typeof v === "string" && v.trim())
-        const lists = [x.best, x.avoid, x.do, x.no, x.body, x.items].filter(Array.isArray).flat().filter(Boolean)
-        return <div style={{ padding:"22px 20px 24px" }}>
-          {item.image && <img src={item.image} alt="" style={{width:"100%",borderRadius:16,marginBottom:18}} />}
-          <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:22,fontWeight:700,color:BASE.cream}}>{item.title}</div>
-          {parts.map((v,i)=><div key={`p-${i}`} style={{fontSize:13.5,color:BASE.creamDim,lineHeight:1.65,marginTop:10}}>{v}</div>)}
-          {lists.map((v,i)=><div key={`l-${i}`} style={{fontSize:13,color:BASE.creamDim,lineHeight:1.65,marginTop:8}}>• {Array.isArray(v) ? v.filter(Boolean).join(" ") : String(v)}</div>)}
-        </div>
-      }
       if (item.type === "movement") {
         const mv = M_BY_ID(item.moveId)
         if (!mv) return null
@@ -229,7 +218,7 @@ export function renderBloom(ctx) {
             <div style={{ padding: "16px 18px 20px" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontWeight: 700, color: BASE.cream, lineHeight: 1.2 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).title || "") : item.title}</div>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.taupe, marginTop: 5, lineHeight: 1.4 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).hook || "") : item.teaser}</div>
-              <div style={{ marginTop: 11 }}>{(Array.isArray(item.tags) ? item.tags : []).map((t) => <Tag key={t}>{t}</Tag>)}</div>
+              <div style={{ marginTop: 11 }}>{item.tags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
               <ActionRow item={item} prefix={prefix} />
             </div>
           </div>
@@ -1201,53 +1190,8 @@ export function renderBloom(ctx) {
       const rotate = (arr, n) => arr.length ? arr.slice(n % arr.length).concat(arr.slice(0, n % arr.length)) : arr
       const moodChoices = rotate(MOODS, feedRotation || 0).slice(0, 7)
       const activeMood = MOODS.find((m) => m.key === feedMoodFilter) || null
-      const activeCategory = typeof feedMoodFilter === "string" && feedMoodFilter.startsWith("cat:") ? feedMoodFilter.slice(4) : null
-      const asArray = (v) => Array.isArray(v) ? v : []
-      const safeGlowItems = asArray(GLOW_TOPICS).flatMap((topic, ti) => {
-        if (!topic || typeof topic !== "object") return []
-        const groups = [
-          ["Products We Love", asArray(topic.guides)], ["Quick Wins", asArray(topic.wins)],
-          [topic.extraName || "More", asArray(topic.extra)], [topic.typesName || "Types", asArray(topic.types)],
-          ["Learn", asArray(topic.learn)],
-        ]
-        return groups.flatMap(([group, rows], gi) => rows.map((raw, ri) => {
-          const x = raw && typeof raw === "object" ? raw : { title: String(raw || "") }
-          const title = x.title || x.name || x.n || topic.name || "Glow"
-          return {
-            id: `glow-${topic.key || ti}-${gi}-${ri}`,
-            title,
-            teaser: x.desc || x.b || x.i || `${group} · ${topic.name || "Glow"}`,
-            image: x.img || topic.img || null,
-            emoji: x.ic || topic.ic || "✨",
-            tags: ["Glow", topic.name, group, x.g].filter(Boolean),
-            bloomCategory: "glow",
-            glowRaw: x,
-          }
-        }))
-      })
-      const safeSeasonalItems = asArray(SEASONAL_ITEMS).filter(Boolean).map((x, i) => ({
-        ...x, id: x.id || `seasonal-${i}`, tags: [...asArray(x.tags), "Seasonal"], bloomCategory: "seasonal"
-      }))
-      const coreItems = asArray(FOR_YOU_ITEMS).filter(Boolean).map((x) => ({ ...x, tags: asArray(x.tags), bloomCategory: x.bloomCategory || "discover" }))
-      const allBloomItems = [...coreItems, ...safeSeasonalItems, ...safeGlowItems]
-      const categoryWords = {
-        glow:["glow","beauty","hair","skin","makeup","perfume","facial","nails","brows","lips","body care"],
-        seasonal:["seasonal","fall","autumn","winter","spring","summer","holiday"],
-        food:["food","bake","baking","recipe","cook","coffee","tea","breakfast"],
-        home:["home","cozy","decor","clean","organize"], outside:["outside","outdoor","walk","garden","nature"],
-        make:["make","craft","diy","creative"], reset:["reset","gentle","rest","quiet","self-care","slow"],
-        fun:["fun","dance","outing","date","party","play","try"],
-      }
-      const itemText = (item) => [item.title, item.teaser, item.type, item.bloomCategory, ...asArray(item.tags)].filter(Boolean).join(" ").toLowerCase()
-      let sourceItems = allBloomItems
-      if (activeCategory) {
-        const words = categoryWords[activeCategory] || [activeCategory]
-        sourceItems = sourceItems.filter((item) => item.bloomCategory === activeCategory || words.some((w) => itemText(item).includes(w)))
-      }
-      if (feedTimeFilter && feedTimeFilter !== "__open__") {
-        const timedIds = new Set(asArray(byTimeBucket(feedTimeFilter)).map((x) => x && x.id).filter(Boolean))
-        sourceItems = sourceItems.filter((item) => item.bloomCategory !== "discover" || timedIds.has(item.id))
-      }
+      const sourceItems = feedTimeFilter && feedTimeFilter !== "__open__" ? byTimeBucket(feedTimeFilter) : FOR_YOU_ITEMS
+      const itemText = (item) => [item.title, item.teaser, item.type, ...(item.tags || [])].filter(Boolean).join(" ").toLowerCase()
       const personalized = [...sourceItems].map((item, originalIndex) => {
         const sid = "foryou:" + item.id
         let score = 0
@@ -1270,13 +1214,19 @@ export function renderBloom(ctx) {
         background: active ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface, color: active ? "#fff" : BASE.creamDim,
         border:`1px solid ${active ? "transparent" : BASE.border}` })
       const openCategory = (key) => {
-        setBloomSearchOpen(false); setFeedTimeFilter(null); setFeedMoodFilter(`cat:${key}`)
-        setBloomPillar(null); setGlowTopic(null); setGlowItem(null); setGlowSheet(null); setSeasonalBrowseOpen(false)
-        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
+        setBloomSearchOpen(false); setFeedMoodFilter(null); setFeedTimeFilter(null)
+        if (key === "glow") switchPillar("glow")
+        else if (key === "seasonal") switchPillar("seasonal")
+        else if (key === "reset") switchPillar("reset")
+        else if (key === "flourish") switchPillar("flourish")
+        else if (key === "food") setFeedMoodFilter("cozy")
+        else if (key === "outside") setFeedMoodFilter("outside")
+        else if (key === "home") setFeedMoodFilter("home")
+        else if (key === "fun") setFeedMoodFilter("fun")
       }
       const SEARCH_CATS = [
         ["✨","Glow","glow"],["🍂","Seasonal","seasonal"],["🍳","Food + baking","food"],["🏡","Home","home"],
-        ["🌿","Outside","outside"],["🎨","Make something","make"],["🤍","Gentle reset","reset"],["💃","Things to do","fun"],
+        ["🌿","Outside","outside"],["🎨","Make something","flourish"],["🤍","Gentle reset","reset"],["💃","Things to do","fun"],
       ]
 
       if (bloomSearchOpen) {
@@ -1335,13 +1285,13 @@ export function renderBloom(ctx) {
           </div>
 
           {(feedMoodFilter || feedTimeFilter) && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,fontSize:11.5,color:mut}}>
-            <span>{activeCategory ? (SEARCH_CATS.find(x=>x[2]===activeCategory)?.[1] || activeCategory) : (activeMood ? activeMood.ic+" "+activeMood.label : "")}{(activeCategory || activeMood) && feedTimeFilter ? " · " : ""}{feedTimeFilter || ""}</span>
+            <span>{activeMood ? activeMood.ic+" "+activeMood.label : ""}{activeMood && feedTimeFilter ? " · " : ""}{feedTimeFilter || ""}</span>
             <span onClick={() => {setFeedMoodFilter(null);setFeedTimeFilter(null)}} style={{color:"#C9558E",fontWeight:800,cursor:"pointer"}}>Clear</span>
           </div>}
 
           <div style={{ ...LABEL, color:mut, marginTop:24, marginBottom:13 }}>For you</div>
           <div>
-            {visibleItems.slice(0, 2).map((item) => <FeedCard key={item.id} item={item} prefix={item.bloomCategory === "seasonal" ? "seasonal" : item.bloomCategory === "glow" ? "glow" : "foryou"} />)}
+            {visibleItems.slice(0, 2).map((item) => <FeedCard key={item.id} item={item} />)}
             {!feedTimeFilter && !feedMoodFilter && feat && (
               <div style={{ marginBottom: 22 }}>
                 <div style={{ ...LABEL, color: mut, textAlign: "center", marginBottom: 14 }}>Trending</div>
@@ -1354,7 +1304,7 @@ export function renderBloom(ctx) {
                 </div>
               </div>
             )}
-            {visibleItems.slice(2).map((item) => <FeedCard key={item.id} item={item} prefix={item.bloomCategory === "seasonal" ? "seasonal" : item.bloomCategory === "glow" ? "glow" : "foryou"} />)}
+            {visibleItems.slice(2).map((item) => <FeedCard key={item.id} item={item} />)}
             {visibleItems.length === 0 && <div style={{ textAlign:"center",padding:"30px 10px",fontSize:12.5,color:mut,fontStyle:"italic" }}>Nothing at that length just yet — try another time.</div>}
           </div>
 
