@@ -32,35 +32,13 @@ export function renderCycle(ctx) {
     const log = (cycleLogs && cycleLogs[d]) || {}
     const set = (k, v) => saveCycleLog(d, { [k]: v })
     const one = (k, v) => set(k, log[k] === v ? null : v)
-    const persistLastPeriod = (iso) => {
-      setLastPeriod(iso)
-      setTmpStart(iso)
-      setPeriodDismissed(true)
-      try { window.localStorage.setItem('cap_last_period', iso) } catch (e) {}
-      if (user && db) {
-        try { db.from('profiles').update({ setup: { ...(setupData || {}), lastPeriod: iso } }).eq('id', user.id).then(() => {}) } catch (e) {}
-      }
-    }
-    const setPeriodFlow = (flow) => {
-      const next = log.period === flow ? null : flow
-      set('period', next)
-      if (!next) return
-
-      // Treat a newly logged bleed well outside the current period as a new cycle start.
-      // This lets an early/unexpected period immediately reset cycle day 1 without
-      // incorrectly moving the start date forward on period day 2, 3, etc.
-      const last = lastPeriod ? new Date(lastPeriod + 'T00:00:00') : null
-      const selected = new Date(d + 'T00:00:00')
-      const daysSinceLast = last ? Math.round((selected - last) / 86400000) : null
-      if (!last || daysSinceLast == null || daysSinceLast >= 8) persistLastPeriod(d)
-    }
     const many = (k, v) => {
       const arr = Array.isArray(log[k]) ? log[k] : []
       set(k, arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v])
     }
     const on = (k, v) => (Array.isArray(log[k]) ? log[k].includes(v) : log[k] === v)
 
-    const Group = ({ ic, label, k, opts, multi, col, hint, onSelect }) => (
+    const Group = ({ ic, label, k, opts, multi, col, hint }) => (
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 15 }}>{ic}</span>
@@ -73,7 +51,7 @@ export function renderCycle(ctx) {
             const active = on(k, o.value)
             const activeCol = o.color || col || '#9B6BC3'
             return (
-              <span key={o.value} onClick={() => (onSelect ? onSelect(o.value) : (multi ? many(k, o.value) : one(k, o.value)))}
+              <span key={o.value} onClick={() => (multi ? many(k, o.value) : one(k, o.value))}
                 style={{ display: 'inline-block', padding: '10px 16px', borderRadius: 999, marginRight: 8, marginBottom: 9, cursor: 'pointer', fontSize: 13, fontWeight: active ? 700 : 500, background: active ? activeCol : BASE.surface, color: active ? '#fff' : BASE.creamDim, border: '1px solid ' + (active ? activeCol : BASE.border), boxShadow: active ? '0 2px 8px ' + activeCol + '40' : 'none' }}>
                 {o.label}
               </span>
@@ -138,7 +116,7 @@ export function renderCycle(ctx) {
         </div>
 
         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: BASE.taupe, marginBottom: 14 }}>Today's Tracking</div>
-        <Group ic="🩸" label="Period" k="period" col="#A8556B" opts={['Light', 'Medium', 'Heavy']} onSelect={setPeriodFlow} />
+        <Group ic="❤️" label="Period" k="period" col="#A8556B" opts={['Light', 'Medium', 'Heavy']} />
         <Group ic="🟤" label="Spotting" k="spotting" col="#A8556B" opts={['Brown spotting', 'Red spotting']} />
         <Group ic="😊" label="Feelings" k="feelings" multi col="#C9558E" opts={['Calm', 'Happy', 'Motivated', 'Sensitive', 'Anxious', 'Irritable', 'Low']} />
         <Group ic="😖" label="Pain" k="pain" multi col="#D65C4E" opts={['Cramps', 'Headache', 'Back', 'Breast tenderness', 'Bloating', 'Nausea']} />
@@ -205,6 +183,18 @@ export function renderCycle(ctx) {
     const legacyCapByDate = {}
     ;(history || []).forEach((h) => { if (h.dateISO && h.color) legacyCapByDate[h.dateISO] = h.color })
     const capacityForDate = (iso) => ((cycleLogs || {})[iso] || {}).energyCapacity || legacyCapByDate[iso] || null
+    const startPeriodToday = () => {
+      const iso = new Date().toISOString().slice(0, 10)
+      setLastPeriod(iso)
+      setTmpStart(iso)
+      saveCycleLog(iso, { period: ((cycleLogs || {})[iso] || {}).period || 'Medium' })
+      try { window.localStorage.setItem('cap_last_period', iso) } catch (e) {}
+      if (user && db) {
+        try { db.from('profiles').update({ setup: { ...(setupData || {}), lastPeriod: iso } }).eq('id', user.id).then(() => {}) } catch (e) {}
+      }
+      setPeriodDismissed(true)
+      setCycLogDate(iso)
+    }
 
     if (!setup) {
       return <div className="fade-in" style={{ padding: '10px 18px 0' }}><div style={{ borderRadius: 22, padding: '26px 22px', background: 'linear-gradient(135deg,#9B6BC3,#5E7FB0)', color: '#fff', marginBottom: 18 }}><div style={{ fontSize: 30 }}>🌙</div><div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginTop: 6 }}>Understand your rhythm. Support your body.</div><div style={{ fontSize: 13, marginTop: 6, fontStyle: 'italic' }}>Your cycle is information — not a limitation.</div></div><div style={{ textAlign: 'center', padding: '26px 20px', borderRadius: 18, background: BASE.surface, border: '1px dashed ' + BASE.border }}><div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: BASE.cream, marginBottom: 8 }}>Set up your cycle</div><button onClick={() => { setTmpLen('28'); setTmpStart(''); setEditCycle(true) }} style={{ padding: '12px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#9B6BC3,#5E7FB0)', color: '#fff', fontWeight: 700 }}>Set up my cycle</button></div></div>
@@ -236,6 +226,7 @@ export function renderCycle(ctx) {
             const isPredictedOvulation = !!(c && c.day === fertileMeta.ov)
             const displayPhase = inFertileWindow ? CYCLE_PHASES.ovulation : standardPhase
             const isToday = iso === todayISOstr
+            const isFuture = iso > todayISOstr
             const lg = (cycleLogs || {})[iso] || {}
             const capKey = capacityForDate(iso)
             const capacity = CAPACITY_META[capKey] || null
@@ -243,12 +234,11 @@ export function renderCycle(ctx) {
             const periodDrops = lg.period === 'Heavy' ? 3 : lg.period === 'Medium' ? 2 : lg.period === 'Light' ? 1 : 0
             const bcTaken = lg.bc === 'Taken'
             const spottingColor = SPOTTING[lg.spotting] || null
-            const isFuture = iso > todayISOstr
             return <div key={i} onClick={() => { if (isFuture) return; setCycLogDate(iso); setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod || ''); setEditCycle(true) }} style={{ aspectRatio: '1', borderRadius: 9, background: displayPhase ? displayPhase.soft : 'transparent', border: isToday ? '2px solid ' + displayPhase.color : '1px solid transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', cursor: isFuture ? 'default' : 'pointer', opacity: isFuture ? .62 : 1 }}>
               <div style={{ position: 'absolute', top: 3, left: 3, right: 3, height: 8, display: 'flex', alignItems: 'center', gap: 2, overflow: 'hidden' }}>
                 {capacity && <span style={{ width: 5, height: 5, borderRadius: '50%', background: capacity.color, flexShrink: 0 }} />}
                 {hasSex && <span style={{ fontSize: 6.5, color: '#E3799F', lineHeight: 1 }}>♥</span>}
-                {Array.from({ length: periodDrops }).map((_, j) => <span key={j} style={{ fontSize: 6.5, lineHeight: 1 }}>🩸</span>)}
+                {Array.from({ length: periodDrops }).map((_, j) => <span key={j} style={{ fontSize: 6.5, color: '#B93C52', lineHeight: 1 }}>💧</span>)}
                 {spottingColor && <span style={{ width: 5, height: 5, borderRadius: '50%', background: spottingColor }} />}
                 {bcTaken && <span style={{ width: 5, height: 5, borderRadius: '50%', background: BC_DOT }} />}
               </div>
@@ -264,25 +254,13 @@ export function renderCycle(ctx) {
         <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: BASE.taupe, textAlign: 'center', marginBottom: 6 }}>Calendar markers</div>
         <div style={{ display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginBottom:8 }}>
           {Object.entries(CAPACITY_META).map(([k,v])=><div key={k} style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:6,height:6,borderRadius:'50%',background:v.color}}/><span style={{fontSize:9.5,color:BASE.taupe}}>{v.label} {v.range}</span></div>)}
-          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{fontSize:9,color:'#E3799F',lineHeight:1}}>♥</span> Sex</span>
-          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{fontSize:9,lineHeight:1}}>🩸</span> Period</span>
-          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{width:6,height:6,borderRadius:'50%',background:'#8A5A7A',display:'inline-block',flexShrink:0}}/> Spotting</span>
-          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{width:6,height:6,borderRadius:'50%',background:BC_DOT,display:'inline-block',flexShrink:0}}/> Birth control</span>
+          <span style={{fontSize:9.5,color:BASE.taupe}}>♥ Sex</span><span style={{fontSize:9.5,color:BASE.taupe}}>💧 Period</span><span style={{fontSize:9.5,color:BASE.taupe}}>● Spotting</span><span style={{fontSize:9.5,color:BASE.taupe}}>🔵 Birth control</span>
         </div>
         <div style={{ fontSize: 10.5, color: BASE.taupe, textAlign: 'center', lineHeight: 1.5, marginBottom: 12 }}>The fertile window is shown as a full predicted week. The small lower-right dot marks estimated ovulation day.</div>
 
-        <button onClick={() => {
-          const iso = new Date().toISOString().slice(0,10)
-          setLastPeriod(iso)
-          setTmpStart(iso)
-          saveCycleLog(iso, { period: ((cycleLogs || {})[iso] || {}).period || 'Medium' })
-          try { window.localStorage.setItem('cap_last_period', iso) } catch(e){}
-          if(user&&db){try{db.from('profiles').update({setup:{...(setupData||{}),lastPeriod:iso,cycleLogs:{...(cycleLogs||{}),[iso]:{...((cycleLogs||{})[iso]||{}),period:((cycleLogs||{})[iso]||{}).period||'Medium'}}}).eq('id',user.id).then(()=>{})}catch(e){}}
-          setPeriodDismissed(true)
-          setCycLogDate(iso)
-        }} style={{ width:'100%',padding:10,borderRadius:11,border:'1px dashed rgba(155,107,195,.4)',background:'rgba(155,107,195,.06)',color:'#9B6BC3',fontWeight:700,marginBottom:14 }}>🩸 My period started today</button>
+        <button onClick={startPeriodToday} style={{ width:'100%',padding:10,borderRadius:11,border:'1px dashed rgba(155,107,195,.4)',background:'rgba(155,107,195,.06)',color:'#9B6BC3',fontWeight:700,marginBottom:14 }}>🩸 My period started today</button>
 
-        {periodDue && <div style={{ borderRadius:16,background:'rgba(155,107,195,.1)',border:'1px solid rgba(155,107,195,.35)',padding:'16px 18px',marginBottom:14 }}><div style={{fontSize:14,fontWeight:700,color:BASE.cream}}>Did your period start today?</div><div style={{display:'flex',gap:10,marginTop:12}}><button onClick={()=>{const iso=new Date().toISOString().slice(0,10);setLastPeriod(iso);setTmpStart(iso);saveCycleLog(iso,{period:((cycleLogs||{})[iso]||{}).period||'Medium'});try{window.localStorage.setItem('cap_last_period',iso)}catch(e){};setPeriodDismissed(true);setCycLogDate(iso)}} style={{flex:1,padding:12,borderRadius:12,border:'none',background:'linear-gradient(135deg,#9B6BC3,#5E7FB0)',color:'#fff',fontWeight:700}}>Yes, today</button><button onClick={()=>setPeriodDismissed(true)} style={{flex:1,padding:12,borderRadius:12,border:'1px solid '+BASE.border,background:'transparent',color:BASE.creamDim,fontWeight:700}}>Not yet</button></div></div>}
+        {periodDue && <div style={{ borderRadius:16,background:'rgba(155,107,195,.1)',border:'1px solid rgba(155,107,195,.35)',padding:'16px 18px',marginBottom:14 }}><div style={{fontSize:14,fontWeight:700,color:BASE.cream}}>Did your period start today?</div><div style={{display:'flex',gap:10,marginTop:12}}><button onClick={startPeriodToday} style={{flex:1,padding:12,borderRadius:12,border:'none',background:'linear-gradient(135deg,#9B6BC3,#5E7FB0)',color:'#fff',fontWeight:700}}>Yes, today</button><button onClick={()=>setPeriodDismissed(true)} style={{flex:1,padding:12,borderRadius:12,border:'1px solid '+BASE.border,background:'transparent',color:BASE.creamDim,fontWeight:700}}>Not yet</button></div></div>}
 
         <div style={{ borderRadius:18,background:currentPhase.soft,border:'1px solid '+currentPhase.color,padding:'17px 18px',marginBottom:14 }}>
           <div style={{ fontSize:10.5,fontWeight:700,letterSpacing:1,color:currentPhase.color,textTransform:'uppercase' }}>Today · Cycle Day {cycleNow.day}</div>
