@@ -174,7 +174,7 @@ export default function App() {
   const [mealEdit, setMealEdit] = useState(null)
   const [calcInputs, setCalcInputs] = useState(null)
   const [calcResult, setCalcResult] = useState(null)
-  const [mealType, setMealType] = useState("breakfast")
+  const [mealType, setMealType] = useState(null)
   const [mealFilter, setMealFilter] = useState(null)
   const [mealOpen, setMealOpen] = useState(null)
   const [weekPlan, setWeekPlan] = useState({})
