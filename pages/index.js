@@ -1027,14 +1027,14 @@ export default function App() {
 
   return (
     <><Fonts /><GlobalStyle />
-      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG(envRoot.mode) : (tab === "body" && bodyView === "cycle" ? CYCLE_BG(cycleNow && cycleNow.phase) : (tab === "reverie" ? "linear-gradient(180deg,#FFF9F7 0%,#FBF1F5 100%)" : (tab === "community" ? "linear-gradient(180deg,#FFF9F7 0%,#F5EEF8 100%)" : BASE.bg))))), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
+      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG("afternoon") : (tab === "body" && bodyView === "cycle" ? CYCLE_BG(cycleNow && cycleNow.phase) : (tab === "reverie" ? "linear-gradient(180deg,#FFF9F7 0%,#FBF1F5 100%)" : (tab === "community" ? "linear-gradient(180deg,#FFF9F7 0%,#F5EEF8 100%)" : BASE.bg))))), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
         {tab === "today" && <Sky mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "today" && <Garden mode={envRoot.mode} />}
         {tab === "body" && bodyView === "nourish" && <NourishAir mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "body" && bodyView === "nourish" && <HerbGarden mode={envRoot.mode} subtle={!!planView || nourishView === "supps" || !!addFoodFor || !!foodPick || !!entryEdit} />}
-        {tab === "bloom" && <BloomAir mode={envRoot.mode} tint={envRoot.tint} />}
-        {tab === "bloom" && !bloomCard && !bloomArticle && !bloomPillar && <BloomAccents mode={envRoot.mode} />}
-        {tab === "bloom" && <BloomScene mode={envRoot.mode} subtle={!!bloomCard || !!bloomArticle || !!bloomPillar || !!glowTopic} />}
+        {tab === "bloom" && <BloomAir mode="afternoon" tint={null} />}
+        {tab === "bloom" && !bloomCard && !bloomArticle && !bloomPillar && <BloomAccents mode="afternoon" />}
+        {tab === "bloom" && <BloomScene mode="afternoon" subtle={!!bloomCard || !!bloomArticle || !!bloomPillar || !!glowTopic} />}
         {tab === "body" && bodyView === "cycle" && <CycleAir phase={cycleNow && cycleNow.phase} />}
         <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
@@ -1059,7 +1059,17 @@ export default function App() {
               const active = tab === k
               const darkbar = tab === "today" && envRoot.dark
               return (
-                <button key={k} onClick={() => { setBloomCard(null); if (k === "reverie") { setReverieSection("home"); setReverieSearch("") } if (k === "body") { setBodyView("gym"); setTab("body") } else { setTab(k) } }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
+                <button key={k} onClick={() => {
+                  if (k === "bloom" && tab === "bloom") {
+                    setBloomCard(null); setBloomArticle(null); setBloomPillar(null); setBloomSearchOpen(false);
+                    setFeedMoodFilter(null); setFeedTimeFilter(null); setFeedRotation((n) => n + 1);
+                    if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+                    return;
+                  }
+                  setBloomCard(null);
+                  if (k === "reverie") { setReverieSection("home"); setReverieSearch("") }
+                  if (k === "body") { setBodyView("gym"); setTab("body") } else { setTab(k) }
+                }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
                   <span style={{ fontSize: k === "community" ? 23 : 19, display: "block", marginBottom: 2, filter: k === "community" ? "none" : (active ? "none" : "grayscale(35%)") }}>{ic}</span>
                   <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: darkbar ? "#F5E9F2" : (active ? "#C9558E" : BASE.taupe) }}>{lbl}</span>
                 </button>
