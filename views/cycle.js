@@ -185,15 +185,31 @@ export function renderCycle(ctx) {
     const capacityForDate = (iso) => ((cycleLogs || {})[iso] || {}).energyCapacity || legacyCapByDate[iso] || null
     const startPeriodToday = () => {
       const iso = new Date().toISOString().slice(0, 10)
+      const existing = (cycleLogs || {})[iso] || {}
+      const nextLogs = { ...(cycleLogs || {}), [iso]: { ...existing, period: existing.period || 'Medium' } }
+
+      // Update the visible cycle immediately.
       setLastPeriod(iso)
       setTmpStart(iso)
-      saveCycleLog(iso, { period: ((cycleLogs || {})[iso] || {}).period || 'Medium' })
-      try { window.localStorage.setItem('cap_last_period', iso) } catch (e) {}
-      if (user && db) {
-        try { db.from('profiles').update({ setup: { ...(setupData || {}), lastPeriod: iso } }).eq('id', user.id).then(() => {}) } catch (e) {}
-      }
       setPeriodDismissed(true)
       setCycLogDate(iso)
+
+      // Persist the new period start.
+      try {
+        window.localStorage.setItem('cap_last_period', iso)
+        window.localStorage.setItem('nr_cycle_logs', JSON.stringify(nextLogs))
+      } catch (e) {}
+
+      // Use the app's normal log writer as well so profile/local persistence stays aligned.
+      saveCycleLog(iso, { period: existing.period || 'Medium' })
+
+      if (user && db && user.id !== 'prototype-user') {
+        try {
+          db.from('profiles').update({
+            setup: { ...(setupData || {}), lastPeriod: iso, cycleLogs: nextLogs }
+          }).eq('id', user.id).then(() => {})
+        } catch (e) {}
+      }
     }
 
     if (!setup) {
@@ -238,7 +254,7 @@ export function renderCycle(ctx) {
               <div style={{ position: 'absolute', top: 3, left: 3, right: 3, height: 8, display: 'flex', alignItems: 'center', gap: 2, overflow: 'hidden' }}>
                 {capacity && <span style={{ width: 5, height: 5, borderRadius: '50%', background: capacity.color, flexShrink: 0 }} />}
                 {hasSex && <span style={{ fontSize: 6.5, color: '#E3799F', lineHeight: 1 }}>♥</span>}
-                {Array.from({ length: periodDrops }).map((_, j) => <span key={j} style={{ fontSize: 6.5, color: '#B93C52', lineHeight: 1 }}>💧</span>)}
+                {Array.from({ length: periodDrops }).map((_, j) => <span key={j} style={{ fontSize: 6.5, lineHeight: 1 }}>🩸</span>)}
                 {spottingColor && <span style={{ width: 5, height: 5, borderRadius: '50%', background: spottingColor }} />}
                 {bcTaken && <span style={{ width: 5, height: 5, borderRadius: '50%', background: BC_DOT }} />}
               </div>
@@ -254,7 +270,7 @@ export function renderCycle(ctx) {
         <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: BASE.taupe, textAlign: 'center', marginBottom: 6 }}>Calendar markers</div>
         <div style={{ display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginBottom:8 }}>
           {Object.entries(CAPACITY_META).map(([k,v])=><div key={k} style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:6,height:6,borderRadius:'50%',background:v.color}}/><span style={{fontSize:9.5,color:BASE.taupe}}>{v.label} {v.range}</span></div>)}
-          <span style={{fontSize:9.5,color:BASE.taupe}}>♥ Sex</span><span style={{fontSize:9.5,color:BASE.taupe}}>💧 Period</span><span style={{fontSize:9.5,color:BASE.taupe}}>● Spotting</span><span style={{fontSize:9.5,color:BASE.taupe}}>🔵 Birth control</span>
+          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{fontSize:9,color:'#E3799F',lineHeight:1}}>♥</span> Sex</span><span style={{display:'flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{fontSize:9,lineHeight:1}}>🩸</span> Period</span><span style={{display:'flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{width:6,height:6,borderRadius:'50%',background:'#8A5A7A',display:'inline-block',flexShrink:0}}/> Spotting</span><span style={{display:'flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{width:6,height:6,borderRadius:'50%',background:BC_DOT,display:'inline-block',flexShrink:0}}/> Birth control</span>
         </div>
         <div style={{ fontSize: 10.5, color: BASE.taupe, textAlign: 'center', lineHeight: 1.5, marginBottom: 12 }}>The fertile window is shown as a full predicted week. The small lower-right dot marks estimated ovulation day.</div>
 
