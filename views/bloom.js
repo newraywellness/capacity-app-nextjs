@@ -69,11 +69,11 @@ export function renderBloom(ctx) {
     )
 
     const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
-    // Bloom stays in its editorial daytime palette. This also prevents the
-    // server/client time mismatch that caused a night-mode flash on refresh.
-    const bloomDark = false
-    const ink = BASE.cream
-    const mut = BASE.taupe
+    const hour = new Date().getHours()
+    const env = ENV(hour, checkedIn ? cur : null)
+    const bloomDark = env.mode === "night"
+    const ink = bloomDark ? "#F5E9F2" : BASE.cream
+    const mut = bloomDark ? "rgba(240,220,240,0.72)" : BASE.taupe
 
     const Tag = ({ children }) => (
       <span style={{ display: "inline-block", padding: "5px 11px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: BASE.taupe, background: BASE.bg2 || BASE.surface2, border: `1px solid ${BASE.border}`, marginRight: 6, marginBottom: 6 }}>{children}</span>
@@ -1190,65 +1190,8 @@ export function renderBloom(ctx) {
       const rotate = (arr, n) => arr.length ? arr.slice(n % arr.length).concat(arr.slice(0, n % arr.length)) : arr
       const moodChoices = rotate(MOODS, feedRotation || 0).slice(0, 7)
       const activeMood = MOODS.find((m) => m.key === feedMoodFilter) || null
-      // One Bloom library: original For You + every Seasonal card + all existing Glow content.
-      // Glow/Seasonal are metadata filters now, never destinations.
-      const textList = (v) => Array.isArray(v) ? v.filter(Boolean).map((x) => Array.isArray(x) ? x.join(" ") : (typeof x === "string" ? x : (x.title || x.name || x.n || x.w || ""))) : []
-      const glowDetailSections = (raw) => {
-        const sections = []
-        const add = (heading, body) => { const rows = textList(body); if (rows.length) sections.push({ heading, body: rows }) }
-        if (raw.what) add("What it is", [raw.what])
-        if (raw.who) add("Who it's for", [raw.who])
-        if (raw.downtime) add("Downtime", [raw.downtime])
-        add("How to", raw.how || raw.do)
-        add("Skip this", raw.no || raw.avoid)
-        add("What to know", raw.body)
-        if (raw.when) add("When to wear it", [raw.when])
-        if (raw.items) add("The look", raw.items)
-        if (raw.best) add("Best for", raw.best)
-        const prod = raw.p || raw.prod
-        if (prod) add("Products we love", [prod.budget, prod.best, prod.lux].filter(Boolean).map((x) => (x.n || "") + (x.w ? " — " + x.w : "")))
-        if (raw.tip) add("Nurse's tip", [raw.tip])
-        if (raw.note) add("A nurse's note", [raw.note])
-        if (!sections.length) add("About", [raw.desc || raw.b || raw.i || "A True Reverie Glow discovery."])
-        return { sections }
-      }
-      const glowItems = GLOW_TOPICS.flatMap((T) => {
-        const base = []
-        const pushMany = (arr, group) => (arr || []).forEach((raw, i) => base.push({
-          id: "glow-" + T.key + "-" + group + "-" + (raw.id || i),
-          title: raw.title || raw.name || raw.n || T.name,
-          teaser: raw.desc || raw.b || raw.i || raw.when || (group === "wins" ? "A quick Glow win." : "From " + T.name + " in Glow."),
-          emoji: raw.ic || T.ic || "✨",
-          image: raw.img || null,
-          type: "glow",
-          tags: ["Glow", T.name, group === "guides" ? "Products we love" : group === "wins" ? "Quick win" : group === "learn" ? "Learn" : group].filter(Boolean),
-          detail: glowDetailSections(raw),
-          _bloomCategory: "glow"
-        }))
-        pushMany(T.guides, "guides"); pushMany(T.wins, "wins"); pushMany(T.extra, "extra"); pushMany(T.types, "types"); pushMany(T.learn, "learn")
-        if (T.wardrobe) {
-          pushMany(T.wardrobe.today, "wardrobe"); pushMany(T.wardrobe.ideas, "wardrobe"); pushMany(T.wardrobe.gym, "wardrobe"); pushMany(T.wardrobe.plates, "wardrobe")
-        }
-        return base
-      })
-      const seasonalItems = (SEASONAL_ITEMS || []).map((item) => ({ ...item, tags: [...(item.tags || []), "Seasonal"], _bloomCategory: "seasonal" }))
-      const coreItems = (FOR_YOU_ITEMS || []).map((item) => ({ ...item, _bloomCategory: "foryou" }))
-      const allBloomItems = [...coreItems, ...glowItems, ...seasonalItems]
-      const categoryKey = typeof feedMoodFilter === "string" && feedMoodFilter.indexOf("category:") === 0 ? feedMoodFilter.slice(9) : null
-      const categoryWords = {
-        glow: ["glow","beauty","hair","skin","makeup","perfume","facial","nails","brows","lips","jewelry","wardrobe"],
-        seasonal: ["seasonal","spring","summer","fall","autumn","winter","holiday"],
-        food: ["food","bake","baking","recipe","cook","cooking","drink","coffee","tea"],
-        home: ["home","cozy","house","decor","reset"], outside: ["outside","outdoor","walk","garden","nature","orchard"],
-        make: ["make","craft","diy","bake","recipe","creative"], reset: ["reset","gentle","rest","calm","self-care"], fun: ["fun","outing","date","party","play","try"]
-      }
+      const sourceItems = feedTimeFilter && feedTimeFilter !== "__open__" ? byTimeBucket(feedTimeFilter) : FOR_YOU_ITEMS
       const itemText = (item) => [item.title, item.teaser, item.type, ...(item.tags || [])].filter(Boolean).join(" ").toLowerCase()
-      let sourceItems
-      if (feedTimeFilter && feedTimeFilter !== "__open__") sourceItems = byTimeBucket(feedTimeFilter)
-      else if (categoryKey) {
-        const words = categoryWords[categoryKey] || []
-        sourceItems = allBloomItems.filter((item) => item._bloomCategory === categoryKey || words.some((w) => itemText(item).indexOf(w) >= 0))
-      } else sourceItems = allBloomItems
       const personalized = [...sourceItems].map((item, originalIndex) => {
         const sid = "foryou:" + item.id
         let score = 0
@@ -1271,15 +1214,19 @@ export function renderBloom(ctx) {
         background: active ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface, color: active ? "#fff" : BASE.creamDim,
         border:`1px solid ${active ? "transparent" : BASE.border}` })
       const openCategory = (key) => {
-        setBloomSearchOpen(false); setFeedTimeFilter(null)
-        // Categories filter the one Bloom feed. They never open legacy Glow/Seasonal/pillar screens.
-        setBloomPillar(null); setGlowTopic(null); setGlowItem(null); setGlowSheet(null); setFlourishProject(null); setResetPage(null)
-        setFeedMoodFilter("category:" + key)
-        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
+        setBloomSearchOpen(false); setFeedMoodFilter(null); setFeedTimeFilter(null)
+        if (key === "glow") switchPillar("glow")
+        else if (key === "seasonal") switchPillar("seasonal")
+        else if (key === "reset") switchPillar("reset")
+        else if (key === "flourish") switchPillar("flourish")
+        else if (key === "food") setFeedMoodFilter("cozy")
+        else if (key === "outside") setFeedMoodFilter("outside")
+        else if (key === "home") setFeedMoodFilter("home")
+        else if (key === "fun") setFeedMoodFilter("fun")
       }
       const SEARCH_CATS = [
         ["✨","Glow","glow"],["🍂","Seasonal","seasonal"],["🍳","Food + baking","food"],["🏡","Home","home"],
-        ["🌿","Outside","outside"],["🎨","Make something","make"],["🤍","Gentle reset","reset"],["💃","Things to do","fun"],
+        ["🌿","Outside","outside"],["🎨","Make something","flourish"],["🤍","Gentle reset","reset"],["💃","Things to do","fun"],
       ]
 
       if (bloomSearchOpen) {
@@ -1338,7 +1285,7 @@ export function renderBloom(ctx) {
           </div>
 
           {(feedMoodFilter || feedTimeFilter) && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,fontSize:11.5,color:mut}}>
-            <span>{categoryKey ? ((SEARCH_CATS.find((x) => x[2] === categoryKey) || ["","Bloom"])[1]) : (activeMood ? activeMood.ic+" "+activeMood.label : "")}{(categoryKey || activeMood) && feedTimeFilter ? " · " : ""}{feedTimeFilter || ""}</span>
+            <span>{activeMood ? activeMood.ic+" "+activeMood.label : ""}{activeMood && feedTimeFilter ? " · " : ""}{feedTimeFilter || ""}</span>
             <span onClick={() => {setFeedMoodFilter(null);setFeedTimeFilter(null)}} style={{color:"#C9558E",fontWeight:800,cursor:"pointer"}}>Clear</span>
           </div>}
 
