@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BASE } from '../lib/theme.js'
 
@@ -37,6 +37,8 @@ function CommunityApp({ctx}) {
   const [comment,setComment] = useState('')
   const [commentPost,setCommentPost] = useState(null)
   const [menuPost,setMenuPost] = useState(null)
+  const [media,setMedia] = useState(null)
+  const mediaInputRef = useRef(null)
 
   const interests = useMemo(()=>{
     const raw=[...(setupData?.interests||[]),...(setupData?.goals||[]),...(setupData?.desires||[])].join(' ').toLowerCase()
@@ -54,7 +56,15 @@ function CommunityApp({ctx}) {
   const openProfile=(key)=>setScreen({type:'profile',user:key})
   const openComments=(id)=>{ setComment(''); setCommentPost(id) }
   const addComment=(id)=>{if(!comment.trim())return;setPosts(posts.map(p=>p.id===id?{...p,comments:[...p.comments,{name:firstName||'You',text:comment.trim()}]}:p));setComment('')}
-  const publish=()=>{if(!caption.trim())return;const id='mine-'+Date.now();setPosts([{id,user:'me',source:attachment?{icon:attachment[0],label:attachment[1],type:attachment[1]}:null,caption:caption.trim(),likes:0,comments:[],tags:['personal'],image:'linear-gradient(145deg,#DDB9CB,#A989B7,#7C6B91)',mine:true},...posts]);setCaption('');setAttachment(null);setScreen({type:'feed'})}
+  const chooseMedia=(e)=>{
+    const file=e.target.files?.[0]
+    if(!file)return
+    const reader=new FileReader()
+    reader.onload=()=>setMedia({url:reader.result,type:file.type||'',name:file.name||'Selected media'})
+    reader.readAsDataURL(file)
+    e.target.value=''
+  }
+  const publish=()=>{if(!caption.trim()&&!media)return;const id='mine-'+Date.now();setPosts([{id,user:'me',source:attachment?{icon:attachment[0],label:attachment[1],type:attachment[1]}:null,caption:caption.trim(),likes:0,comments:[],tags:['personal'],image:media?.type?.startsWith('image/')?`url(${media.url}) center/cover no-repeat`:'linear-gradient(145deg,#DDB9CB,#A989B7,#7C6B91)',mediaUrl:media?.url||null,mediaType:media?.type||null,mine:true},...posts]);setCaption('');setAttachment(null);setMedia(null);setScreen({type:'feed'})}
   const personFor=(p)=>p.mine?{name:firstName||'You',handle:'@yourreverie',initial:(firstName||'Y')[0].toUpperCase(),bio:'Building a life that feels like mine.',gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)'}:PEOPLE[p.user]
 
   const Back=({label='Community'})=><div onClick={()=>setScreen({type:'feed'})} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:'pointer',marginBottom:17}}>‹ {label}</div>
@@ -62,16 +72,19 @@ function CommunityApp({ctx}) {
 
   const PostCard=({p,detail=false})=>{const person=personFor(p);const isLike=liked.includes(p.id);return <div style={{background:BASE.surface,border:`1px solid ${BASE.border}`,borderRadius:22,overflow:'hidden',marginBottom:18,boxShadow:'0 8px 24px rgba(66,40,62,.055)'}}>
     <div style={{padding:'14px 15px 12px',display:'flex',alignItems:'center',gap:10}}><div onClick={()=>!p.mine&&openProfile(p.user)} style={{cursor:p.mine?'default':'pointer'}}><Avatar person={person}/></div><div style={{flex:1}}><div style={{fontSize:12.5,fontWeight:800,color:BASE.cream}}>{person.name}</div><div style={{fontSize:10.5,color:BASE.taupe}}>{person.handle}</div></div><IconButton onClick={()=>setMenuPost(p)}>•••</IconButton></div>
-    <div style={{height:detail?310:270,background:p.image,position:'relative'}}><div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(255,255,255,.04),rgba(45,25,42,.08))'}}/><div style={{position:'absolute',left:16,bottom:14,color:'rgba(255,255,255,.86)',fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:13}}>photo placeholder</div></div>
+    <div style={{height:detail?310:270,background:p.image,position:'relative',overflow:'hidden'}}>{p.mediaType?.startsWith('video/')&&p.mediaUrl?<video src={p.mediaUrl} controls playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<><div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(255,255,255,.04),rgba(45,25,42,.08))'}}/>{!p.mediaUrl&&<div style={{position:'absolute',left:16,bottom:14,color:'rgba(255,255,255,.86)',fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:13}}>photo placeholder</div>}</>}</div>
     <div style={{padding:'12px 15px 15px'}}><div style={{display:'flex',alignItems:'center',gap:6}}><IconButton active={isLike} onClick={()=>toggle(setLiked,liked,p.id)}>{isLike?'♥':'♡'}</IconButton><span style={{fontSize:11.5,color:BASE.taupe}}>{p.likes+(isLike?1:0)}</span><IconButton onClick={()=>openComments(p.id)}>💬</IconButton><span style={{fontSize:11.5,color:BASE.taupe}}>{p.comments.length}</span><div style={{flex:1}}/><IconButton active={saved.includes(p.id)} onClick={()=>toggle(setSaved,saved,p.id)}>{saved.includes(p.id)?'♥':'♡'}</IconButton></div>
       <Source source={p.source}/><div style={{fontSize:13,color:BASE.creamDim,lineHeight:1.55,marginTop:10}}>{p.caption}</div>{!detail&&p.comments.length>0&&<div onClick={()=>openComments(p.id)} style={{fontSize:11.5,color:BASE.taupe,marginTop:10,cursor:'pointer'}}>View {p.comments.length===1?'comment':`all ${p.comments.length} comments`}</div>}</div>
   </div>}
 
   if(screen.type==='create') return <div className="fade-in" style={{padding:'10px 18px 0'}}><Back/><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,fontWeight:700,color:BASE.cream}}>Share something from your life</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:14.5,color:BASE.taupe,marginTop:6}}>A little moment, something you tried, or something worth passing on.</div>
-    <div style={{marginTop:22,height:190,borderRadius:20,border:`1px dashed ${BASE.border}`,background:'linear-gradient(145deg,rgba(221,185,203,.28),rgba(169,137,183,.22))',display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',color:BASE.taupe,fontSize:12}}><div><div style={{fontSize:28,marginBottom:7}}>＋</div>Add photo or video</div></div>
+    <input ref={mediaInputRef} type="file" accept="image/*,video/*" onChange={chooseMedia} style={{display:'none'}} />
+    <div onClick={()=>mediaInputRef.current?.click()} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')mediaInputRef.current?.click()}} style={{marginTop:22,height:190,borderRadius:20,border:`1px dashed ${BASE.border}`,background:media?.type?.startsWith('image/')?`url(${media.url}) center/cover no-repeat`:'linear-gradient(145deg,rgba(221,185,203,.28),rgba(169,137,183,.22))',display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',color:media?.type?.startsWith('image/')?'#fff':BASE.taupe,fontSize:12,cursor:'pointer',overflow:'hidden',position:'relative'}}>
+      {media?.type?.startsWith('video/')?<video src={media.url} muted playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={media?.type?.startsWith('image/')?{padding:'8px 12px',borderRadius:999,background:'rgba(44,31,43,.48)',position:'absolute',bottom:12}:{}}><div style={{fontSize:28,marginBottom:7}}>{media?'✓':'＋'}</div>{media?'Tap to change photo or video':'Add photo or video'}</div>}
+    </div>
     <textarea value={caption} onChange={e=>setCaption(e.target.value)} placeholder="What do you want to remember or share?" style={{width:'100%',minHeight:105,boxSizing:'border-box',marginTop:16,borderRadius:17,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,padding:14,fontFamily:'inherit',fontSize:13,resize:'none',outline:'none'}}/>
     <div style={{fontSize:10,fontWeight:800,letterSpacing:1.5,textTransform:'uppercase',color:BASE.taupe,margin:'20px 0 10px'}}>Add what you did · optional</div><div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:5}}>{ATTACHMENTS.map(a=><button key={a[1]} onClick={()=>setAttachment(attachment?.[1]===a[1]?null:a)} style={{whiteSpace:'nowrap',padding:'9px 12px',borderRadius:999,border:`1px solid ${attachment?.[1]===a[1]?'#C97BA8':BASE.border}`,background:attachment?.[1]===a[1]?'rgba(201,123,168,.12)':BASE.surface,color:attachment?.[1]===a[1]?'#A84E7D':BASE.creamDim,fontSize:11,fontWeight:700}}>{a[0]} {a[1]}</button>)}</div>
-    <button onClick={publish} style={{width:'100%',padding:14,borderRadius:999,border:'none',background:caption.trim()?'linear-gradient(135deg,#D86FA6,#A87BD1)':'rgba(180,160,175,.35)',color:'#fff',fontWeight:800,marginTop:24}}>Post</button><div style={{height:60}}/></div>
+    <button onClick={publish} style={{width:'100%',padding:14,borderRadius:999,border:'none',background:(caption.trim()||media)?'linear-gradient(135deg,#D86FA6,#A87BD1)':'rgba(180,160,175,.35)',color:'#fff',fontWeight:800,marginTop:24}}>Post</button><div style={{height:60}}/></div>
 
   const renderCommentsSheet = () => {
     if (!commentPost || typeof document === 'undefined') return null
