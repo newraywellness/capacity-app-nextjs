@@ -12,13 +12,13 @@ import { Sky, Garden } from '../lib/atmosphere.js'
 import { NourishAir, HerbGarden, NOURISH_BG } from '../lib/herbs.js'
 import { BloomAir, BloomAccents, BloomScene, BLOOM_BG } from '../lib/bloomair.js'
 import { CycleAir, CYCLE_BG } from '../lib/cycleair.js'
-import { ProgressAir, PROGRESS_BG } from '../lib/progressair.js'
 import { renderHome } from '../views/home.js'
 import { renderTrain } from '../views/train.js'
 import { renderCycle } from '../views/cycle.js'
 import { renderNourish } from '../views/nourish.js'
 import { renderBloom } from '../views/bloom.js'
-import { renderProgress } from '../views/progress.js'
+import { renderReverie } from '../views/reverie.js'
+import { renderCommunity } from '../views/community.js'
 import { renderMore } from '../views/more.js'
 import { renderRebuild } from '../views/rebuild.js'
 
@@ -99,6 +99,9 @@ export default function App() {
   // Did-This state (Save reuses the existing savedBloom system instead),
   // and a toggle for the non-destructive search placeholder.
   const [feedTimeFilter, setFeedTimeFilter] = useState(null)
+  const [feedMoodFilter, setFeedMoodFilter] = useState(null)
+  const [feedRotation, setFeedRotation] = useState(0)
+  const [bloomFeedLimit, setBloomFeedLimit] = useState(12)
   const [likedFeed, setLikedFeed] = useState([])
   const [doneFeed, setDoneFeed] = useState([])
   const [bloomSearchOpen, setBloomSearchOpen] = useState(false)
@@ -106,7 +109,12 @@ export default function App() {
   // Browse Seasons picker is expanded. Ephemeral UI state, not persisted.
   const [seasonalSeason, setSeasonalSeason] = useState("fall")
   const [seasonalBrowseOpen, setSeasonalBrowseOpen] = useState(false)
-  const [tasteMode, setTasteMode] = useState("saved") // "saved" | "liked" | "did"
+  // My Reverie — the personal home for what she saves, lives, and becomes.
+  const [reverieSection, setReverieSection] = useState("home") // home | saved | history
+  const [reverieEntries, setReverieEntries] = useState([])
+  const [reverieSearch, setReverieSearch] = useState("")
+  const [reverieComposerOpen, setReverieComposerOpen] = useState(false)
+  const [reverieDraft, setReverieDraft] = useState({ title: "", note: "", date: new Date().toISOString().slice(0, 10), photo: null, share: false })
   const [rebuildComingSoon, setRebuildComingSoon] = useState(null) // program id, or null
   // Feel Like Yourself Again — navigation state is ephemeral (fine to reset on
   // reload, same as everywhere else in the app). Actual progress is bundled
@@ -213,6 +221,10 @@ export default function App() {
     try { const rb = localStorage.getItem("nr_rebuild_flya"); if (rb) setRebuildFLYA(JSON.parse(rb)) } catch (e) {}
     try { const rc = localStorage.getItem("nr_rebuild_current"); if (rc) setRebuildCurrentRaw(JSON.parse(rc)) } catch (e) {}
     try { const rs = localStorage.getItem("nr_rebuild_saved"); if (rs) setRebuildSavedRaw(JSON.parse(rs)) } catch (e) {}
+    try { const re = localStorage.getItem("nr_reverie_entries"); if (re) setReverieEntries(JSON.parse(re)) } catch (e) {}
+    try { const df = localStorage.getItem("nr_done_feed"); if (df) setDoneFeed(JSON.parse(df)) } catch (e) {}
+    try { const lf = localStorage.getItem("nr_liked_feed"); if (lf) setLikedFeed(JSON.parse(lf)) } catch (e) {}
+    try { const next = (parseInt(localStorage.getItem("nr_bloom_visit") || "0", 10) + 1) % 997; localStorage.setItem("nr_bloom_visit", String(next)); setFeedRotation(next) } catch (e) {}
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
     try { const n = localStorage.getItem("nr_nutrition"); if (n) setNutrition(JSON.parse(n)) } catch (e) {}
     try { const sb = localStorage.getItem("nr_bloom_saved"); if (sb) setSavedBloom(JSON.parse(sb)) } catch (e) {}
@@ -1010,22 +1022,21 @@ export default function App() {
   })
 
   const renderContent = () => {
-    const ctx = { Chips, Label, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, doneFeed, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, feedTimeFilter, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTasteMode, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tasteMode, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, updateRebuildFLYA, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
-    return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderProgress(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
+    const ctx = { Chips, Label, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, doneFeed, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, updateRebuildFLYA, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
   }
 
   return (
     <><Fonts /><GlobalStyle />
-      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG(envRoot.mode) : (tab === "body" && bodyView === "cycle" ? CYCLE_BG(cycleNow && cycleNow.phase) : (tab === "progress" ? PROGRESS_BG() : BASE.bg)))), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
+      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG("afternoon") : (tab === "body" && bodyView === "cycle" ? CYCLE_BG(cycleNow && cycleNow.phase) : (tab === "reverie" ? "linear-gradient(180deg,#FFF9F7 0%,#FBF1F5 100%)" : (tab === "community" ? "linear-gradient(180deg,#FFF9F7 0%,#F5EEF8 100%)" : BASE.bg))))), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
         {tab === "today" && <Sky mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "today" && <Garden mode={envRoot.mode} />}
         {tab === "body" && bodyView === "nourish" && <NourishAir mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "body" && bodyView === "nourish" && <HerbGarden mode={envRoot.mode} subtle={!!planView || nourishView === "supps" || !!addFoodFor || !!foodPick || !!entryEdit} />}
-        {tab === "bloom" && <BloomAir mode={envRoot.mode} tint={envRoot.tint} />}
-        {tab === "bloom" && !bloomCard && !bloomArticle && !bloomPillar && <BloomAccents mode={envRoot.mode} />}
-        {tab === "bloom" && <BloomScene mode={envRoot.mode} subtle={!!bloomCard || !!bloomArticle || !!bloomPillar || !!glowTopic} />}
+        {tab === "bloom" && <BloomAir mode="afternoon" tint={null} />}
+        {tab === "bloom" && !bloomCard && !bloomArticle && !bloomPillar && <BloomAccents mode="afternoon" />}
+        {tab === "bloom" && <BloomScene mode="afternoon" subtle={!!bloomCard || !!bloomArticle || !!bloomPillar || !!glowTopic} />}
         {tab === "body" && bodyView === "cycle" && <CycleAir phase={cycleNow && cycleNow.phase} />}
-        {tab === "progress" && <ProgressAir />}
         <div style={{ position: "relative", paddingTop: 14 }}>
           {tab === "body" && (
             <div style={{ display: "flex", gap: 8, padding: "6px 18px 0" }}>
@@ -1045,12 +1056,22 @@ export default function App() {
         </div>
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60 }}>
           <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", background: tab === "today" && envRoot.dark ? "rgba(40,28,64,0.92)" : "rgba(255,255,255,0.93)", borderTop: `1px solid ${tab === "today" && envRoot.dark ? "rgba(255,255,255,0.12)" : BASE.border}`, padding: "8px 6px 14px", boxShadow: "0 -6px 24px rgba(60,35,70,0.10)" }}>
-            {[["bloom", "Bloom", "\ud83c\udf38"], ["taste", "Taste", "\ud83e\udd0d"], ["body", "Body", "\ud83d\udcaa"], ["rebuild", "Rebuild", "\ud83c\udf31"], ["progress", "Progress", "\ud83d\udcc8"]].map(([k, lbl, ic]) => {
+            {[["bloom", "Bloom", "\ud83c\udf38"], ["body", "Body", "\ud83d\udcaa"], ["rebuild", "Rebuild", "\ud83c\udf31"], ["reverie", "My Reverie", "\u2661"], ["community", "Community", "✨"]].map(([k, lbl, ic]) => {
               const active = tab === k
               const darkbar = tab === "today" && envRoot.dark
               return (
-                <button key={k} onClick={() => { setBloomCard(null); if (k === "taste") setSavedFilter("All"); if (k === "body") { setBodyView("gym"); setTab("body") } else { setTab(k) } }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
-                  <span style={{ fontSize: 19, display: "block", marginBottom: 2, filter: active ? "none" : "grayscale(35%)" }}>{ic}</span>
+                <button key={k} onClick={() => {
+                  if (k === "bloom" && tab === "bloom") {
+                    setBloomCard(null); setBloomArticle(null); setBloomPillar(null); setBloomSearchOpen(false);
+                    setFeedMoodFilter(null); setFeedTimeFilter(null); setBloomFeedLimit(12); setFeedRotation((n) => n + 1);
+                    if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+                    return;
+                  }
+                  setBloomCard(null);
+                  if (k === "reverie") { setReverieSection("home"); setReverieSearch("") }
+                  if (k === "body") { setBodyView("gym"); setTab("body") } else { setTab(k) }
+                }} style={{ flex: 1, padding: "6px 2px", background: "transparent", border: "none", cursor: "pointer", opacity: active ? 1 : 0.55 }}>
+                  <span style={{ fontSize: k === "community" ? 23 : 19, display: "block", marginBottom: 2, filter: k === "community" ? "none" : (active ? "none" : "grayscale(35%)") }}>{ic}</span>
                   <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: darkbar ? "#F5E9F2" : (active ? "#C9558E" : BASE.taupe) }}>{lbl}</span>
                 </button>
               )
