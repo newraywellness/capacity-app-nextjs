@@ -25,10 +25,9 @@ import { renderRebuild } from '../views/rebuild.js'
 export default function App() {
   // PROTOTYPE-ONLY AUTH BYPASS — remove when rebuilding production auth.
   // This is not a production auth change: Supabase, checkAuth, login/signup/
-  // recovery, and the onboarding wizard are all left fully intact below —
-  // they simply never fire, because `user` and `setupData` are seeded
-  // truthy from the very first render, so every existing gate (`!user`,
-  // `user && !setupData`, `loading`) is satisfied immediately. The existing
+  // recovery remain intact below. Prototype mode bypasses auth by seeding a
+  // user, but intentionally leaves setupData null on a fresh browser so the
+  // onboarding wizard can be previewed and tested. The existing
   // localStorage-loading effect further down is untouched and still runs:
   // if real nr_setup/nr_name data exists, it overwrites these placeholders
   // moments later exactly as it always has.
@@ -61,7 +60,7 @@ export default function App() {
   const [authView, setAuthView] = useState("welcome")
   const [firstName, setFirstName] = useState(PROTOTYPE_MODE ? "friend" : "")
   const [confirmPw, setConfirmPw] = useState("")
-  const [setupData, setSetupData] = useState(PROTOTYPE_MODE ? { goals: [], interest_categories: [], name: "" } : null)
+  const [setupData, setSetupData] = useState(null)
   const [setupStep, setSetupStep] = useState(0)
   const [introStep, setIntroStep] = useState(0)
   const [draftSetup, setDraftSetup] = useState({ goals: [], interest_categories: [] })
