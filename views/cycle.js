@@ -243,7 +243,8 @@ export function renderCycle(ctx) {
             const periodDrops = lg.period === 'Heavy' ? 3 : lg.period === 'Medium' ? 2 : lg.period === 'Light' ? 1 : 0
             const bcTaken = lg.bc === 'Taken'
             const spottingColor = SPOTTING[lg.spotting] || null
-            return <div key={i} style={{ aspectRatio: '1', borderRadius: 9, background: displayPhase ? displayPhase.soft : 'transparent', border: isToday ? '2px solid ' + displayPhase.color : '1px solid transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+            const isFuture = iso > todayISOstr
+            return <div key={i} onClick={() => { if (isFuture) return; setCycLogDate(iso); setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod || ''); setEditCycle(true) }} style={{ aspectRatio: '1', borderRadius: 9, background: displayPhase ? displayPhase.soft : 'transparent', border: isToday ? '2px solid ' + displayPhase.color : '1px solid transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', cursor: isFuture ? 'default' : 'pointer', opacity: isFuture ? .62 : 1 }}>
               <div style={{ position: 'absolute', top: 3, left: 3, right: 3, height: 8, display: 'flex', alignItems: 'center', gap: 2, overflow: 'hidden' }}>
                 {capacity && <span style={{ width: 5, height: 5, borderRadius: '50%', background: capacity.color, flexShrink: 0 }} />}
                 {hasSex && <span style={{ fontSize: 6.5, color: '#E3799F', lineHeight: 1 }}>♥</span>}
@@ -270,9 +271,18 @@ export function renderCycle(ctx) {
         </div>
         <div style={{ fontSize: 10.5, color: BASE.taupe, textAlign: 'center', lineHeight: 1.5, marginBottom: 12 }}>The fertile window is shown as a full predicted week. The small lower-right dot marks estimated ovulation day.</div>
 
-        <button onClick={() => { const iso = new Date().toISOString().slice(0,10); setLastPeriod(iso); try { window.localStorage.setItem('cap_last_period', iso) } catch(e){}; if(user&&db){try{db.from('profiles').update({setup:{...(setupData||{}),lastPeriod:iso}}).eq('id',user.id).then(()=>{})}catch(e){}}; setPeriodDismissed(true) }} style={{ width:'100%',padding:10,borderRadius:11,border:'1px dashed rgba(155,107,195,.4)',background:'rgba(155,107,195,.06)',color:'#9B6BC3',fontWeight:700,marginBottom:14 }}>🌙 My period started today</button>
+        <button onClick={() => {
+          const iso = new Date().toISOString().slice(0,10)
+          setLastPeriod(iso)
+          setTmpStart(iso)
+          saveCycleLog(iso, { period: ((cycleLogs || {})[iso] || {}).period || 'Medium' })
+          try { window.localStorage.setItem('cap_last_period', iso) } catch(e){}
+          if(user&&db){try{db.from('profiles').update({setup:{...(setupData||{}),lastPeriod:iso,cycleLogs:{...(cycleLogs||{}),[iso]:{...((cycleLogs||{})[iso]||{}),period:((cycleLogs||{})[iso]||{}).period||'Medium'}}}).eq('id',user.id).then(()=>{})}catch(e){}}
+          setPeriodDismissed(true)
+          setCycLogDate(iso)
+        }} style={{ width:'100%',padding:10,borderRadius:11,border:'1px dashed rgba(155,107,195,.4)',background:'rgba(155,107,195,.06)',color:'#9B6BC3',fontWeight:700,marginBottom:14 }}>🩸 My period started today</button>
 
-        {periodDue && <div style={{ borderRadius:16,background:'rgba(155,107,195,.1)',border:'1px solid rgba(155,107,195,.35)',padding:'16px 18px',marginBottom:14 }}><div style={{fontSize:14,fontWeight:700,color:BASE.cream}}>Did your period start today?</div><div style={{display:'flex',gap:10,marginTop:12}}><button onClick={()=>{const iso=new Date().toISOString().slice(0,10);setLastPeriod(iso);setPeriodDismissed(true)}} style={{flex:1,padding:12,borderRadius:12,border:'none',background:'linear-gradient(135deg,#9B6BC3,#5E7FB0)',color:'#fff',fontWeight:700}}>Yes, today</button><button onClick={()=>setPeriodDismissed(true)} style={{flex:1,padding:12,borderRadius:12,border:'1px solid '+BASE.border,background:'transparent',color:BASE.creamDim,fontWeight:700}}>Not yet</button></div></div>}
+        {periodDue && <div style={{ borderRadius:16,background:'rgba(155,107,195,.1)',border:'1px solid rgba(155,107,195,.35)',padding:'16px 18px',marginBottom:14 }}><div style={{fontSize:14,fontWeight:700,color:BASE.cream}}>Did your period start today?</div><div style={{display:'flex',gap:10,marginTop:12}}><button onClick={()=>{const iso=new Date().toISOString().slice(0,10);setLastPeriod(iso);setTmpStart(iso);saveCycleLog(iso,{period:((cycleLogs||{})[iso]||{}).period||'Medium'});try{window.localStorage.setItem('cap_last_period',iso)}catch(e){};setPeriodDismissed(true);setCycLogDate(iso)}} style={{flex:1,padding:12,borderRadius:12,border:'none',background:'linear-gradient(135deg,#9B6BC3,#5E7FB0)',color:'#fff',fontWeight:700}}>Yes, today</button><button onClick={()=>setPeriodDismissed(true)} style={{flex:1,padding:12,borderRadius:12,border:'1px solid '+BASE.border,background:'transparent',color:BASE.creamDim,fontWeight:700}}>Not yet</button></div></div>}
 
         <div style={{ borderRadius:18,background:currentPhase.soft,border:'1px solid '+currentPhase.color,padding:'17px 18px',marginBottom:14 }}>
           <div style={{ fontSize:10.5,fontWeight:700,letterSpacing:1,color:currentPhase.color,textTransform:'uppercase' }}>Today · Cycle Day {cycleNow.day}</div>
