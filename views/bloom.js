@@ -9,7 +9,7 @@ import { BASE, ENV, dayIndex } from '../lib/theme.js'
 import GlowDiscovery from './GlowDiscovery.js'
 
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom } = ctx
+  const { bloomArticle, bloomCard, bloomFeedLimit, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomFeedLimit, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom } = ctx
 
     const Heart = ({ id, overlay }) => {
       const saved = isSavedBloom(id)
@@ -1288,7 +1288,7 @@ export function renderBloom(ctx) {
         background: active ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface, color: active ? "#fff" : BASE.creamDim,
         border:`1px solid ${active ? "transparent" : BASE.border}` })
       const openCategory = (key) => {
-        setBloomSearchOpen(false); setFeedTimeFilter(null); setBloomPillar(null)
+        setBloomSearchOpen(false); setFeedTimeFilter(null); setBloomFeedLimit(12); setBloomPillar(null)
         const map = { glow:"__glow__", seasonal:"__seasonal__", food:"__food__", home:"__home__", outside:"__outside__", make:"__make__", reset:"__reset__", fun:"__fun__" }
         setFeedMoodFilter(map[key] || null)
         if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
@@ -1360,7 +1360,7 @@ export function renderBloom(ctx) {
 
           <div style={{ ...LABEL, color:mut, marginTop:24, marginBottom:13 }}>{activeCategory ? activeCategory.label : "For you"}</div>
           <div>
-            {visibleItems.slice(0, 2).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
+            {visibleItems.slice(0, Math.min(2, bloomFeedLimit || 12)).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
             {!feedTimeFilter && !feedMoodFilter && feat && (
               <div style={{ marginBottom: 22 }}>
                 <div style={{ ...LABEL, color: mut, textAlign: "center", marginBottom: 14 }}>Trending</div>
@@ -1373,8 +1373,14 @@ export function renderBloom(ctx) {
                 </div>
               </div>
             )}
-            {visibleItems.slice(2).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
-            {visibleItems.length === 0 && <div style={{ textAlign:"center",padding:"30px 10px",fontSize:12.5,color:mut,fontStyle:"italic" }}>Nothing at that length just yet — try another time.</div>}
+            {visibleItems.slice(2, bloomFeedLimit || 12).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
+            {visibleItems.length > (bloomFeedLimit || 12) && (
+              <button onClick={() => setBloomFeedLimit((n) => Math.min((n || 12) + 12, visibleItems.length))}
+                style={{ width:"100%", border:`1px solid ${BASE.border}`, background:BASE.surface, color:"#C9558E", borderRadius:18, padding:"14px 16px", fontSize:12.5, fontWeight:800, cursor:"pointer", margin:"2px 0 18px" }}>
+                Show more discoveries
+              </button>
+            )}
+            {visibleItems.length === 0 && <div style={{ textAlign:"center",padding:"30px 10px",fontSize:12.5,color:mut,fontStyle:"italic" }}>Nothing here just yet — try another filter.</div>}
           </div>
 
           <div style={{ height: 24 }} />
