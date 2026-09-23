@@ -5,10 +5,6 @@ export function renderMore(ctx) {
     tab,
     moreView,
     setMoreView,
-    setTab,
-    setBodyView,
-    setEditCycle,
-    firstName,
     handleLogout,
   } = ctx
 
@@ -90,6 +86,24 @@ export function renderMore(ctx) {
     </div>
   )
 
+  if (moreView === "profile") {
+    return (
+      <Shell>
+        <Back />
+        <DetailTitle
+          title="Profile & account"
+          sub="Your personal account details."
+        />
+        <InfoCard>
+          <div style={{ fontWeight: 800, color: ink, marginBottom: 10 }}>Account details</div>
+          <div style={{ color: muted }}>
+            Name, email, password, and account management will live here once production accounts are connected.
+          </div>
+        </InfoCard>
+      </Shell>
+    )
+  }
+
   if (moreView === "plus") {
     return (
       <Shell>
@@ -125,6 +139,26 @@ export function renderMore(ctx) {
             unlocks, manage access, and restore a subscription.
           </p>
         </div>
+      </Shell>
+    )
+  }
+
+  if (moreView === "about") {
+    return (
+      <Shell>
+        <Back />
+        <DetailTitle
+          title="About True Reverie"
+          sub="Dream Her. Become Her."
+        />
+        <InfoCard>
+          <p style={{ margin: 0 }}>
+            True Reverie is a place to discover what you love, understand what you need, and make more room for a life that feels like yours.
+          </p>
+          <p style={{ margin: "14px 0 0" }}>
+            It brings inspiration, body support, guided Rebuilds, personal memories, and community together without turning wellness into another thing to perfect.
+          </p>
+        </InfoCard>
       </Shell>
     )
   }
@@ -241,52 +275,31 @@ export function renderMore(ctx) {
         </p>
       </div>
 
-      <div
-        style={{
-          padding: "18px 19px",
-          borderRadius: 22,
-          background: "linear-gradient(135deg,rgba(233,132,180,0.17),rgba(168,123,209,0.17))",
-          border: "1px solid rgba(201,85,142,0.12)",
-        }}
-      >
-        <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 1.8, color: pink, marginBottom: 5 }}>
-          TRUE REVERIE
-        </div>
-        <div
-          style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 24,
-            fontWeight: 600,
-            color: ink,
-          }}
-        >
-          {firstName && firstName !== "friend" ? firstName : "Your Reverie"}
-        </div>
-      </div>
-
-      <Group label="MEMBERSHIP">
+      <Group label="ACCOUNT">
+        <Row
+          icon="♡"
+          title="Profile & account"
+          sub="Name, email, and account details."
+          onClick={() => setMoreView("profile")}
+        />
         <Row
           icon="✦"
           title="True Reverie+"
-          sub="Membership, premium experiences, and access."
+          sub="Membership and subscription."
           onClick={() => setMoreView("plus")}
         />
       </Group>
 
-      <Group label="BODY">
+      <Group label="TRUE REVERIE">
         <Row
-          icon="☾"
-          title="Cycle settings"
-          sub="Cycle length and period tracking settings."
-          onClick={() => {
-            setBodyView("cycle")
-            setTab("body")
-            setEditCycle(true)
-          }}
+          icon="✿"
+          title="About True Reverie"
+          sub="The idea, philosophy, and heart behind the app."
+          onClick={() => setMoreView("about")}
         />
       </Group>
 
-      <Group label="SUPPORT">
+      <Group label="HELP & LEGAL">
         <Row
           icon="♡"
           title="Contact & feedback"
@@ -300,9 +313,19 @@ export function renderMore(ctx) {
         />
       </Group>
 
-      <Group label="ACCOUNT">
-        <Row icon="↪" title="Log Out" danger onClick={handleLogout} />
-      </Group>
+      <div style={{ marginTop: 22 }}>
+        <div
+          style={{
+            overflow: "hidden",
+            borderRadius: 20,
+            background: card,
+            border: `1px solid ${border}`,
+            boxShadow: "0 8px 28px rgba(84,52,88,0.05)",
+          }}
+        >
+          <Row icon="↪" title="Log Out" danger onClick={handleLogout} />
+        </div>
+      </div>
 
       <div
         style={{
