@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { BLOOM_INVITATIONS, BLOOM_PILLARS, BLOOM_SECTIONS, BLOOM_TRENDING } from '../data/bloom.js'
 import { FOR_YOU_ITEMS, TIME_FILTERS, byTimeBucket } from '../data/foryou.js'
 import { SEASONS, SEASONAL_ITEMS, bySeason, SEASON_LABEL } from '../data/seasonal.js'
@@ -7,6 +8,28 @@ import { RESET_DAY, RESET_NIGHT, RESET_SONGS, RESET_EXPLORE } from '../data/rese
 import { F_TIMES, F_IMG, F_BY_ID, byTag, seasonalSet, timeFeed, relatedByMood } from '../data/flourish.js'
 import { BASE, ENV, dayIndex } from '../lib/theme.js'
 import GlowDiscovery from './GlowDiscovery.js'
+
+function BloomInfiniteLoader({ hasMore, loadMore }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const node = ref.current
+    if (!node || !hasMore || typeof IntersectionObserver === "undefined") return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMore()
+      },
+      { rootMargin: "500px 0px" }
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMore, loadMore])
+
+  if (!hasMore) return null
+  return <div ref={ref} aria-hidden="true" style={{ height: 1 }} />
+}
 
 export function renderBloom(ctx) {
   const { bloomArticle, bloomCard, bloomFeedLimit, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomFeedLimit, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom } = ctx
@@ -87,7 +110,6 @@ export function renderBloom(ctx) {
     )
     const ActionRow = ({ item, prefix }) => {
       const sid = (prefix || "foryou") + ":" + item.id
-      const liked = likedFeed.indexOf(item.id) >= 0
       const saved = isSavedBloom(sid)
       const done = doneFeed.indexOf(item.id) >= 0
       const Btn = ({ on, onClick, onIcon, offIcon, label }) => (
@@ -98,7 +120,6 @@ export function renderBloom(ctx) {
       )
       return (
         <div style={{ display: "flex", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BASE.border}` }}>
-          <Btn on={liked} onClick={() => { const next = liked ? likedFeed.filter((x) => x !== item.id) : [...likedFeed, item.id]; setLikedFeed(next); try { localStorage.setItem("nr_liked_feed", JSON.stringify(next)) } catch (err) {} }} onIcon={"\u2605"} offIcon={"\u2606"} label="Like" />
           <Btn on={saved} onClick={() => toggleSaveBloom(sid)} onIcon={"\u2665"} offIcon={"\u2661"} label="Save" />
           <Btn on={done} onClick={() => {
             const entryId = `bloom-done:${sid}`
@@ -1269,17 +1290,26 @@ export function renderBloom(ctx) {
       const personalized = [...sourceItems].map((item, originalIndex) => {
         const sid = (item._source || "foryou") + ":" + item.id
         let score = 0
-        if (likedFeed.indexOf(item.id) >= 0) score += 4
         if (isSavedBloom(sid)) score += 3
         if (doneFeed.indexOf(item.id) >= 0) score -= 1 // gently favor something new next time
         if (activeMood) {
           const txt = itemText(item)
           score += activeMood.words.reduce((n, w) => n + (txt.indexOf(w) >= 0 ? 5 : 0), 0)
         }
-        const rotationRank = sourceItems.length ? (originalIndex - (feedRotation % sourceItems.length) + sourceItems.length) % sourceItems.length : 0
-        return { item, score, rotationRank }
-      }).sort((a,b) => (b.score - a.score) || (a.rotationRank - b.rotationRank)).map((x) => x.item)
-      const visibleItems = personalized
+
+        // Stable for this visit, genuinely different on the next refresh.
+        // This avoids the old "rotate by one" behavior that kept the same
+        // discovery (Cookies) effectively pinned near the top.
+        const seedText = `${feedRotation || 0}:${item._source || "foryou"}:${item.id}`
+        let shuffleRank = 2166136261
+        for (let i = 0; i < seedText.length; i += 1) {
+          shuffleRank ^= seedText.charCodeAt(i)
+          shuffleRank = Math.imul(shuffleRank, 16777619)
+        }
+        shuffleRank >>>= 0
+        return { item, score, shuffleRank, originalIndex }
+      }).sort((a,b) => (b.score - a.score) || (a.shuffleRank - b.shuffleRank) || (a.originalIndex - b.originalIndex)).map((x) => x.item)
+      const visibleItems = feedRotation == null ? [] : personalized
 
       const ChipRail = ({ children }) => (
         <div style={{ display:"flex", gap:8, overflowX:"auto", overflowY:"hidden", WebkitOverflowScrolling:"touch", scrollbarWidth:"none", padding:"2px 2px 7px", marginRight:-24 }}>{children}</div>
@@ -1374,13 +1404,11 @@ export function renderBloom(ctx) {
               </div>
             )}
             {visibleItems.slice(2, bloomFeedLimit || 12).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
-            {visibleItems.length > (bloomFeedLimit || 12) && (
-              <button onClick={() => setBloomFeedLimit((n) => Math.min((n || 12) + 12, visibleItems.length))}
-                style={{ width:"100%", border:`1px solid ${BASE.border}`, background:BASE.surface, color:"#C9558E", borderRadius:18, padding:"14px 16px", fontSize:12.5, fontWeight:800, cursor:"pointer", margin:"2px 0 18px" }}>
-                Show more discoveries
-              </button>
-            )}
-            {visibleItems.length === 0 && <div style={{ textAlign:"center",padding:"30px 10px",fontSize:12.5,color:mut,fontStyle:"italic" }}>Nothing here just yet — try another filter.</div>}
+            <BloomInfiniteLoader
+              hasMore={visibleItems.length > (bloomFeedLimit || 12)}
+              loadMore={() => setBloomFeedLimit((n) => Math.min((n || 12) + 12, visibleItems.length))}
+            />
+            {feedRotation != null && visibleItems.length === 0 && <div style={{ textAlign:"center",padding:"30px 10px",fontSize:12.5,color:mut,fontStyle:"italic" }}>Nothing here just yet — try another filter.</div>}
           </div>
 
           <div style={{ height: 24 }} />
