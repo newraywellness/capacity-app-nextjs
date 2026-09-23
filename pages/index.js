@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Head from 'next/head'
 import { QUOTES, SHARE_LEVELS } from '../data/checkin.js'
-import { GOALS, INTERESTS } from '../data/onboarding.js'
+import { GOALS, INTERESTS, EXPERIENCES, DESIRES, CAPACITY_FACTORS } from '../data/onboarding.js'
 import { PHASE_ORDER, computeCycle } from '../data/cycle.js'
 import { STARTER_FOODS, gramsFor, mealAsFood, r1 } from '../data/nourish.js'
 import { WO_TYPES } from '../data/train.js'
@@ -25,9 +25,10 @@ import { renderRebuild } from '../views/rebuild.js'
 export default function App() {
   // PROTOTYPE-ONLY AUTH BYPASS — remove when rebuilding production auth.
   // This is not a production auth change: Supabase, checkAuth, login/signup/
-  // recovery remain intact below. Prototype mode bypasses auth by seeding a
-  // user, but intentionally leaves setupData null on a fresh browser so the
-  // onboarding wizard can be previewed and tested. The existing
+  // recovery, and the onboarding wizard are all left fully intact below —
+  // they simply never fire, because `user` and `setupData` are seeded
+  // truthy from the very first render, so every existing gate (`!user`,
+  // `user && !setupData`, `loading`) is satisfied immediately. The existing
   // localStorage-loading effect further down is untouched and still runs:
   // if real nr_setup/nr_name data exists, it overwrites these placeholders
   // moments later exactly as it always has.
@@ -60,10 +61,10 @@ export default function App() {
   const [authView, setAuthView] = useState("welcome")
   const [firstName, setFirstName] = useState(PROTOTYPE_MODE ? "friend" : "")
   const [confirmPw, setConfirmPw] = useState("")
-  const [setupData, setSetupData] = useState(null)
+  const [setupData, setSetupData] = useState(PROTOTYPE_MODE ? { goals: [], interest_categories: [], experience_preferences: [], desired_feelings: [], capacity_factors: [], name: "" } : null)
   const [setupStep, setSetupStep] = useState(0)
   const [introStep, setIntroStep] = useState(0)
-  const [draftSetup, setDraftSetup] = useState({ goals: [], interest_categories: [] })
+  const [draftSetup, setDraftSetup] = useState({ goals: [], interest_categories: [], experience_preferences: [], desired_feelings: [], capacity_factors: [] })
   const [recovery, setRecovery] = useState(false)
   const [authMsg, setAuthMsg] = useState("")
   const [newPass, setNewPass] = useState("")
@@ -99,7 +100,7 @@ export default function App() {
   // and a toggle for the non-destructive search placeholder.
   const [feedTimeFilter, setFeedTimeFilter] = useState(null)
   const [feedMoodFilter, setFeedMoodFilter] = useState(null)
-  const [feedRotation, setFeedRotation] = useState(0)
+  const [feedRotation, setFeedRotation] = useState(null)
   const [bloomFeedLimit, setBloomFeedLimit] = useState(12)
   const [likedFeed, setLikedFeed] = useState([])
   const [doneFeed, setDoneFeed] = useState([])
@@ -123,7 +124,7 @@ export default function App() {
   const [rebuildCapPick, setRebuildCapPick] = useState(null) // manual capacity override for the open experience
   const [rebuildFLYA, setRebuildFLYA] = useState({ started: false, currentExp: 1, completed: [], log: {} })
   // Rebuild discovery shell — separate from individual program content/progress.
-  const [rebuildSection, setRebuildSection] = useState("rebuild") // rebuild | feel-better | rituals
+  const [rebuildSection, setRebuildSection] = useState("rebuild") // rebuild | rituals | saved
   const [rebuildCurrent, setRebuildCurrentRaw] = useState([])
   const [rebuildSaved, setRebuildSavedRaw] = useState([])
   const [rebuildStartWarning, setRebuildStartWarning] = useState(null)
@@ -223,7 +224,15 @@ export default function App() {
     try { const re = localStorage.getItem("nr_reverie_entries"); if (re) setReverieEntries(JSON.parse(re)) } catch (e) {}
     try { const df = localStorage.getItem("nr_done_feed"); if (df) setDoneFeed(JSON.parse(df)) } catch (e) {}
     try { const lf = localStorage.getItem("nr_liked_feed"); if (lf) setLikedFeed(JSON.parse(lf)) } catch (e) {}
-    try { const next = (parseInt(localStorage.getItem("nr_bloom_visit") || "0", 10) + 1) % 997; localStorage.setItem("nr_bloom_visit", String(next)); setFeedRotation(next) } catch (e) {}
+    try {
+      const previous = parseInt(localStorage.getItem("nr_bloom_visit") || "0", 10)
+      let next = (Date.now() + Math.floor(Math.random() * 1000000)) >>> 0
+      if (next === previous) next = (next + 1) >>> 0
+      localStorage.setItem("nr_bloom_visit", String(next))
+      setFeedRotation(next)
+    } catch (e) {
+      setFeedRotation(Date.now() >>> 0)
+    }
     try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
     try { const n = localStorage.getItem("nr_nutrition"); if (n) setNutrition(JSON.parse(n)) } catch (e) {}
     try { const sb = localStorage.getItem("nr_bloom_saved"); if (sb) setSavedBloom(JSON.parse(sb)) } catch (e) {}
@@ -837,77 +846,61 @@ export default function App() {
   if (user && !setupData) {
     const envS = ENV(new Date().getHours(), null)
     const steps = [
-      { type: "welcome" },
-      { key: "goals", type: "q", q: "What would you love more of right now?", sub: "Choose up to 3.", opts: GOALS, max: 3 },
-      { key: "interest_categories", type: "q", q: "What sounds like you?", sub: "Choose anything you're drawn to.", opts: INTERESTS },
+      { key: "goals", type: "q", q: "What sounds most like you right now?", sub: "Choose any that fit.", opts: GOALS },
+      { key: "interest_categories", type: "q", q: "What are you naturally drawn to?", sub: "Pick everything that sounds fun.", opts: INTERESTS },
+      { key: "experience_preferences", type: "q", q: "What kind of experiences do you enjoy?", opts: EXPERIENCES },
+      { key: "desired_feelings", type: "q", q: "What do you want more of?", opts: DESIRES },
+      { type: "capacityIntro" },
+      { key: "capacity_factors", type: "q", q: "What tends to affect your Capacity most?", opts: CAPACITY_FACTORS },
       { type: "final" },
     ]
-    const st = steps[setupStep] || steps[0]
-    const val = st.key ? (draftSetup[st.key] || []) : []
-    const pick = (o) => {
-      if (!st.key) return
-      if (o === "Show me everything") {
-        setDraftSetup({ ...draftSetup, [st.key]: [o] })
-        return
-      }
-      const withoutAll = val.filter((x) => x !== "Show me everything")
-      if (withoutAll.includes(o)) {
-        setDraftSetup({ ...draftSetup, [st.key]: withoutAll.filter((x) => x !== o) })
-        return
-      }
-      if (st.max && withoutAll.length >= st.max) return
-      setDraftSetup({ ...draftSetup, [st.key]: [...withoutAll, o] })
-    }
+    const st = steps[setupStep]
+    const val = st.key ? draftSetup[st.key] : null
+    const pick = (o) => setDraftSetup({ ...draftSetup, [st.key]: val.includes(o) ? val.filter((x) => x !== o) : [...val, o] })
     const canNext = st.type === "q" ? val.length > 0 : true
     const finish = () => {
-      const data = { goals: draftSetup.goals || [], interest_categories: draftSetup.interest_categories || [], name: firstName }
+      const data = { ...draftSetup, name: firstName }
       setSetupData(data)
       try { localStorage.setItem("nr_setup", JSON.stringify(data)); localStorage.setItem("nr_name", firstName) } catch (e) {}
-      try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: data, first_name: firstName }).eq("id", user.id).then(() => {}) } catch (e) {}
+      try { db.from("profiles").update({ setup: data, first_name: firstName }).eq("id", user.id).then(() => {}) } catch (e) {}
     }
     const advance = () => (setupStep < steps.length - 1 ? setSetupStep(setupStep + 1) : finish())
-    const ink = envS.dark ? "#FFF6EC" : "#3D2545"
-    const muted = envS.dark ? "rgba(255,246,236,0.72)" : "#8E6C88"
     return (
       <><Fonts /><GlobalStyle />
-        <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "34px 26px", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", width: 260, height: 260, borderRadius: "50%", background: "radial-gradient(circle,rgba(233,132,180,0.16),rgba(168,123,209,0.06) 58%,transparent 72%)", top: -75, right: -85, pointerEvents: "none" }} />
-          <div className="fade-in" key={setupStep} style={{ position: "relative" }}>
-            {st.type === "welcome" && (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 53, color: ink, marginBottom: 4 }}>True Reverie</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: muted, marginBottom: 30 }}>Dream Her. Become Her.</div>
-                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 29, color: ink, lineHeight: 1.18, marginBottom: 14 }}>More of a life that feels like yours.</h1>
-                <p style={{ fontSize: 15, color: envS.dark ? "rgba(255,246,236,0.86)" : "#5A4458", lineHeight: 1.65, maxWidth: 340, margin: "0 auto" }}>Discover what makes life feel good, find support for the life you're actually living, and make more room for the things you love.</p>
-              </div>
-            )}
+        <div style={{ background: envS.bg, minHeight: "100vh", maxWidth: 440, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 26px" }}>
+          <div className="fade-in" key={setupStep}>
             {st.type === "q" && (
               <>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.3, color: "#C9558E", marginBottom: 9 }}>MAKE IT YOURS {"·"} {setupStep} OF 2</div>
-                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: ink, marginBottom: 6, lineHeight: 1.2 }}>{st.q}</h2>
-                <div style={{ fontSize: 13.5, color: muted, fontStyle: "italic", marginBottom: 20 }}>{st.sub}</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
-                  {st.opts.map((o) => {
-                    const on = val.includes(o)
-                    const blocked = !on && st.max && val.length >= st.max
-                    return <button key={o} onClick={() => pick(o)} style={{ padding: "11px 14px", borderRadius: 999, cursor: blocked ? "default" : "pointer", background: on ? "linear-gradient(135deg,rgba(233,132,180,0.95),rgba(168,123,209,0.95))" : "rgba(255,255,255,0.76)", color: on ? "#FFFFFF" : "#4A3050", border: `1px solid ${on ? "transparent" : "rgba(255,255,255,0.92)"}`, fontSize: 13.5, fontWeight: 600, opacity: blocked ? 0.5 : 1 }}>{o}</button>
-                  })}
-                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: "#C9558E", marginBottom: 8 }}>TELL US ABOUT YOU {"·"} {setupStep + 1} OF {steps.length}</div>
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 26, color: envS.dark ? "#FFF6EC" : "#3D2545", marginBottom: st.sub ? 6 : 20, lineHeight: 1.25 }}>{st.q}</h2>
+                {st.sub && <div style={{ fontSize: 13.5, color: envS.dark ? "rgba(255,246,236,0.75)" : "#8E6C88", fontStyle: "italic", marginBottom: 18 }}>{st.sub}</div>}
+                {st.opts.map((o) => {
+                  const on = val.includes(o)
+                  return (
+                    <div key={o} onClick={() => pick(o)} style={{ padding: "15px 17px", borderRadius: 14, marginBottom: 9, cursor: "pointer", background: on ? "linear-gradient(135deg,rgba(233,132,180,0.9),rgba(168,123,209,0.9))" : "rgba(255,255,255,0.75)", color: on ? "#FFFFFF" : "#4A3050", border: `1px solid ${on ? "transparent" : "rgba(255,255,255,0.9)"}`, fontSize: 14.5, fontWeight: 600 }}>{o}</div>
+                  )
+                })}
+              </>
+            )}
+            {st.type === "capacityIntro" && (
+              <>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.2, marginBottom: 18 }}>True Reverie adapts to the life you actually have.</h1>
+                <p style={{ fontSize: 15, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.65, marginBottom: 8 }}>Some days you have plenty to give. Some days you don't. Capacity helps True Reverie adjust what it suggests without treating a hard day like a failed one.</p>
               </>
             )}
             {st.type === "final" && (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "'Pinyon Script', cursive", fontSize: 46, color: ink, marginBottom: 10 }}>Your Reverie is ready.</div>
-                <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 19, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.5, margin: "0 auto 18px", maxWidth: 340 }}>Start with whatever sounds good today.</p>
-                <p style={{ fontSize: 13.5, color: muted, lineHeight: 1.6, margin: "0 auto", maxWidth: 340 }}>True Reverie will keep learning what you love as you save, try, and explore.</p>
-              </div>
+              <>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.2, marginBottom: 18 }}>Your True Reverie starts here.</h1>
+                <p style={{ fontSize: 15, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.65, marginBottom: 8 }}>We'll start with what you told us — then keep learning from what you save, love, skip, and actually do.</p>
+              </>
             )}
-            <div style={{ display: "flex", gap: 10, marginTop: st.type === "q" ? 28 : 34 }}>
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               {setupStep > 0 && <button onClick={() => setSetupStep(setupStep - 1)} style={{ flex: 1, padding: 14, background: "rgba(255,255,255,0.6)", color: "#4A3050", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 14, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Back</button>}
-              <button disabled={!canNext} onClick={advance} style={{ flex: 2, padding: 15, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: canNext ? "pointer" : "default", fontWeight: 700, fontSize: 14.5, opacity: canNext ? 1 : 0.45, boxShadow: canNext ? "0 10px 26px rgba(168,123,209,0.25)" : "none" }}>
-                {st.type === "welcome" ? "Make it mine" : st.type === "final" ? "Enter True Reverie" : "Continue"}
+              <button disabled={!canNext} onClick={advance} style={{ flex: 2, padding: 14, background: "linear-gradient(135deg,#E984B4,#A87BD1)", color: "#FFFFFF", border: "none", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14, opacity: canNext ? 1 : 0.45 }}>
+                {st.type === "final" ? "Enter True Reverie" : "Continue"}
               </button>
             </div>
+            {st.type === "q" && <div onClick={finish} style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: envS.dark ? "rgba(255,246,236,0.6)" : "#8E6C88", cursor: "pointer" }}>Skip for now</div>}
           </div>
         </div>
       </>
@@ -1078,7 +1071,7 @@ export default function App() {
                 <button key={k} onClick={() => {
                   if (k === "bloom" && tab === "bloom") {
                     setBloomCard(null); setBloomArticle(null); setBloomPillar(null); setBloomSearchOpen(false);
-                    setFeedMoodFilter(null); setFeedTimeFilter(null); setBloomFeedLimit(12); setFeedRotation((n) => n + 1);
+                    setFeedMoodFilter(null); setFeedTimeFilter(null); setBloomFeedLimit(12); setFeedRotation((Date.now() + Math.floor(Math.random() * 1000000)) >>> 0);
                     if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
                     return;
                   }
