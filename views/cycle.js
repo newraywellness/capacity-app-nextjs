@@ -11,6 +11,12 @@ const CAPACITY_META = {
 
 const BC_DOT = '#325B8C'
 const SPOTTING = { 'Brown spotting': '#8A5A44', 'Red spotting': '#C44755' }
+const localDateISO = (date = new Date()) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 const predictedOvulationDay = (len) => Math.max(10, Number(len || 28) - 14)
 const fertileWindowFor = (len) => {
   const ov = predictedOvulationDay(len)
@@ -27,7 +33,7 @@ export function renderCycle(ctx) {
   } = ctx
 
   if (tab === 'body' && bodyView === 'cycle' && editCycle) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDateISO()
     const d = cycLogDate || today
     const log = (cycleLogs && cycleLogs[d]) || {}
     const set = (k, v) => saveCycleLog(d, { [k]: v })
@@ -180,6 +186,13 @@ export function renderCycle(ctx) {
     const currentPhase = cycleNow ? CYCLE_PHASES[cycleNow.phase] : null
     const trackFrom = lastPeriod ? new Date(lastPeriod + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null
     const periodDue = cycleNow && cycleNow.day >= cycleNow.length - 1 && !periodDismissed
+    const currentPeriodEstablished = (() => {
+      if (!lastPeriod) return false
+      const start = new Date(lastPeriod + 'T00:00:00')
+      const today = new Date(todayISOstr + 'T00:00:00')
+      const daysSinceStart = Math.floor((today - start) / 86400000)
+      return daysSinceStart >= 0 && daysSinceStart <= 10
+    })()
     const legacyCapByDate = {}
     ;(history || []).forEach((h) => { if (h.dateISO && h.color) legacyCapByDate[h.dateISO] = h.color })
     const capacityForDate = (iso) => ((cycleLogs || {})[iso] || {}).energyCapacity || legacyCapByDate[iso] || null
@@ -246,9 +259,9 @@ export function renderCycle(ctx) {
         </div>
         <div style={{ fontSize: 10.5, color: BASE.taupe, textAlign: 'center', lineHeight: 1.5, marginBottom: 12 }}>The fertile window is shown as a full predicted week. The small lower-right dot marks estimated ovulation day.</div>
 
-        <button onClick={startPeriodToday} style={{ width:'100%',padding:10,borderRadius:11,border:'1px dashed rgba(155,107,195,.4)',background:'rgba(155,107,195,.06)',color:'#9B6BC3',fontWeight:700,marginBottom:14 }}>🩸 My period started today</button>
+        {!currentPeriodEstablished && <button onClick={startPeriodToday} style={{ width:'100%',padding:10,borderRadius:11,border:'1px dashed rgba(155,107,195,.4)',background:'rgba(155,107,195,.06)',color:'#9B6BC3',fontWeight:700,marginBottom:14 }}>🩸 My period started today</button>}
 
-        {periodDue && <div style={{ borderRadius:16,background:'rgba(155,107,195,.1)',border:'1px solid rgba(155,107,195,.35)',padding:'16px 18px',marginBottom:14 }}><div style={{fontSize:14,fontWeight:700,color:BASE.cream}}>Did your period start today?</div><div style={{display:'flex',gap:10,marginTop:12}}><button onClick={startPeriodToday} style={{flex:1,padding:12,borderRadius:12,border:'none',background:'linear-gradient(135deg,#9B6BC3,#5E7FB0)',color:'#fff',fontWeight:700}}>Yes, today</button><button onClick={()=>setPeriodDismissed(true)} style={{flex:1,padding:12,borderRadius:12,border:'1px solid '+BASE.border,background:'transparent',color:BASE.creamDim,fontWeight:700}}>Not yet</button></div></div>}
+        {periodDue && !currentPeriodEstablished && <div style={{ borderRadius:16,background:'rgba(155,107,195,.1)',border:'1px solid rgba(155,107,195,.35)',padding:'16px 18px',marginBottom:14 }}><div style={{fontSize:14,fontWeight:700,color:BASE.cream}}>Did your period start today?</div><div style={{display:'flex',gap:10,marginTop:12}}><button onClick={startPeriodToday} style={{flex:1,padding:12,borderRadius:12,border:'none',background:'linear-gradient(135deg,#9B6BC3,#5E7FB0)',color:'#fff',fontWeight:700}}>Yes, today</button><button onClick={()=>setPeriodDismissed(true)} style={{flex:1,padding:12,borderRadius:12,border:'1px solid '+BASE.border,background:'transparent',color:BASE.creamDim,fontWeight:700}}>Not yet</button></div></div>}
 
         <div style={{ borderRadius:18,background:currentPhase.soft,border:'1px solid '+currentPhase.color,padding:'17px 18px',marginBottom:14 }}>
           <div style={{ fontSize:10.5,fontWeight:700,letterSpacing:1,color:currentPhase.color,textTransform:'uppercase' }}>Today · Cycle Day {cycleNow.day}</div>
