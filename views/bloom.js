@@ -1290,7 +1290,6 @@ export function renderBloom(ctx) {
       const personalized = [...sourceItems].map((item, originalIndex) => {
         const sid = (item._source || "foryou") + ":" + item.id
         let score = 0
-        if (isSavedBloom(sid)) score += 3
         if (doneFeed.indexOf(item.id) >= 0) score -= 1 // gently favor something new next time
         if (activeMood) {
           const txt = itemText(item)
@@ -1300,12 +1299,19 @@ export function renderBloom(ctx) {
         // Stable for this visit, genuinely different on the next refresh.
         // This avoids the old "rotate by one" behavior that kept the same
         // discovery (Cookies) effectively pinned near the top.
-        const seedText = `${feedRotation || 0}:${item._source || "foryou"}:${item.id}`
-        let shuffleRank = 2166136261
+        const seedText = `${item._source || "foryou"}:${item.id}:${feedRotation || 0}`
+        let shuffleRank = 0x811c9dc5
         for (let i = 0; i < seedText.length; i += 1) {
           shuffleRank ^= seedText.charCodeAt(i)
-          shuffleRank = Math.imul(shuffleRank, 16777619)
+          shuffleRank = Math.imul(shuffleRank, 0x01000193)
         }
+        // Avalanche the hash so neighboring visit numbers do not produce
+        // neighboring feed positions. This keeps the whole feed rotating.
+        shuffleRank ^= shuffleRank >>> 16
+        shuffleRank = Math.imul(shuffleRank, 0x85ebca6b)
+        shuffleRank ^= shuffleRank >>> 13
+        shuffleRank = Math.imul(shuffleRank, 0xc2b2ae35)
+        shuffleRank ^= shuffleRank >>> 16
         shuffleRank >>>= 0
         return { item, score, shuffleRank, originalIndex }
       }).sort((a,b) => (b.score - a.score) || (a.shuffleRank - b.shuffleRank) || (a.originalIndex - b.originalIndex)).map((x) => x.item)
