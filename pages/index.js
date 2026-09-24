@@ -216,6 +216,8 @@ export default function App() {
   const [guidedIdx, setGuidedIdx] = useState(0)
   const [restLeft, setRestLeft] = useState(0)
   const [lifeMsg, setLifeMsg] = useState("")
+  // Temporary Supabase vertical-slice test: prove published Bloom rows can reach the app.
+  const [supabaseBloomTest, setSupabaseBloomTest] = useState({ loading: true, row: null, error: null })
 
   useEffect(() => {
     try { const rb = localStorage.getItem("nr_rebuild_flya"); if (rb) setRebuildFLYA(JSON.parse(rb)) } catch (e) {}
@@ -270,6 +272,36 @@ export default function App() {
   }, [])
 
   useEffect(() => { checkAuth() }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadSupabaseBloomTest = async () => {
+      try {
+        const { data, error } = await db
+          .from("bloom_discoveries")
+          .select("id,title,description,format,category,published")
+          .eq("published", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (cancelled) return
+        if (error) throw error
+        setSupabaseBloomTest({ loading: false, row: data || null, error: null })
+      } catch (error) {
+        if (cancelled) return
+        setSupabaseBloomTest({
+          loading: false,
+          row: null,
+          error: error?.message || "Could not read bloom_discoveries."
+        })
+      }
+    }
+
+    loadSupabaseBloomTest()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     // Clear any manual workout selection when the program changes (selection is per-program, per-session).
@@ -1045,6 +1077,23 @@ export default function App() {
                   <button key={k} onClick={() => setBodyView(k)} style={{ flex: 1, padding: "10px 4px", borderRadius: 16, cursor: "pointer", fontSize: 12, fontWeight: 700, background: active ? T.accent : BASE.surface, color: active ? "#FFFFFF" : BASE.creamDim, border: `1px solid ${active ? T.accent : BASE.border}` }}><span style={{ fontSize: 16, display: "block", marginBottom: 2 }}>{ic}</span>{lbl}</button>
                 )
               })}
+            </div>
+          )}
+          {tab === "bloom" && (
+            <div style={{ margin: "10px 18px 4px", padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,0.78)", border: "1px solid rgba(126,93,120,0.14)", boxShadow: "0 6px 18px rgba(70,45,75,0.06)", position: "relative", zIndex: 5 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9A7891", marginBottom: 4 }}>Supabase connection test</div>
+              {supabaseBloomTest.loading ? (
+                <div style={{ fontSize: 13, color: "#654F62" }}>Reading published Bloom content…</div>
+              ) : supabaseBloomTest.error ? (
+                <div style={{ fontSize: 13, color: "#8A4D58" }}>Not connected yet: {supabaseBloomTest.error}</div>
+              ) : supabaseBloomTest.row ? (
+                <div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#4A3048" }}>{supabaseBloomTest.row.title}</div>
+                  <div style={{ fontSize: 12, color: "#7A6475", marginTop: 2 }}>✓ Published row loaded from Supabase</div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: "#654F62" }}>Connected — no published Bloom rows found.</div>
+              )}
             </div>
           )}
           {renderContent()}
