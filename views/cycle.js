@@ -239,7 +239,10 @@ export function renderCycle(ctx) {
             const inFertileWindow = !!(c && c.day >= fertileMeta.start && c.day <= fertileMeta.end)
             const isPredictedOvulation = !!(c && c.day === fertileMeta.ov)
             const displayPhase = inFertileWindow ? CYCLE_PHASES.ovulation : standardPhase
-            const isToday = iso === todayISOstr
+            const isToday =
+              cell.getFullYear() === now.getFullYear() &&
+              cell.getMonth() === now.getMonth() &&
+              cell.getDate() === now.getDate()
             const isFuture = iso > todayISOstr
             const lg = (cycleLogs || {})[iso] || {}
             const capKey = capacityForDate(iso)
