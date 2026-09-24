@@ -100,7 +100,7 @@ export default function App() {
   // and a toggle for the non-destructive search placeholder.
   const [feedTimeFilter, setFeedTimeFilter] = useState(null)
   const [feedMoodFilter, setFeedMoodFilter] = useState(null)
-  const [feedRotation, setFeedRotation] = useState(0)
+  const [feedRotation, setFeedRotation] = useState(null)
   const [bloomFeedLimit, setBloomFeedLimit] = useState(12)
   const [likedFeed, setLikedFeed] = useState([])
   const [doneFeed, setDoneFeed] = useState([])
