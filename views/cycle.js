@@ -251,7 +251,9 @@ export function renderCycle(ctx) {
             const inFertileWindow = !!(c && c.day >= fertileMeta.start && c.day <= fertileMeta.end)
             const isPredictedOvulation = !!(c && c.day === fertileMeta.ov)
             const displayPhase = inFertileWindow ? CYCLE_PHASES.ovulation : standardPhase
-            const isToday = iso === todayISOstr
+            // The Today card above is already the app's canonical current cycle day.
+            // Use that same source for the outline so the two can never disagree.
+            const isToday = cycleMonth === 0 && !!c && c.day === cycleNow.day
             const isFuture = iso > todayISOstr
             const lg = (cycleLogs || {})[iso] || {}
             const capKey = capacityForDate(iso)
