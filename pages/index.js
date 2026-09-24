@@ -114,7 +114,7 @@ export default function App() {
   const [reverieEntries, setReverieEntries] = useState([])
   const [reverieSearch, setReverieSearch] = useState("")
   const [reverieComposerOpen, setReverieComposerOpen] = useState(false)
-  const [reverieDraft, setReverieDraft] = useState({ title: "", note: "", date: new Date().toISOString().slice(0, 10), photo: null, share: false })
+  const [reverieDraft, setReverieDraft] = useState({ title: "", note: "", date: localDateISO(), photo: null, share: false })
   const [rebuildComingSoon, setRebuildComingSoon] = useState(null) // program id, or null
   // Feel Like Yourself Again — navigation state is ephemeral (fine to reset on
   // reload, same as everywhere else in the app). Actual progress is bundled
@@ -158,7 +158,7 @@ export default function App() {
   const [planView, setPlanView] = useState(null)
   const [nutrition, setNutrition] = useState(null)
   const [foodDays, setFoodDays] = useState({})
-  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [logDate, setLogDate] = useState(() => localDateISO())
   const [savedFoods, setSavedFoods] = useState([])
   const [myFoods, setMyFoods] = useState([])
   const [saveFoodName, setSaveFoodName] = useState("")
@@ -234,7 +234,7 @@ export default function App() {
     try { const gs = localStorage.getItem("nr_greeting_style"); if (gs) setGreetingStyleRaw(gs) } catch (e) {}
     try {
       const rs = JSON.parse(localStorage.getItem("nr_reset_seed") || "null")
-      if (rs && rs.d === new Date().toISOString().slice(0, 10)) setResetSeed(rs)
+      if (rs && rs.d === localDateISO()) setResetSeed(rs)
     } catch (e) {}
     try { const wk = localStorage.getItem("nr_week_plan"); if (wk) setWeekPlan(JSON.parse(wk)) } catch (e) {}
     try { const gm = localStorage.getItem("nr_grocery_manual"); if (gm) setGroceryManual(JSON.parse(gm)) } catch (e) {}
@@ -287,7 +287,7 @@ export default function App() {
       const raw = localStorage.getItem("nr_today_cap")
       if (raw) {
         const cached = JSON.parse(raw)
-        const today = new Date().toISOString().slice(0, 10)
+        const today = localDateISO()
         if (cached && cached.date === today && typeof cached.pct === "number") {
           setPct(cached.pct)
           setCheckedIn(true)
@@ -375,7 +375,7 @@ export default function App() {
       supports: Array.isArray(d.supports) ? d.supports : [],
       note: d.one_thing || "",
     })))
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDateISO()
     const todayRow = rows.find((d) => d.date === today)
     if (todayRow) {
       setCheckedIn(true)
@@ -646,7 +646,7 @@ export default function App() {
   const saveGroceryChecked = (obj) => { setGroceryChecked(obj); try { localStorage.setItem("nr_grocery_checked", JSON.stringify(obj)) } catch (e) {} }
 
   const persistProgram = (pid) => {
-    const iso = new Date().toISOString().slice(0, 10)
+    const iso = localDateISO()
     if (pid) {
       setProgramId(pid); setProgramStart(iso)
       try { localStorage.setItem("nr_program", pid); localStorage.setItem("nr_program_start", iso) } catch (e) {}
@@ -661,7 +661,7 @@ export default function App() {
   const saveCheckin = async () => {
     setSaving(true); setSaveErr("")
     const color = colorFromPct(pct)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDateISO()
     const { error } = await db.from("checkins").upsert(
       { user_id: user.id, date: today, pct, color, factors, supports, one_thing: oneThing },
       { onConflict: "user_id,date" }
@@ -678,7 +678,7 @@ export default function App() {
   // Advances one section's window through its pool. Local only — this is a
   // within-the-day preference, not something worth syncing to a profile.
   const surpriseReset = (which) => {
-    const d = new Date().toISOString().slice(0, 10)
+    const d = localDateISO()
     const base = resetSeed.d === d ? resetSeed : { d, day: 0, night: 0 }
     const next = { ...base, d, [which]: base[which] + 1 }
     setResetSeed(next)
