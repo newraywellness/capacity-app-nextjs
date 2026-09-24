@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Head from 'next/head'
 import { QUOTES, SHARE_LEVELS } from '../data/checkin.js'
-import { GOALS, INTERESTS, EXPERIENCES, DESIRES, CAPACITY_FACTORS } from '../data/onboarding.js'
+import { GOALS, INTERESTS } from '../data/onboarding.js'
 import { PHASE_ORDER, computeCycle } from '../data/cycle.js'
 import { STARTER_FOODS, gramsFor, mealAsFood, r1 } from '../data/nourish.js'
 import { WO_TYPES } from '../data/train.js'
@@ -114,7 +114,7 @@ export default function App() {
   const [reverieEntries, setReverieEntries] = useState([])
   const [reverieSearch, setReverieSearch] = useState("")
   const [reverieComposerOpen, setReverieComposerOpen] = useState(false)
-  const [reverieDraft, setReverieDraft] = useState({ title: "", note: "", date: localDateISO(), photo: null, share: false })
+  const [reverieDraft, setReverieDraft] = useState({ title: "", note: "", date: new Date().toISOString().slice(0, 10), photo: null, share: false })
   const [rebuildComingSoon, setRebuildComingSoon] = useState(null) // program id, or null
   // Feel Like Yourself Again — navigation state is ephemeral (fine to reset on
   // reload, same as everywhere else in the app). Actual progress is bundled
@@ -158,7 +158,7 @@ export default function App() {
   const [planView, setPlanView] = useState(null)
   const [nutrition, setNutrition] = useState(null)
   const [foodDays, setFoodDays] = useState({})
-  const [logDate, setLogDate] = useState(() => localDateISO())
+  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [savedFoods, setSavedFoods] = useState([])
   const [myFoods, setMyFoods] = useState([])
   const [saveFoodName, setSaveFoodName] = useState("")
@@ -199,7 +199,7 @@ export default function App() {
   const [useAvgCycle, setUseAvgCycleRaw] = useState(false)
   const [greetingOn, setGreetingOnRaw] = useState(true) // default ON unless an existing preference says otherwise
   const [greetingStyle, setGreetingStyleRaw] = useState("name_formal")
-  const [cycLogDate, setCycLogDate] = useState(cycleTodayISO())
+  const [cycLogDate, setCycLogDate] = useState(new Date().toISOString().slice(0, 10))
   // Which slice of the suggestion pool is showing. Scoped to the day so
   // Surprise Me keeps moving forward rather than repeating within a day.
   const [resetSeed, setResetSeed] = useState({ d: "", day: 0, night: 0 })
@@ -234,7 +234,7 @@ export default function App() {
     try { const gs = localStorage.getItem("nr_greeting_style"); if (gs) setGreetingStyleRaw(gs) } catch (e) {}
     try {
       const rs = JSON.parse(localStorage.getItem("nr_reset_seed") || "null")
-      if (rs && rs.d === localDateISO()) setResetSeed(rs)
+      if (rs && rs.d === new Date().toISOString().slice(0, 10)) setResetSeed(rs)
     } catch (e) {}
     try { const wk = localStorage.getItem("nr_week_plan"); if (wk) setWeekPlan(JSON.parse(wk)) } catch (e) {}
     try { const gm = localStorage.getItem("nr_grocery_manual"); if (gm) setGroceryManual(JSON.parse(gm)) } catch (e) {}
@@ -287,7 +287,7 @@ export default function App() {
       const raw = localStorage.getItem("nr_today_cap")
       if (raw) {
         const cached = JSON.parse(raw)
-        const today = localDateISO()
+        const today = new Date().toISOString().slice(0, 10)
         if (cached && cached.date === today && typeof cached.pct === "number") {
           setPct(cached.pct)
           setCheckedIn(true)
@@ -375,7 +375,7 @@ export default function App() {
       supports: Array.isArray(d.supports) ? d.supports : [],
       note: d.one_thing || "",
     })))
-    const today = localDateISO()
+    const today = new Date().toISOString().slice(0, 10)
     const todayRow = rows.find((d) => d.date === today)
     if (todayRow) {
       setCheckedIn(true)
@@ -479,24 +479,6 @@ export default function App() {
     setTimeout(() => { try { window.scrollTo(0, bloomScrollRef.current) } catch (e) {} }, 0)
   }
 
-  const cycleTodayISO = () => {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Denver",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit"
-    }).formatToParts(new Date())
-    const get = (type) => parts.find((p) => p.type === type)?.value
-    return `${get("year")}-${get("month")}-${get("day")}`
-  }
-
-  const localDateISO = (date = new Date()) => {
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, "0")
-    const d = String(date.getDate()).padStart(2, "0")
-    return `${y}-${m}-${d}`
-  }
-
   // ---- Nourish: plan + food log persistence ----
   // Private Bloom saves. Mirrors how nutrition persists: localStorage for speed,
   // profiles.setup for cross-device. No schema change, no shared write.
@@ -517,43 +499,6 @@ export default function App() {
     setCycleLogs(next)
     try { localStorage.setItem("nr_cycle_logs", JSON.stringify(next)) } catch (e) {}
     try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), cycleLogs: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
-  }
-
-  const setPeriodStartDate = (iso) => {
-    if (!iso) return
-    const existing = cycleLogs[iso] || {}
-    const flow = existing.period || "Medium"
-    const nextLogs = { ...cycleLogs, [iso]: { ...existing, period: flow } }
-
-    setLastPeriod(iso)
-    setTmpStart(iso)
-    setPeriodDismissed(true)
-    setCycLogDate(iso)
-    setCycleLogs(nextLogs)
-
-    try {
-      localStorage.setItem("cap_last_period", iso)
-      localStorage.setItem("nr_cycle_logs", JSON.stringify(nextLogs))
-    } catch (e) {}
-
-    if (user && db && user.id !== "prototype-user") {
-      try {
-        db.from("profiles").update({
-          setup: { ...(setupData || {}), lastPeriod: iso, cycleLogs: nextLogs }
-        }).eq("id", user.id).then(() => {})
-      } catch (e) {}
-    }
-  }
-
-  const startPeriodToday = () => {
-    const iso = cycleTodayISO()
-    if (lastPeriod) {
-      const start = new Date(lastPeriod + "T00:00:00")
-      const today = new Date(iso + "T00:00:00")
-      const daysSinceStart = Math.floor((today - start) / 86400000)
-      if (daysSinceStart >= 0 && daysSinceStart <= 10) return
-    }
-    setPeriodStartDate(iso)
   }
 
   const isSavedBloom = (id) => savedBloom.indexOf(id) >= 0
@@ -657,7 +602,7 @@ export default function App() {
   const saveGroceryChecked = (obj) => { setGroceryChecked(obj); try { localStorage.setItem("nr_grocery_checked", JSON.stringify(obj)) } catch (e) {} }
 
   const persistProgram = (pid) => {
-    const iso = localDateISO()
+    const iso = new Date().toISOString().slice(0, 10)
     if (pid) {
       setProgramId(pid); setProgramStart(iso)
       try { localStorage.setItem("nr_program", pid); localStorage.setItem("nr_program_start", iso) } catch (e) {}
@@ -672,7 +617,7 @@ export default function App() {
   const saveCheckin = async () => {
     setSaving(true); setSaveErr("")
     const color = colorFromPct(pct)
-    const today = localDateISO()
+    const today = new Date().toISOString().slice(0, 10)
     const { error } = await db.from("checkins").upsert(
       { user_id: user.id, date: today, pct, color, factors, supports, one_thing: oneThing },
       { onConflict: "user_id,date" }
@@ -689,7 +634,7 @@ export default function App() {
   // Advances one section's window through its pool. Local only — this is a
   // within-the-day preference, not something worth syncing to a profile.
   const surpriseReset = (which) => {
-    const d = localDateISO()
+    const d = new Date().toISOString().slice(0, 10)
     const base = resetSeed.d === d ? resetSeed : { d, day: 0, night: 0 }
     const next = { ...base, d, [which]: base[which] + 1 }
     setResetSeed(next)
@@ -893,17 +838,16 @@ export default function App() {
   if (user && !setupData) {
     const envS = ENV(new Date().getHours(), null)
     const steps = [
-      { key: "goals", type: "q", q: "What sounds most like you right now?", sub: "Choose any that fit.", opts: GOALS },
-      { key: "interest_categories", type: "q", q: "What are you naturally drawn to?", sub: "Pick everything that sounds fun.", opts: INTERESTS },
-      { key: "experience_preferences", type: "q", q: "What kind of experiences do you enjoy?", opts: EXPERIENCES },
-      { key: "desired_feelings", type: "q", q: "What do you want more of?", opts: DESIRES },
-      { type: "capacityIntro" },
-      { key: "capacity_factors", type: "q", q: "What tends to affect your Capacity most?", opts: CAPACITY_FACTORS },
+      { key: "goals", type: "q", q: "What would you love more of right now?", sub: "Choose up to 3.", opts: GOALS, max: 3 },
+      { key: "interest_categories", type: "q", q: "What sounds like you?", sub: "Choose anything that fits.", opts: INTERESTS },
       { type: "final" },
     ]
     const st = steps[setupStep]
     const val = st.key ? draftSetup[st.key] : null
-    const pick = (o) => setDraftSetup({ ...draftSetup, [st.key]: val.includes(o) ? val.filter((x) => x !== o) : [...val, o] })
+    const pick = (o) => {
+      const next = val.includes(o) ? val.filter((x) => x !== o) : (st.max && val.length >= st.max ? val : [...val, o])
+      setDraftSetup({ ...draftSetup, [st.key]: next })
+    }
     const canNext = st.type === "q" ? val.length > 0 : true
     const finish = () => {
       const data = { ...draftSetup, name: firstName }
@@ -937,8 +881,8 @@ export default function App() {
             )}
             {st.type === "final" && (
               <>
-                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.2, marginBottom: 18 }}>Your True Reverie starts here.</h1>
-                <p style={{ fontSize: 15, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.65, marginBottom: 8 }}>We'll start with what you told us — then keep learning from what you save, love, skip, and actually do.</p>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.2, marginBottom: 18 }}>Your Reverie is ready.</h1>
+                <p style={{ fontSize: 15, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.65, marginBottom: 8 }}>True Reverie will start with what you chose — then keep learning from what you save, try, love, and come back to.</p>
               </>
             )}
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
@@ -1077,7 +1021,7 @@ export default function App() {
   })
 
   const renderContent = () => {
-    const ctx = { Chips, Label, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, doneFeed, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, updateRebuildFLYA, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    const ctx = { Chips, Label, Stat, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, doneFeed, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, trainView, updateEntry, updateRebuildFLYA, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
     return renderHome(ctx) || renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
   }
 
