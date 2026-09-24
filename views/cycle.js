@@ -270,7 +270,7 @@ export function renderCycle(ctx) {
             const spottingColor = SPOTTING[lg.spotting] || null
             return <div key={iso} onClick={() => { if (isFuture) return; setCycLogDate(iso); setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod || ''); setEditCycle(true) }} style={{ aspectRatio: '1', borderRadius: 9, background: displayPhase ? displayPhase.soft : 'transparent', border: '1px solid transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
               {isToday && <span aria-hidden="true" style={{ position:'absolute', inset:0, borderRadius:9, boxShadow:'inset 0 0 0 2px '+displayPhase.color, pointerEvents:'none', zIndex:3 }} />}
-              <div style={{ position: 'absolute', top: 3, left: 3, right: 3, height: 8, display: 'flex', alignItems: 'center', gap: 2, overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: 2, left: 3, right: 3, height: 14, display: 'flex', alignItems: 'center', gap: 2, overflow: 'visible' }}>
                 {capacity && <span style={{ width: 5, height: 5, borderRadius: '50%', background: capacity.color, flexShrink: 0 }} />}
                 {hasSex && <span style={{ fontSize: 6.5, color: '#E3799F', lineHeight: 1 }}>♥</span>}
                 {periodDropSize > 0 && <span title={`${lg.period} period flow`} aria-label={`${lg.period} period flow`} style={{ fontSize: periodDropSize, lineHeight: 1, display: 'inline-block', flexShrink: 0 }}>🩸</span>}
