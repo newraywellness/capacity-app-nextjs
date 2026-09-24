@@ -1276,9 +1276,14 @@ export function renderBloom(ctx) {
         emoji: "🌸",
         image: null,
         title: row.title || "A True Reverie idea",
-        teaser: row.category ? `A ${row.category} discovery from True Reverie.` : "A discovery from True Reverie.",
+        // Intentionally empty for this vertical-slice test. These will become
+        // real Supabase fields once we expand the Bloom content schema.
+        teaser: "",
         tags: [row.category, row.format].filter(Boolean),
-        detail: { sections: [{ heading: "Try this", body: ["More details are coming as this discovery is built out in Admin Studio."] }] },
+        detail: { sections: [
+          { heading: "Description", body: [] },
+          { heading: "How To", body: [] }
+        ] },
         _source: "supabase"
       }))
       const forYouItems = FOR_YOU_ITEMS.map((item) => ({ ...item, _source: "foryou" }))
@@ -1326,7 +1331,14 @@ export function renderBloom(ctx) {
         shuffleRank >>>= 0
         return { item, score, shuffleRank, originalIndex }
       }).sort((a,b) => (b.score - a.score) || (a.shuffleRank - b.shuffleRank) || (a.originalIndex - b.originalIndex)).map((x) => x.item)
-      const visibleItems = feedRotation == null ? [] : personalized
+      // Migration test only: keep the normal rotating feed, but pin the first
+      // Supabase discovery to position #1 so we can verify the real card UI.
+      // Remove this pin after the vertical slice is confirmed.
+      const rotatedItems = feedRotation == null ? [] : personalized
+      const firstSupabaseItem = supabaseItems[0] || null
+      const visibleItems = firstSupabaseItem
+        ? [firstSupabaseItem, ...rotatedItems.filter((item) => item.id !== firstSupabaseItem.id)]
+        : rotatedItems
 
       const ChipRail = ({ children }) => (
         <div style={{ display:"flex", gap:8, overflowX:"auto", overflowY:"hidden", WebkitOverflowScrolling:"touch", scrollbarWidth:"none", padding:"2px 2px 7px", marginRight:-24 }}>{children}</div>
