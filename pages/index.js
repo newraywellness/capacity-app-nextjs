@@ -199,7 +199,7 @@ export default function App() {
   const [useAvgCycle, setUseAvgCycleRaw] = useState(false)
   const [greetingOn, setGreetingOnRaw] = useState(true) // default ON unless an existing preference says otherwise
   const [greetingStyle, setGreetingStyleRaw] = useState("name_formal")
-  const [cycLogDate, setCycLogDate] = useState(localDateISO())
+  const [cycLogDate, setCycLogDate] = useState(cycleTodayISO())
   // Which slice of the suggestion pool is showing. Scoped to the day so
   // Surprise Me keeps moving forward rather than repeating within a day.
   const [resetSeed, setResetSeed] = useState({ d: "", day: 0, night: 0 })
@@ -479,6 +479,17 @@ export default function App() {
     setTimeout(() => { try { window.scrollTo(0, bloomScrollRef.current) } catch (e) {} }, 0)
   }
 
+  const cycleTodayISO = () => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Denver",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(new Date())
+    const get = (type) => parts.find((p) => p.type === type)?.value
+    return `${get("year")}-${get("month")}-${get("day")}`
+  }
+
   const localDateISO = (date = new Date()) => {
     const y = date.getFullYear()
     const m = String(date.getMonth() + 1).padStart(2, "0")
@@ -535,7 +546,7 @@ export default function App() {
   }
 
   const startPeriodToday = () => {
-    const iso = localDateISO()
+    const iso = cycleTodayISO()
     if (lastPeriod) {
       const start = new Date(lastPeriod + "T00:00:00")
       const today = new Date(iso + "T00:00:00")
