@@ -32,7 +32,7 @@ function BloomInfiniteLoader({ hasMore, loadMore }) {
 }
 
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomFeedLimit, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomFeedLimit, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom } = ctx
+  const { bloomArticle, bloomCard, bloomFeedLimit, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomFeedLimit, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, supabaseBloomRows, tab, toggleSaveBloom } = ctx
 
     const Heart = ({ id, overlay }) => {
       const saved = isSavedBloom(id)
@@ -1270,8 +1270,19 @@ export function renderBloom(ctx) {
         return cards
       })
       const seasonalItems = SEASONAL_ITEMS.map((item) => ({ ...item, tags: Array.from(new Set([...(item.tags || []), "Seasonal"])), _source: "seasonal" }))
+      const supabaseItems = (supabaseBloomRows || []).map((row) => ({
+        id: `supabase-${row.id}`,
+        type: row.format || "idea",
+        emoji: "🌸",
+        image: null,
+        title: row.title || "A True Reverie idea",
+        teaser: row.category ? `A ${row.category} discovery from True Reverie.` : "A discovery from True Reverie.",
+        tags: [row.category, row.format].filter(Boolean),
+        detail: { sections: [{ heading: "Try this", body: ["More details are coming as this discovery is built out in Admin Studio."] }] },
+        _source: "supabase"
+      }))
       const forYouItems = FOR_YOU_ITEMS.map((item) => ({ ...item, _source: "foryou" }))
-      const allBloomItems = [...forYouItems, ...seasonalItems, ...glowItems]
+      const allBloomItems = [...supabaseItems, ...forYouItems, ...seasonalItems, ...glowItems]
       const itemText = (item) => [item.title, item.teaser, item.type, ...(item.tags || [])].filter(Boolean).join(" ").toLowerCase()
 
       let sourceItems = allBloomItems
