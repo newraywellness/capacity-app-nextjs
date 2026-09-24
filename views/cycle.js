@@ -70,7 +70,7 @@ export function renderCycle(ctx) {
     const shift = (n) => {
       const dt = new Date(d + 'T00:00:00')
       dt.setDate(dt.getDate() + n)
-      const iso = dt.toISOString().slice(0, 10)
+      const iso = localDateISO(dt)
       if (iso <= today) setCycLogDate(iso)
     }
     const label = new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -192,7 +192,7 @@ export function renderCycle(ctx) {
     const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)
     const startWeekday = (firstDay.getDay() + 6) % 7
     const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate()
-    const todayISOstr = now.toISOString().slice(0, 10)
+    const todayISOstr = localDateISO(now)
     const cells = []
     for (let i = 0; i < startWeekday; i++) cells.push(null)
     for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewDate.getFullYear(), viewDate.getMonth(), d))
@@ -233,7 +233,7 @@ export function renderCycle(ctx) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 14 }}>
           {cells.map((cell, i) => {
             if (!cell) return <div key={i} />
-            const iso = cell.toISOString().slice(0, 10)
+            const iso = localDateISO(cell)
             const c = computeCycle(effCycleLength || cycleLength, lastPeriod, cell)
             const standardPhase = c ? CYCLE_PHASES[c.phase] : null
             const inFertileWindow = !!(c && c.day >= fertileMeta.start && c.day <= fertileMeta.end)
