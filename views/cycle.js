@@ -29,7 +29,7 @@ export function renderCycle(ctx) {
     cycleNow, editCycle, effCycleLength, history, lastPeriod, periodDismissed,
     saveCycleLog, saveCycleSettings, setCycArticle, setCycLib, setCycLogDate,
     setCycleMonth, setEditCycle, setLastPeriod, setPeriodDismissed, setTmpLen,
-    setTmpStart, setUseAvgCycle, setupData, startPeriodToday, tab, tmpLen, tmpStart, useAvgCycle, user,
+    setTmpStart, setUseAvgCycle, setupData, setPeriodStartDate, startPeriodToday, tab, tmpLen, tmpStart, useAvgCycle, user,
   } = ctx
 
   if (tab === 'body' && bodyView === 'cycle' && editCycle) {
@@ -122,7 +122,20 @@ export function renderCycle(ctx) {
         </div>
 
         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: BASE.taupe, marginBottom: 14 }}>Today's Tracking</div>
-        <Group ic="❤️" label="Period" k="period" col="#A8556B" opts={['Light', 'Medium', 'Heavy']} />
+        <button
+          onClick={() => setPeriodStartDate(d)}
+          disabled={d === lastPeriod}
+          style={{
+            width:'100%', padding:11, borderRadius:12, marginBottom:14,
+            border: d === lastPeriod ? '1px solid '+BASE.border : '1px solid rgba(168,85,107,.4)',
+            background: d === lastPeriod ? 'rgba(255,255,255,.03)' : 'rgba(168,85,107,.08)',
+            color: d === lastPeriod ? BASE.taupe : '#A8556B',
+            fontWeight:700, opacity:d === lastPeriod ? .7 : 1
+          }}
+        >
+          {d === lastPeriod ? '🩸 Period starts this day' : '🩸 Set this as period start'}
+        </button>
+        <Group ic="🩸" label="Period" k="period" col="#A8556B" opts={['Light', 'Medium', 'Heavy']} />
         <Group ic="🟤" label="Spotting" k="spotting" col="#A8556B" opts={['Brown spotting', 'Red spotting']} />
         <Group ic="😊" label="Feelings" k="feelings" multi col="#C9558E" opts={['Calm', 'Happy', 'Motivated', 'Sensitive', 'Anxious', 'Irritable', 'Low']} />
         <Group ic="😖" label="Pain" k="pain" multi col="#D65C4E" opts={['Cramps', 'Headache', 'Back', 'Breast tenderness', 'Bloating', 'Nausea']} />
