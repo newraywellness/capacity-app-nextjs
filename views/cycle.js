@@ -17,6 +17,18 @@ const localDateISO = (date = new Date()) => {
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
+
+const cycleTodayISO = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date())
+  const get = (type) => parts.find((p) => p.type === type)?.value
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+
 const predictedOvulationDay = (len) => Math.max(10, Number(len || 28) - 14)
 const fertileWindowFor = (len) => {
   const ov = predictedOvulationDay(len)
@@ -33,7 +45,7 @@ export function renderCycle(ctx) {
   } = ctx
 
   if (tab === 'body' && bodyView === 'cycle' && editCycle) {
-    const today = localDateISO()
+    const today = cycleTodayISO()
     const d = cycLogDate || today
     const log = (cycleLogs && cycleLogs[d]) || {}
     const set = (k, v) => saveCycleLog(d, { [k]: v })
@@ -192,7 +204,7 @@ export function renderCycle(ctx) {
     const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)
     const startWeekday = (firstDay.getDay() + 6) % 7
     const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate()
-    const todayISOstr = localDateISO(now)
+    const todayISOstr = cycleTodayISO()
     const cells = []
     for (let i = 0; i < startWeekday; i++) cells.push(null)
     for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewDate.getFullYear(), viewDate.getMonth(), d))
@@ -239,10 +251,7 @@ export function renderCycle(ctx) {
             const inFertileWindow = !!(c && c.day >= fertileMeta.start && c.day <= fertileMeta.end)
             const isPredictedOvulation = !!(c && c.day === fertileMeta.ov)
             const displayPhase = inFertileWindow ? CYCLE_PHASES.ovulation : standardPhase
-            const isToday =
-              cell.getFullYear() === now.getFullYear() &&
-              cell.getMonth() === now.getMonth() &&
-              cell.getDate() === now.getDate()
+            const isToday = iso === todayISOstr
             const isFuture = iso > todayISOstr
             const lg = (cycleLogs || {})[iso] || {}
             const capKey = capacityForDate(iso)
