@@ -199,7 +199,7 @@ export default function App() {
   const [useAvgCycle, setUseAvgCycleRaw] = useState(false)
   const [greetingOn, setGreetingOnRaw] = useState(true) // default ON unless an existing preference says otherwise
   const [greetingStyle, setGreetingStyleRaw] = useState("name_formal")
-  const [cycLogDate, setCycLogDate] = useState(new Date().toISOString().slice(0, 10))
+  const [cycLogDate, setCycLogDate] = useState(localDateISO())
   // Which slice of the suggestion pool is showing. Scoped to the day so
   // Surprise Me keeps moving forward rather than repeating within a day.
   const [resetSeed, setResetSeed] = useState({ d: "", day: 0, night: 0 })
@@ -479,6 +479,13 @@ export default function App() {
     setTimeout(() => { try { window.scrollTo(0, bloomScrollRef.current) } catch (e) {} }, 0)
   }
 
+  const localDateISO = (date = new Date()) => {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, "0")
+    const d = String(date.getDate()).padStart(2, "0")
+    return `${y}-${m}-${d}`
+  }
+
   // ---- Nourish: plan + food log persistence ----
   // Private Bloom saves. Mirrors how nutrition persists: localStorage for speed,
   // profiles.setup for cross-device. No schema change, no shared write.
@@ -502,7 +509,18 @@ export default function App() {
   }
 
   const startPeriodToday = () => {
-    const iso = new Date().toISOString().slice(0, 10)
+    const iso = localDateISO()
+
+    // Guard an already-established current period from an accidental tap.
+    // Once a period has started recently, its Day 1 can only be changed deliberately
+    // through Cycle editing/settings rather than this convenience button.
+    if (lastPeriod) {
+      const start = new Date(lastPeriod + "T00:00:00")
+      const today = new Date(iso + "T00:00:00")
+      const daysSinceStart = Math.floor((today - start) / 86400000)
+      if (daysSinceStart >= 0 && daysSinceStart <= 10) return
+    }
+
     const existing = cycleLogs[iso] || {}
     const flow = existing.period || "Medium"
     const nextLogs = { ...cycleLogs, [iso]: { ...existing, period: flow } }
