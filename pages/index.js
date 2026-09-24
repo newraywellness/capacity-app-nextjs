@@ -280,7 +280,7 @@ export default function App() {
       try {
         const { data, error } = await db
           .from("bloom_discoveries")
-          .select("id,title,description,format,category,published")
+          .select("id,title,format,category,published")
           .eq("published", true)
           .order("created_at", { ascending: false })
           .limit(1)
