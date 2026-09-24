@@ -198,16 +198,24 @@ export function renderCycle(ctx) {
 
   if (tab === 'body' && bodyView === 'cycle') {
     const setup = cycleNow != null
-    const now = new Date()
-    const viewDate = new Date(now.getFullYear(), now.getMonth() + cycleMonth, 1)
-    const monthLabel = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)
-    const startWeekday = (firstDay.getDay() + 6) % 7
-    const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate()
+    // Build the calendar from canonical YYYY-MM-DD values instead of using Date
+    // objects as cell identities. This keeps the visible calendar date and the
+    // Mountain Time "today" value in the same date-only system.
     const todayISOstr = cycleTodayISO()
+    const [todayYear, todayMonth] = todayISOstr.split('-').map(Number)
+    const monthIndex = (todayMonth - 1) + cycleMonth
+    const viewYear = todayYear + Math.floor(monthIndex / 12)
+    const viewMonth = ((monthIndex % 12) + 12) % 12
+    const viewDate = new Date(viewYear, viewMonth, 1)
+    const monthLabel = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    const startWeekday = (viewDate.getDay() + 6) % 7
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
     const cells = []
     for (let i = 0; i < startWeekday; i++) cells.push(null)
-    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewDate.getFullYear(), viewDate.getMonth(), d))
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      cells.push({ iso, day: d })
+    }
     const currentPhase = cycleNow ? CYCLE_PHASES[cycleNow.phase] : null
     const trackFrom = lastPeriod ? new Date(lastPeriod + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null
     const periodDue = cycleNow && cycleNow.day >= cycleNow.length - 1 && !periodDismissed
@@ -245,8 +253,8 @@ export function renderCycle(ctx) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 14 }}>
           {cells.map((cell, i) => {
             if (!cell) return <div key={i} />
-            const iso = localDateISO(cell)
-            const c = computeCycle(effCycleLength || cycleLength, lastPeriod, cell)
+            const { iso, day } = cell
+            const c = computeCycle(effCycleLength || cycleLength, lastPeriod, iso + 'T00:00:00')
             const standardPhase = c ? CYCLE_PHASES[c.phase] : null
             const inFertileWindow = !!(c && c.day >= fertileMeta.start && c.day <= fertileMeta.end)
             const isPredictedOvulation = !!(c && c.day === fertileMeta.ov)
@@ -269,7 +277,7 @@ export function renderCycle(ctx) {
                 {spottingColor && <span style={{ width: 5, height: 5, borderRadius: '50%', background: spottingColor }} />}
                 {bcTaken && <span style={{ width: 5, height: 5, borderRadius: '50%', background: BC_DOT }} />}
               </div>
-              <div style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: displayPhase ? displayPhase.color : BASE.taupe }}>{cell.getDate()}</div>
+              <div style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: displayPhase ? displayPhase.color : BASE.taupe }}>{day}</div>
               {c && <div style={{ fontSize: 7.5, color: displayPhase.color, opacity: .8 }}>d{c.day}</div>}
               {isPredictedOvulation && <span style={{ position: 'absolute', right: 3, bottom: 3, width: 6, height: 6, borderRadius: '50%', background: CYCLE_PHASES.ovulation.color, border: '1px solid rgba(255,255,255,.9)' }} />}
             </div>
@@ -281,7 +289,7 @@ export function renderCycle(ctx) {
         <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: BASE.taupe, textAlign: 'center', marginBottom: 6 }}>Calendar markers</div>
         <div style={{ display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginBottom:8 }}>
           {Object.entries(CAPACITY_META).map(([k,v])=><div key={k} style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:6,height:6,borderRadius:'50%',background:v.color}}/><span style={{fontSize:9.5,color:BASE.taupe}}>{v.label} {v.range}</span></div>)}
-          <span style={{fontSize:9.5,color:BASE.taupe}}>♥ Sex</span><span style={{fontSize:9.5,color:BASE.taupe}}>🩸 Period</span><span style={{fontSize:9.5,color:BASE.taupe}}>● Spotting</span><span style={{fontSize:9.5,color:BASE.taupe}}>🔵 Birth control</span>
+          <span style={{fontSize:9.5,color:BASE.taupe}}>♥ Sex</span><span style={{fontSize:9.5,color:BASE.taupe}}>🩸 Period</span><span style={{fontSize:9.5,color:BASE.taupe}}>● Spotting</span><span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{width:6,height:6,borderRadius:'50%',background:BC_DOT,flexShrink:0}}/>Birth control</span>
         </div>
         <div style={{ fontSize: 10.5, color: BASE.taupe, textAlign: 'center', lineHeight: 1.5, marginBottom: 12 }}>The fertile window is shown as a full predicted week. The small lower-right dot marks estimated ovulation day.</div>
 
