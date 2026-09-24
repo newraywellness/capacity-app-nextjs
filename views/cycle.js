@@ -265,7 +265,7 @@ export function renderCycle(ctx) {
             const capKey = capacityForDate(iso)
             const capacity = CAPACITY_META[capKey] || null
             const hasSex = Array.isArray(lg.sex) && lg.sex.length > 0
-            const periodDrops = lg.period === 'Heavy' ? 3 : lg.period === 'Medium' ? 2 : lg.period === 'Light' ? 1 : 0
+            const periodDropSize = lg.period === 'Heavy' ? 13 : lg.period === 'Medium' ? 9 : lg.period === 'Light' ? 5.5 : 0
             const bcTaken = lg.bc === 'Taken'
             const spottingColor = SPOTTING[lg.spotting] || null
             return <div key={iso} onClick={() => { if (isFuture) return; setCycLogDate(iso); setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod || ''); setEditCycle(true) }} style={{ aspectRatio: '1', borderRadius: 9, background: displayPhase ? displayPhase.soft : 'transparent', border: '1px solid transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
@@ -273,7 +273,7 @@ export function renderCycle(ctx) {
               <div style={{ position: 'absolute', top: 3, left: 3, right: 3, height: 8, display: 'flex', alignItems: 'center', gap: 2, overflow: 'hidden' }}>
                 {capacity && <span style={{ width: 5, height: 5, borderRadius: '50%', background: capacity.color, flexShrink: 0 }} />}
                 {hasSex && <span style={{ fontSize: 6.5, color: '#E3799F', lineHeight: 1 }}>♥</span>}
-                {Array.from({ length: periodDrops }).map((_, j) => <span key={j} style={{ fontSize: 6.5, lineHeight: 1 }}>🩸</span>)}
+                {periodDropSize > 0 && <span title={`${lg.period} period flow`} aria-label={`${lg.period} period flow`} style={{ fontSize: periodDropSize, lineHeight: 1, display: 'inline-block', flexShrink: 0 }}>🩸</span>}
                 {spottingColor && <span style={{ width: 5, height: 5, borderRadius: '50%', background: spottingColor }} />}
                 {bcTaken && <span style={{ width: 5, height: 5, borderRadius: '50%', background: BC_DOT }} />}
               </div>
