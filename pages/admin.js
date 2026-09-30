@@ -1,0 +1,336 @@
+import { useEffect, useMemo, useState } from "react"
+
+const C = {
+  bg:"#FBF7F3", paper:"#FFFDFC", ink:"#382D35", muted:"#8D7E86", line:"#E9DFE2",
+  blush:"#C97BA8", lavender:"#A87BD1", sage:"#91A58E", gold:"#C4A56A", soft:"#F5ECEF"
+}
+
+const AREAS = [
+  { id:"bloom", label:"Bloom", icon:"✿", sub:"Discoveries, seasonal ideas, beauty, home, outings & recipes" },
+  { id:"move", label:"Move", icon:"↟", sub:"Movement ideas, walkthroughs & creator videos" },
+  { id:"nourish", label:"Nourish", icon:"◌", sub:"Meals, nutrition details, supplements & education" },
+  { id:"cycle", label:"Cycle", icon:"☾", sub:"Nurse-informed cycle education" },
+  { id:"rebuild", label:"Rebuild", icon:"↻", sub:"Programs and guided experiences" },
+  { id:"feel", label:"Feel Better", icon:"♡", sub:"Immediate support cards" },
+  { id:"ritual", label:"Rituals", icon:"◇", sub:"Repeatable rituals worth coming back to" },
+]
+
+const SCHEMAS = {
+  bloom: [
+    ["title","Title","text"],["image","Photo","image"],["teaser","Front-card description","textarea"],
+    ["format","Format","select",["idea","recipe","beauty","home","outing","movement"]],
+    ["category","Category","text"],["tags","Tags","chips"],["moods","Mood tags","chips"],["time","Time","text"],
+    ["description","Description","textarea"],["howTo","How To","list"],["need","What You Need","list"],
+    ["nurseNote","Nurse Note (optional)","textarea"],["products","Products / recommendations (optional)","list"],
+    ["videoUrl","Video link (optional)","text"],["season","Season / holiday (optional)","text"],
+  ],
+  move: [
+    ["title","Title","text"],["image","Photo","image"],["emoji","Emoji","text"],["hook","Hook","textarea"],
+    ["moods","Mood","chips"],["time","Time","chips"],["category","Type","chips"],["walkthrough","Walkthrough","list"],
+    ["creator","Creator (optional)","text"],["videoUrl","Video link (optional)","text"],
+    ["nurseNote","Nurse Note (optional)","textarea"],
+  ],
+  nourish: [
+    ["title","Meal / article title","text"],["image","Photo","image"],["description","Description","textarea"],
+    ["mealType","Meal type","select",["breakfast","lunch","dinner","snack","education","supplement"]],
+    ["tags","Tags","chips"],["minutes","Minutes","number"],["protein","Protein (g)","number"],
+    ["calories","Calories","number"],["carbs","Carbs (g)","number"],["fat","Fat (g)","number"],
+    ["ingredients","Ingredients","list"],["method","Method / How To","list"],
+    ["nurseNote","Nurse-informed note","textarea"],["body","Education body (optional)","textarea"],
+  ],
+  cycle: [
+    ["title","Article title","text"],["icon","Icon","text"],["description","Short description","textarea"],
+    ["section","Library section","select",["Your Cycle","Common Questions","Health Conditions","Postpartum","Birth Control","Fertility"]],
+    ["body","Article body","textarea"],["nurseNote","Nurse note / context","textarea"],
+    ["seekCare","When to seek care (optional)","textarea"],["tags","Tags","chips"],
+  ],
+  rebuild: [
+    ["title","Program title","text"],["cover","Cover image","image"],["outcome","Outcome / description","textarea"],
+    ["duration","Duration","text"],["pace","Pace","text"],["tags","Tags","chips"],
+    ["premium","True Reverie+","toggle"],["featured","Featured","toggle"],["status","Program status","select",["draft","preview","published"]],
+    ["intro","Program introduction","textarea"],
+  ],
+  experience: [
+    ["title","Experience title","text"],["week","Week / section","number"],["why","Why this matters","textarea"],
+    ["dimensions","Dimensions","chips"],["anchor","Main experience","textarea"],["examples","Examples","list"],
+    ["makeItYours","Make It Yours prompt","textarea"],["green","Full version","textarea"],
+    ["yellow","Medium version","textarea"],["red","Small version","textarea"],["recovery","Recovery version","textarea"],
+    ["addOn","Add-on (optional)","textarea"],["nurseNote","Nurse Note (optional)","textarea"],
+    ["reaction","Reflection question","textarea"],["reactionOptions","Reaction options","list"],
+  ],
+  feel: [
+    ["title","Title","text"],["icon","Icon","text"],["description","Short description","textarea"],
+    ["action","What she can do right now","textarea"],["nurseNote","Nurse Note (optional)","textarea"],
+    ["tags","Tags","chips"],
+  ],
+  ritual: [
+    ["title","Ritual title","text"],["cover","Cover image","image"],["description","Description","textarea"],
+    ["timing","When","text"],["minutes","Minutes","number"],["steps","Steps","list"],
+    ["premium","True Reverie+","toggle"],["nurseNote","Nurse Note (optional)","textarea"],["tags","Tags","chips"],
+  ],
+}
+
+const SAMPLE = [
+  {id:"sample-bloom",area:"bloom",title:"Sunday Reset Shower",teaser:"A softer reset for the week ahead.",format:"idea",category:"Self Care",tags:["Self Care","Reset"],moods:["Cozy"],time:"20 min",description:"Turn an ordinary shower into a small transition ritual.",howTo:["Put your phone down.","Choose one extra care step.","Get into something clean and comfortable."],status:"published",updated:"Today"},
+  {id:"sample-move",area:"move",title:"Dance It Out",hook:"One song, full volume, curtains closed.",moods:["Dance"],time:["5 min"],category:["Dance"],walkthrough:["Pick one song you love.","Move however you want.","Stop when it ends."],status:"published",updated:"Prototype"},
+  {id:"sample-nourish",area:"nourish",title:"Build-a-Bowl Dinner",description:"A flexible dinner formula for nights you don't want a recipe.",mealType:"dinner",tags:["Easy","Protein"],minutes:20,protein:30,status:"draft",updated:"Prototype"},
+  {id:"sample-cycle",area:"cycle",title:"What Actually Happens in the Luteal Phase?",description:"The hormone shift, what you may notice, and what is worth tracking.",section:"Your Cycle",status:"draft",updated:"Prototype"},
+  {id:"sample-rebuild",area:"rebuild",title:"Come Back to Yourself",outcome:"For the woman who has spent so long taking care of everyone else that she stopped knowing what she wants.",duration:"28 experiences",pace:"Move at your own pace",tags:["Identity","Burnout"],premium:true,status:"draft",updated:"Prototype"},
+  {id:"sample-feel",area:"feel",title:"I want to feel human again",description:"A tiny care reset for when you've disappeared from your own day.",action:"Wash your face, fix your hair, change into something clean, and use one thing that smells good.",status:"published",updated:"Prototype"},
+  {id:"sample-ritual",area:"ritual",title:"The Everything Shower",description:"The whole production — hair, skin, body care, lotion, and feeling human again.",timing:"Anytime",minutes:20,premium:true,status:"draft",updated:"Prototype"},
+]
+
+function uid(){ return "local-"+Date.now()+"-"+Math.random().toString(36).slice(2,7) }
+function blank(area){ return {id:uid(),area,status:"draft",updated:"Just now",title:""} }
+function labelFor(area){ return AREAS.find(a=>a.id===area)?.label || area }
+
+const S = {
+  shell:{minHeight:"100vh",background:C.bg,color:C.ink,fontFamily:"Inter, ui-sans-serif, system-ui, -apple-system, sans-serif"},
+  serif:{fontFamily:"'Cormorant Garamond', Georgia, serif"},
+  card:{background:C.paper,border:`1px solid ${C.line}`,borderRadius:20,boxShadow:"0 8px 30px rgba(67,45,58,.04)"},
+  input:{width:"100%",boxSizing:"border-box",border:`1px solid ${C.line}`,borderRadius:13,background:"#fff",padding:"12px 13px",fontSize:14,color:C.ink,outline:"none"},
+  pill:{border:`1px solid ${C.line}`,background:C.paper,borderRadius:999,padding:"8px 11px",fontSize:12,fontWeight:700,color:C.muted},
+}
+
+export default function AdminStudio(){
+  const [area,setArea] = useState("dashboard")
+  const [items,setItems] = useState(SAMPLE)
+  const [editing,setEditing] = useState(null)
+  const [query,setQuery] = useState("")
+  const [filter,setFilter] = useState("all")
+  const [mobileNav,setMobileNav] = useState(false)
+
+  useEffect(()=>{
+    try{
+      const saved=localStorage.getItem("tr-admin-prototype-v1")
+      if(saved) setItems(JSON.parse(saved))
+    }catch{}
+  },[])
+  useEffect(()=>{ try{localStorage.setItem("tr-admin-prototype-v1",JSON.stringify(items))}catch{} },[items])
+
+  const counts = useMemo(()=>Object.fromEntries(AREAS.map(a=>[a.id,items.filter(x=>x.area===a.id).length])),[items])
+  const visible = useMemo(()=>items.filter(x=>(area==="dashboard"||x.area===area) && (filter==="all"||x.status===filter) && (!query||JSON.stringify(x).toLowerCase().includes(query.toLowerCase()))),[items,area,filter,query])
+
+  const saveItem=(item)=>{
+    const next={...item,updated:"Just now"}
+    setItems(prev=>prev.some(x=>x.id===next.id)?prev.map(x=>x.id===next.id?next:x):[next,...prev])
+    setEditing(null)
+  }
+  const duplicate=(item)=>setEditing({...item,id:uid(),title:(item.title||"Untitled")+" — Copy",status:"draft",updated:"Just now"})
+  const remove=(id)=>{ if(confirm("Delete this draft/content item from the Admin Studio prototype?")) setItems(p=>p.filter(x=>x.id!==id)) }
+
+  return <div style={S.shell}>
+    <style>{`
+      *{box-sizing:border-box} body{margin:0}
+      button,input,textarea,select{font:inherit}
+      button{cursor:pointer}
+      .tr-grid{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh}
+      .tr-side{display:block}
+      .tr-main{padding:34px 38px 70px;max-width:1280px;width:100%;margin:0 auto}
+      .tr-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+      .tr-listhead{display:grid;grid-template-columns:minmax(220px,1.4fr) 130px 110px 90px;gap:12px}
+      .tr-row{display:grid;grid-template-columns:minmax(220px,1.4fr) 130px 110px 90px;gap:12px;align-items:center}
+      .tr-editor{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px}
+      @media(max-width:850px){
+        .tr-grid{display:block}.tr-side{display:none}.tr-side.open{display:block;position:fixed;inset:0 18% 0 0;z-index:50;box-shadow:20px 0 50px rgba(0,0,0,.15)}
+        .tr-main{padding:20px 16px 80px}.tr-cards{grid-template-columns:1fr 1fr}
+        .tr-listhead{display:none}.tr-row{grid-template-columns:1fr auto;gap:8px}.tr-row .hide-sm{display:none}
+        .tr-editor{grid-template-columns:1fr}.desktop-only{display:none!important}
+      }
+      @media(max-width:520px){.tr-cards{grid-template-columns:1fr}}
+    `}</style>
+    <div className="tr-grid">
+      <aside className={"tr-side "+(mobileNav?"open":"")} style={{background:"#F3EAEC",borderRight:`1px solid ${C.line}`,padding:"28px 18px",position:"relative"}}>
+        <button onClick={()=>setMobileNav(false)} style={{display:mobileNav?"block":"none",position:"absolute",right:15,top:15,border:0,background:"transparent",fontSize:22}}>×</button>
+        <div style={{padding:"2px 10px 26px"}}>
+          <div style={{...S.serif,fontSize:25,fontWeight:700}}>True Reverie</div>
+          <div style={{fontSize:10,fontWeight:800,letterSpacing:2.2,textTransform:"uppercase",color:C.blush,marginTop:3}}>Admin Studio</div>
+        </div>
+        <Nav active={area==="dashboard"} onClick={()=>{setArea("dashboard");setEditing(null);setMobileNav(false)}} icon="⌂" label="Dashboard"/>
+        <div style={{fontSize:9,fontWeight:800,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,padding:"22px 11px 8px"}}>Content</div>
+        {AREAS.map(a=><Nav key={a.id} active={area===a.id} onClick={()=>{setArea(a.id);setEditing(null);setMobileNav(false)}} icon={a.icon} label={a.label} count={counts[a.id]}/>)}
+        <div style={{margin:"28px 8px 0",padding:"14px",borderRadius:16,background:"rgba(255,255,255,.5)",fontSize:11.5,lineHeight:1.5,color:C.muted}}>
+          <b style={{color:C.ink}}>Prototype mode</b><br/>Everything saves only in this browser for now. Supabase comes after the workflow feels right.
+        </div>
+      </aside>
+
+      <main className="tr-main">
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:25}}>
+          <button onClick={()=>setMobileNav(true)} style={{border:`1px solid ${C.line}`,background:C.paper,borderRadius:12,padding:"9px 11px",fontWeight:800}} className="desktop-only">☰</button>
+          <div style={{flex:1}}>
+            <div style={{...S.serif,fontSize:34,fontWeight:700,lineHeight:1}}>{editing ? (editing.title||"New content") : area==="dashboard" ? "Studio" : labelFor(area)}</div>
+            {!editing && <div style={{fontSize:13,color:C.muted,marginTop:6}}>{area==="dashboard"?"Create the things that make True Reverie feel alive.":AREAS.find(a=>a.id===area)?.sub}</div>}
+          </div>
+          {!editing && area!=="dashboard" && <button onClick={()=>setEditing(blank(area))} style={{border:0,borderRadius:999,background:C.ink,color:"#fff",padding:"11px 16px",fontWeight:800}}>＋ New {labelFor(area)}</button>}
+        </div>
+
+        {editing ? <Editor item={editing} setItem={setEditing} onSave={saveItem} onCancel={()=>setEditing(null)}/> :
+         area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> :
+         <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>}
+      </main>
+    </div>
+  </div>
+}
+
+function Nav({active,onClick,icon,label,count}){
+  return <button onClick={onClick} style={{width:"100%",display:"flex",alignItems:"center",gap:10,border:0,borderRadius:13,padding:"10px 11px",marginBottom:3,background:active?"rgba(255,255,255,.82)":"transparent",color:active?C.ink:C.muted,textAlign:"left",fontWeight:active?800:650}}>
+    <span style={{width:22,textAlign:"center"}}>{icon}</span><span style={{flex:1}}>{label}</span>{count!=null&&<span style={{fontSize:10,opacity:.7}}>{count}</span>}
+  </button>
+}
+
+function Dashboard({items,counts,setArea,setEditing}){
+  const published=items.filter(x=>x.status==="published").length, drafts=items.filter(x=>x.status==="draft").length
+  return <>
+    <div style={{...S.card,padding:"25px 26px",marginBottom:22,background:"linear-gradient(135deg,#FFFDFC,#F4E8EF)"}}>
+      <div style={{fontSize:10,fontWeight:900,letterSpacing:2,textTransform:"uppercase",color:C.blush}}>Dream Her. Become Her.</div>
+      <div style={{...S.serif,fontSize:29,fontWeight:700,marginTop:8}}>What do you want to make today?</div>
+      <div style={{fontSize:13,color:C.muted,lineHeight:1.6,maxWidth:650,marginTop:6}}>Create the idea here first. Later, Publish will send it to Supabase and the live True Reverie app — without touching GitHub.</div>
+      <div style={{display:"flex",gap:9,flexWrap:"wrap",marginTop:17}}>
+        {["bloom","move","nourish","rebuild"].map(a=><button key={a} onClick={()=>setEditing(blank(a))} style={{...S.pill,color:C.ink}}>＋ {labelFor(a)}</button>)}
+      </div>
+    </div>
+    <div className="tr-cards">
+      <Stat n={items.length} label="Studio content"/>
+      <Stat n={published} label="Published"/>
+      <Stat n={drafts} label="Drafts"/>
+    </div>
+    <div style={{fontSize:10,fontWeight:900,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,margin:"28px 0 10px"}}>Create & manage</div>
+    <div className="tr-cards">
+      {AREAS.map(a=><div key={a.id} onClick={()=>setArea(a.id)} style={{...S.card,padding:"18px",cursor:"pointer"}}>
+        <div style={{fontSize:21}}>{a.icon}</div><div style={{...S.serif,fontSize:21,fontWeight:700,marginTop:8}}>{a.label}</div>
+        <div style={{fontSize:11.5,color:C.muted,lineHeight:1.45,minHeight:34,marginTop:4}}>{a.sub}</div>
+        <div style={{fontSize:11,fontWeight:800,color:C.blush,marginTop:13}}>{counts[a.id]} items →</div>
+      </div>)}
+    </div>
+  </>
+}
+function Stat({n,label}){return <div style={{...S.card,padding:"18px 20px"}}><div style={{...S.serif,fontSize:31,fontWeight:700}}>{n}</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{label}</div></div>}
+
+function Library({area,items,query,setQuery,filter,setFilter,onEdit,onDuplicate,onDelete}){
+  return <>
+    <div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:17}}>
+      <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={"Search "+labelFor(area)+"…"} style={{...S.input,maxWidth:360}}/>
+      {["all","published","draft"].map(f=><button key={f} onClick={()=>setFilter(f)} style={{...S.pill,background:filter===f?C.ink:C.paper,color:filter===f?"#fff":C.muted,textTransform:"capitalize"}}>{f}</button>)}
+    </div>
+    <div style={{...S.card,overflow:"hidden"}}>
+      <div className="tr-listhead" style={{padding:"10px 16px",background:"#F8F2F4",fontSize:9,fontWeight:900,letterSpacing:1.3,textTransform:"uppercase",color:C.muted}}>
+        <div>Content</div><div>Status</div><div>Updated</div><div></div>
+      </div>
+      {items.length===0?<div style={{padding:35,textAlign:"center",color:C.muted}}>Nothing here yet. Create the first one.</div>:items.map(item=><div className="tr-row" key={item.id} style={{padding:"14px 16px",borderTop:`1px solid ${C.line}`}}>
+        <div onClick={()=>onEdit(item)} style={{cursor:"pointer"}}>
+          <div style={{fontWeight:800,fontSize:13.5}}>{item.title||"Untitled"}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:3}}>{item.category||item.section||item.mealType||item.duration||labelFor(area)}</div>
+        </div>
+        <div className="hide-sm"><Status s={item.status}/></div>
+        <div className="hide-sm" style={{fontSize:11,color:C.muted}}>{item.updated}</div>
+        <div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
+          <button onClick={()=>onEdit(item)} style={tinyBtn}>Edit</button>
+          <button onClick={()=>onDuplicate(item)} style={tinyBtn}>⧉</button>
+          <button onClick={()=>onDelete(item.id)} style={{...tinyBtn,color:"#A45B67"}}>×</button>
+        </div>
+      </div>)}
+    </div>
+  </>
+}
+const tinyBtn={border:`1px solid ${C.line}`,background:"#fff",borderRadius:9,padding:"6px 8px",fontSize:10.5,fontWeight:800,color:C.muted}
+
+function Status({s}){
+  const pub=s==="published"
+  return <span style={{fontSize:10,fontWeight:850,padding:"5px 8px",borderRadius:999,background:pub?"#E9F1E7":"#F3ECEF",color:pub?"#667E62":C.muted}}>{pub?"Published":"Draft"}</span>
+}
+
+function Editor({item,setItem,onSave,onCancel}){
+  const schema=SCHEMAS[item.area]||[]
+  const [preview,setPreview]=useState(true)
+  const set=(k,v)=>setItem(p=>({...p,[k]:v}))
+  const publish=()=>onSave({...item,status:"published"})
+  return <>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
+      <button onClick={onCancel} style={S.pill}>← Content library</button>
+      <div style={{flex:1}}/>
+      <button onClick={()=>setPreview(x=>!x)} style={S.pill}>{preview?"Hide":"Show"} preview</button>
+      <button onClick={()=>onSave({...item,status:"draft"})} style={S.pill}>Save draft</button>
+      <button onClick={publish} style={{...S.pill,border:0,background:C.ink,color:"#fff",padding:"9px 16px"}}>Publish</button>
+    </div>
+    <div className="tr-editor" style={{gridTemplateColumns:preview?undefined:"1fr"}}>
+      <div style={{...S.card,padding:"22px"}}>
+        {item.area==="rebuild" && <div style={{padding:"12px 14px",borderRadius:14,background:"#F8F1F5",fontSize:12,color:C.muted,lineHeight:1.5,marginBottom:18}}>
+          Programs and experiences are separate content records. Save the program here, then use <b>＋ Add experience</b> below to prototype its guided content.
+        </div>}
+        {schema.map(([key,label,type,opts])=><Field key={key} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)}/>)}
+        {item.area==="rebuild" && <ExperienceManager item={item} set={set}/>}
+        <div style={{display:"flex",gap:9,borderTop:`1px solid ${C.line}`,paddingTop:18,marginTop:8}}>
+          <button onClick={()=>onSave({...item,status:"draft"})} style={{...S.pill,flex:1}}>Save draft</button>
+          <button onClick={publish} style={{...S.pill,flex:1,border:0,background:"linear-gradient(135deg,#C97BA8,#A87BD1)",color:"#fff"}}>Publish</button>
+        </div>
+      </div>
+      {preview && <Preview item={item}/>}
+    </div>
+  </>
+}
+
+function Field({k,label,type,opts,value,onChange}){
+  const [chip,setChip]=useState("")
+  if(type==="toggle") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><button onClick={()=>onChange(!value)} style={{width:48,height:27,border:0,borderRadius:99,padding:3,background:value?C.blush:"#D8CED2",display:"flex",justifyContent:value?"flex-end":"flex-start"}}><span style={{width:21,height:21,borderRadius:"50%",background:"#fff",display:"block"}}/></button></div>
+  if(type==="image") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><div style={{display:"flex",gap:10,alignItems:"center"}}>
+    {value&&<img src={value} style={{width:74,height:74,objectFit:"cover",borderRadius:14,border:`1px solid ${C.line}`}}/>}
+    <label style={{...S.pill,display:"inline-block"}}>Upload photo<input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f){const r=new FileReader();r.onload=()=>onChange(r.result);r.readAsDataURL(f)}}}/></label>
+    {value&&<button onClick={()=>onChange("")} style={tinyBtn}>Remove</button>}
+  </div></div>
+  if(type==="textarea") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><textarea rows={4} value={value||""} onChange={e=>onChange(e.target.value)} style={{...S.input,resize:"vertical",lineHeight:1.5}}/></div>
+  if(type==="select") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><select value={value||""} onChange={e=>onChange(e.target.value)} style={S.input}><option value="">Choose…</option>{opts.map(o=><option key={o}>{o}</option>)}</select></div>
+  if(type==="number") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><input type="number" value={value??""} onChange={e=>onChange(e.target.value)} style={S.input}/></div>
+  if(type==="chips"){
+    const arr=Array.isArray(value)?value:(value?[value]:[])
+    const add=()=>{const v=chip.trim();if(v&&!arr.includes(v))onChange([...arr,v]);setChip("")}
+    return <div style={fieldWrap}><label style={labelStyle}>{label}</label><div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:7}}>{arr.map(x=><button key={x} onClick={()=>onChange(arr.filter(a=>a!==x))} style={{...S.pill,padding:"6px 9px",color:C.ink}}>{x} ×</button>)}</div><div style={{display:"flex",gap:7}}><input value={chip} onChange={e=>setChip(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();add()}}} placeholder="Type and press Enter" style={S.input}/><button onClick={add} style={S.pill}>Add</button></div></div>
+  }
+  if(type==="list"){
+    const arr=Array.isArray(value)?value:[]
+    return <div style={fieldWrap}><label style={labelStyle}>{label}</label>{arr.map((x,i)=><div key={i} style={{display:"flex",gap:7,marginBottom:7}}><span style={{fontSize:11,color:C.muted,paddingTop:12,width:18}}>{i+1}</span><input value={x} onChange={e=>onChange(arr.map((a,j)=>j===i?e.target.value:a))} style={S.input}/><button onClick={()=>onChange(arr.filter((_,j)=>j!==i))} style={tinyBtn}>×</button></div>)}<button onClick={()=>onChange([...arr,""])} style={S.pill}>＋ Add item</button></div>
+  }
+  return <div style={fieldWrap}><label style={labelStyle}>{label}</label><input value={value||""} onChange={e=>onChange(e.target.value)} style={S.input}/></div>
+}
+const fieldWrap={marginBottom:18}
+const labelStyle={display:"block",fontSize:10,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",color:C.muted,marginBottom:7}
+
+function ExperienceManager({item,set}){
+  const ex=item.experiences||[]
+  const add=()=>set("experiences",[...ex,{id:uid(),title:"",why:"",anchor:"",nurseNote:""}])
+  const update=(i,k,v)=>set("experiences",ex.map((e,j)=>j===i?{...e,[k]:v}:e))
+  return <div style={{borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:6}}>
+    <div style={{display:"flex",alignItems:"center",marginBottom:12}}><div style={{...S.serif,fontSize:22,fontWeight:700,flex:1}}>Experiences</div><button onClick={add} style={S.pill}>＋ Add experience</button></div>
+    {ex.length===0&&<div style={{fontSize:12,color:C.muted,padding:"12px 0 18px"}}>No experiences added to this program yet.</div>}
+    {ex.map((e,i)=><div key={e.id} style={{border:`1px solid ${C.line}`,borderRadius:15,padding:14,marginBottom:10}}>
+      <div style={{fontSize:10,fontWeight:900,color:C.blush,marginBottom:8}}>EXPERIENCE {i+1}</div>
+      <input placeholder="Experience title" value={e.title} onChange={ev=>update(i,"title",ev.target.value)} style={{...S.input,marginBottom:8}}/>
+      <textarea placeholder="Why this matters" value={e.why} onChange={ev=>update(i,"why",ev.target.value)} style={{...S.input,marginBottom:8}}/>
+      <textarea placeholder="Main experience" value={e.anchor} onChange={ev=>update(i,"anchor",ev.target.value)} style={S.input}/>
+      <button onClick={()=>set("experiences",ex.filter((_,j)=>j!==i))} style={{...tinyBtn,marginTop:8}}>Remove</button>
+    </div>)}
+  </div>
+}
+
+function Preview({item}){
+  const img=item.image||item.cover
+  const list=item.howTo||item.walkthrough||item.method||item.steps||[]
+  return <div style={{position:"sticky",top:24,height:"fit-content"}}>
+    <div style={{fontSize:9,fontWeight:900,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,marginBottom:9}}>Live-ish preview</div>
+    <div style={{...S.card,overflow:"hidden",maxWidth:340,margin:"0 auto"}}>
+      <div style={{height:235,background:"linear-gradient(145deg,#E8D7DF,#D9D0E7)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
+        {img?<img src={img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:46}}>{item.emoji||item.icon||"✿"}</span>}
+      </div>
+      <div style={{padding:"18px"}}>
+        <div style={{fontSize:9,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase",color:C.blush}}>{labelFor(item.area)}{item.premium?" · TRUE REVERIE+":""}</div>
+        <div style={{...S.serif,fontSize:25,fontWeight:700,lineHeight:1.12,marginTop:7}}>{item.title||"Untitled"}</div>
+        <div style={{...S.serif,fontSize:14,fontStyle:"italic",color:C.muted,lineHeight:1.5,marginTop:7}}>{item.teaser||item.hook||item.description||item.outcome||"Your description will appear here."}</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:12}}>{[...(item.tags||[]),...(item.moods||[])].slice(0,4).map(t=><span key={t} style={{fontSize:9.5,padding:"5px 7px",borderRadius:999,background:C.soft,color:C.muted,fontWeight:800}}>{t}</span>)}</div>
+        {(item.nurseNote||list.length>0)&&<div style={{borderTop:`1px solid ${C.line}`,marginTop:16,paddingTop:14}}>
+          {list.slice(0,3).map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginBottom:6}}>{i+1}. {x}</div>)}
+          {item.nurseNote&&<div style={{background:"#F6EEF2",borderRadius:12,padding:"10px 11px",marginTop:10}}><div style={{fontSize:8.5,fontWeight:900,letterSpacing:1.2,color:C.blush}}>NURSE NOTE</div><div style={{fontSize:11.5,lineHeight:1.5,color:C.muted,marginTop:4}}>{item.nurseNote}</div></div>}
+        </div>}
+      </div>
+    </div>
+    <div style={{fontSize:10.5,color:C.muted,lineHeight:1.45,textAlign:"center",marginTop:10}}>Prototype preview — we'll map this to the exact consumer component when we wire the backend.</div>
+  </div>
+}
