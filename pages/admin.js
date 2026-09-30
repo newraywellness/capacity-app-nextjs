@@ -81,7 +81,7 @@ const SAMPLE = [
 ]
 
 function uid(){ return "local-"+Date.now()+"-"+Math.random().toString(36).slice(2,7) }
-function blank(area){ return {id:uid(),area,status:"draft",updated:"Just now",title:""} }
+function blank(area){ return {id:uid(),area,status:"draft",updated:"Just now",publishedAt:null,title:""} }
 function labelFor(area){ return AREAS.find(a=>a.id===area)?.label || area }
 
 const S = {
@@ -112,7 +112,7 @@ export default function AdminStudio(){
   const visible = useMemo(()=>items.filter(x=>(area==="dashboard"||x.area===area) && (filter==="all"||x.status===filter) && (!query||JSON.stringify(x).toLowerCase().includes(query.toLowerCase()))),[items,area,filter,query])
 
   const saveItem=(item)=>{
-    const next={...item,updated:"Just now"}
+    const next={...item,updated:"Just now",publishedAt:item.status==="published"?(item.publishedAt||Date.now()):item.publishedAt}
     setItems(prev=>prev.some(x=>x.id===next.id)?prev.map(x=>x.id===next.id?next:x):[next,...prev])
     setEditing(null)
   }
@@ -186,7 +186,7 @@ function Dashboard({items,counts,setArea,setEditing}){
       <div style={{...S.serif,fontSize:29,fontWeight:700,marginTop:8}}>What do you want to make today?</div>
       <div style={{fontSize:13,color:C.muted,lineHeight:1.6,maxWidth:650,marginTop:6}}>Create the idea here first. Later, Publish will send it to Supabase and the live True Reverie app — without touching GitHub.</div>
       <div style={{display:"flex",gap:9,flexWrap:"wrap",marginTop:17}}>
-        {["bloom","move","nourish","rebuild"].map(a=><button key={a} onClick={()=>setEditing(blank(a))} style={{...S.pill,color:C.ink}}>＋ {labelFor(a)}</button>)}
+        {["bloom","move","nourish","cycle","rebuild","feel","ritual"].map(a=><button key={a} onClick={()=>setEditing(blank(a))} style={{...S.pill,color:C.ink}}>＋ {labelFor(a)}</button>)}
       </div>
     </div>
     <div className="tr-cards">
@@ -194,6 +194,7 @@ function Dashboard({items,counts,setArea,setEditing}){
       <Stat n={published} label="Published"/>
       <Stat n={drafts} label="Drafts"/>
     </div>
+    <RecentPublished items={items} setEditing={setEditing}/>
     <div style={{fontSize:10,fontWeight:900,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,margin:"28px 0 10px"}}>Create & manage</div>
     <div className="tr-cards">
       {AREAS.map(a=><div key={a.id} onClick={()=>setArea(a.id)} style={{...S.card,padding:"18px",cursor:"pointer"}}>
@@ -204,6 +205,20 @@ function Dashboard({items,counts,setArea,setEditing}){
     </div>
   </>
 }
+function RecentPublished({items,setEditing}){
+  const recent=items.filter(x=>x.status==="published").sort((a,b)=>(b.publishedAt||0)-(a.publishedAt||0)).slice(0,5)
+  return <div style={{marginTop:26}}>
+    <div style={{fontSize:10,fontWeight:900,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,marginBottom:10}}>Recently Published</div>
+    <div style={{...S.card,overflow:"hidden"}}>
+      {recent.length===0?<div style={{padding:22,color:C.muted,fontSize:12}}>Your newest published content will appear here for one-tap editing.</div>:recent.map((item,i)=><div key={item.id} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderTop:i?`1px solid ${C.line}`:"none"}}>
+        <div style={{width:34,height:34,borderRadius:11,background:C.soft,display:"grid",placeItems:"center"}}>{AREAS.find(a=>a.id===item.area)?.icon||"✿"}</div>
+        <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.title||"Untitled"}</div><div style={{fontSize:10.5,color:C.muted,marginTop:2}}>{labelFor(item.area)} · Published</div></div>
+        <button onClick={()=>setEditing(item)} style={tinyBtn}>Edit</button>
+      </div>)}
+    </div>
+  </div>
+}
+
 function Stat({n,label}){return <div style={{...S.card,padding:"18px 20px"}}><div style={{...S.serif,fontSize:31,fontWeight:700}}>{n}</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{label}</div></div>}
 
 function Library({area,items,query,setQuery,filter,setFilter,onEdit,onDuplicate,onDelete}){
@@ -243,10 +258,11 @@ function Editor({item,setItem,onSave,onCancel}){
   const schema=SCHEMAS[item.area]||[]
   const [preview,setPreview]=useState(true)
   const set=(k,v)=>setItem(p=>({...p,[k]:v}))
-  const publish=()=>onSave({...item,status:"published"})
+  const publish=()=>onSave({...item,status:"published",publishedAt:item.publishedAt||Date.now()})
   return <>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
       <button onClick={onCancel} style={S.pill}>← Content library</button>
+      <button onClick={()=>{ window.location.href="/admin" }} style={S.pill}>⌂ Studio</button>
       <div style={{flex:1}}/>
       <button onClick={()=>setPreview(x=>!x)} style={S.pill}>{preview?"Hide":"Show"} preview</button>
       <button onClick={()=>onSave({...item,status:"draft"})} style={S.pill}>Save draft</button>
@@ -312,25 +328,18 @@ function ExperienceManager({item,set}){
 }
 
 function Preview({item}){
+  const [slide,setSlide]=useState(0)
+  useEffect(()=>setSlide(0),[item.id,item.area])
   const img=item.image||item.cover
   const list=item.howTo||item.walkthrough||item.method||item.steps||[]
-  return <div style={{position:"sticky",top:24,height:"fit-content"}}>
-    <div style={{fontSize:9,fontWeight:900,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,marginBottom:9}}>Live-ish preview</div>
-    <div style={{...S.card,overflow:"hidden",maxWidth:340,margin:"0 auto"}}>
-      <div style={{height:235,background:"linear-gradient(145deg,#E8D7DF,#D9D0E7)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
-        {img?<img src={img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:46}}>{item.emoji||item.icon||"✿"}</span>}
-      </div>
-      <div style={{padding:"18px"}}>
-        <div style={{fontSize:9,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase",color:C.blush}}>{labelFor(item.area)}{item.premium?" · TRUE REVERIE+":""}</div>
-        <div style={{...S.serif,fontSize:25,fontWeight:700,lineHeight:1.12,marginTop:7}}>{item.title||"Untitled"}</div>
-        <div style={{...S.serif,fontSize:14,fontStyle:"italic",color:C.muted,lineHeight:1.5,marginTop:7}}>{item.teaser||item.hook||item.description||item.outcome||"Your description will appear here."}</div>
-        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:12}}>{[...(item.tags||[]),...(item.moods||[])].slice(0,4).map(t=><span key={t} style={{fontSize:9.5,padding:"5px 7px",borderRadius:999,background:C.soft,color:C.muted,fontWeight:800}}>{t}</span>)}</div>
-        {(item.nurseNote||list.length>0)&&<div style={{borderTop:`1px solid ${C.line}`,marginTop:16,paddingTop:14}}>
-          {list.slice(0,3).map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginBottom:6}}>{i+1}. {x}</div>)}
-          {item.nurseNote&&<div style={{background:"#F6EEF2",borderRadius:12,padding:"10px 11px",marginTop:10}}><div style={{fontSize:8.5,fontWeight:900,letterSpacing:1.2,color:C.blush}}>NURSE NOTE</div><div style={{fontSize:11.5,lineHeight:1.5,color:C.muted,marginTop:4}}>{item.nurseNote}</div></div>}
-        </div>}
-      </div>
-    </div>
-    <div style={{fontSize:10.5,color:C.muted,lineHeight:1.45,textAlign:"center",marginTop:10}}>Prototype preview — we'll map this to the exact consumer component when we wire the backend.</div>
-  </div>
+  const tags=[...(item.tags||[]),...(item.moods||[])]
+  const slides=[]
+  slides.push(<div key="front">
+    <div style={{height:235,background:"linear-gradient(145deg,#E8D7DF,#D9D0E7)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>{img?<img src={img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:46}}>{item.emoji||item.icon||"✿"}</span>}</div>
+    <div style={{padding:"18px"}}><div style={{fontSize:9,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase",color:C.blush}}>{labelFor(item.area)}{item.premium?" · TRUE REVERIE+":""}</div><div style={{...S.serif,fontSize:25,fontWeight:700,lineHeight:1.12,marginTop:7}}>{item.title||"Untitled"}</div><div style={{...S.serif,fontSize:14,fontStyle:"italic",color:C.muted,lineHeight:1.5,marginTop:7}}>{item.teaser||item.hook||item.description||item.outcome||"Your description will appear here."}</div><div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:12}}>{tags.slice(0,4).map(t=><span key={t} style={{fontSize:9.5,padding:"5px 7px",borderRadius:999,background:C.soft,color:C.muted,fontWeight:800}}>{t}</span>)}</div>{slides.length!==1&&null}<div style={{fontSize:9.5,color:C.muted,textAlign:"right",marginTop:15}}>Swipe for details →</div></div>
+  </div>)
+  slides.push(<div key="details" style={{padding:"22px",minHeight:390}}><div style={{...S.serif,fontSize:25,fontWeight:700}}>{item.title||"Untitled"}</div><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>DESCRIPTION</div><div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginTop:6}}>{item.description||item.body||item.why||item.action||item.outcome||"Add the deeper content and it will appear here."}</div>{list.length>0&&<><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>{item.area==="nourish"?"HOW TO":"HOW TO"}</div>{list.map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginTop:7}}>{i+1}. {x}</div>)}</>}{item.ingredients?.length>0&&<><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>INGREDIENTS</div>{item.ingredients.map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginTop:6}}>• {x}</div>)}</>}{item.nurseNote&&<div style={{background:"#F6EEF2",borderRadius:12,padding:"10px 11px",marginTop:18}}><div style={{fontSize:8.5,fontWeight:900,letterSpacing:1.2,color:C.blush}}>NURSE NOTE</div><div style={{fontSize:11.5,lineHeight:1.5,color:C.muted,marginTop:4}}>{item.nurseNote}</div></div>}</div>)
+  const next=()=>setSlide((slide+1)%slides.length), prev=()=>setSlide((slide-1+slides.length)%slides.length)
+  return <div style={{position:"sticky",top:24,height:"fit-content"}}><div style={{fontSize:9,fontWeight:900,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,marginBottom:9}}>Post preview · swipeable</div><div style={{...S.card,overflow:"hidden",maxWidth:340,margin:"0 auto",touchAction:"pan-y"}} onTouchStart={e=>{e.currentTarget._x=e.touches[0].clientX}} onTouchEnd={e=>{const x=e.currentTarget._x||0,dx=e.changedTouches[0].clientX-x;if(dx<-35)next();if(dx>35)prev()}}>{slides[slide]}</div><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginTop:10}}><button onClick={prev} style={tinyBtn}>←</button><div style={{display:"flex",gap:5}}>{slides.map((_,i)=><span key={i} onClick={()=>setSlide(i)} style={{width:7,height:7,borderRadius:"50%",background:i===slide?C.ink:C.line,cursor:"pointer"}}/>)}</div><button onClick={next} style={tinyBtn}>→</button></div><div style={{fontSize:10.5,color:C.muted,lineHeight:1.45,textAlign:"center",marginTop:8}}>Swipe it here before you publish it.</div></div>
 }
+
