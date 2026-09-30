@@ -274,6 +274,7 @@ function Editor({item,setItem,onSave,onCancel}){
           Programs and experiences are separate content records. Save the program here, then use <b>＋ Add experience</b> below to prototype its guided content.
         </div>}
         {schema.map(([key,label,type,opts])=><Field key={key} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)}/>)}
+        <ExtraSwipePages item={item} set={set}/>
         {item.area==="rebuild" && <ExperienceManager item={item} set={set}/>}
         <div style={{display:"flex",gap:9,borderTop:`1px solid ${C.line}`,paddingTop:18,marginTop:8}}>
           <button onClick={()=>onSave({...item,status:"draft"})} style={{...S.pill,flex:1}}>Save draft</button>
@@ -310,6 +311,27 @@ function Field({k,label,type,opts,value,onChange}){
 const fieldWrap={marginBottom:18}
 const labelStyle={display:"block",fontSize:10,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",color:C.muted,marginBottom:7}
 
+function ExtraSwipePages({item,set}){
+  const pages=Array.isArray(item.extraSwipePages)?item.extraSwipePages:[]
+  const add=()=>set("extraSwipePages",[...pages,{id:uid(),content:""}])
+  const update=(i,v)=>set("extraSwipePages",pages.map((p,j)=>j===i?{...p,content:v}:p))
+  const remove=(i)=>set("extraSwipePages",pages.filter((_,j)=>j!==i))
+  const move=(i,dir)=>{
+    const j=i+dir
+    if(j<0||j>=pages.length)return
+    const next=[...pages]; [next[i],next[j]]=[next[j],next[i]]; set("extraSwipePages",next)
+  }
+  return <div style={{borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:8,marginBottom:20}}>
+    <div style={{...S.serif,fontSize:22,fontWeight:700}}>Extra swipe pages</div>
+    <div style={{fontSize:11.5,color:C.muted,lineHeight:1.5,margin:"4px 0 14px"}}>Optional. Your normal details stay together on the main swipe card. Add another page only when you need more room, then type exactly what you want on it.</div>
+    {pages.map((p,i)=><div key={p.id||i} style={{border:`1px solid ${C.line}`,borderRadius:15,padding:14,marginBottom:10,background:"#FFFEFD"}}>
+      <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:9}}><div style={{fontSize:10,fontWeight:900,letterSpacing:1.1,color:C.blush,flex:1}}>EXTRA PAGE {i+1}</div><button onClick={()=>move(i,-1)} disabled={i===0} style={{...tinyBtn,opacity:i===0?.35:1}}>↑</button><button onClick={()=>move(i,1)} disabled={i===pages.length-1} style={{...tinyBtn,opacity:i===pages.length-1?.35:1}}>↓</button><button onClick={()=>remove(i)} style={{...tinyBtn,color:"#A45B67"}}>×</button></div>
+      <textarea rows={8} value={p.content||""} onChange={e=>update(i,e.target.value)} placeholder="Type whatever you want on this swipe page…" style={{...S.input,resize:"vertical",lineHeight:1.6}}/>
+    </div>)}
+    <button onClick={add} style={S.pill}>＋ Add another swipe page</button>
+  </div>
+}
+
 function ExperienceManager({item,set}){
   const ex=item.experiences||[]
   const add=()=>set("experiences",[...ex,{id:uid(),title:"",why:"",anchor:"",nurseNote:""}])
@@ -338,7 +360,8 @@ function Preview({item}){
     <div style={{height:235,background:"linear-gradient(145deg,#E8D7DF,#D9D0E7)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>{img?<img src={img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:46}}>{item.emoji||item.icon||"✿"}</span>}</div>
     <div style={{padding:"18px"}}><div style={{fontSize:9,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase",color:C.blush}}>{labelFor(item.area)}{item.premium?" · TRUE REVERIE+":""}</div><div style={{...S.serif,fontSize:25,fontWeight:700,lineHeight:1.12,marginTop:7}}>{item.title||"Untitled"}</div><div style={{...S.serif,fontSize:14,fontStyle:"italic",color:C.muted,lineHeight:1.5,marginTop:7}}>{item.teaser||item.hook||item.description||item.outcome||"Your description will appear here."}</div><div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:12}}>{tags.slice(0,4).map(t=><span key={t} style={{fontSize:9.5,padding:"5px 7px",borderRadius:999,background:C.soft,color:C.muted,fontWeight:800}}>{t}</span>)}</div>{slides.length!==1&&null}<div style={{fontSize:9.5,color:C.muted,textAlign:"right",marginTop:15}}>Swipe for details →</div></div>
   </div>)
-  slides.push(<div key="details" style={{padding:"22px",minHeight:390}}><div style={{...S.serif,fontSize:25,fontWeight:700}}>{item.title||"Untitled"}</div><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>DESCRIPTION</div><div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginTop:6}}>{item.description||item.body||item.why||item.action||item.outcome||"Add the deeper content and it will appear here."}</div>{list.length>0&&<><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>{item.area==="nourish"?"HOW TO":"HOW TO"}</div>{list.map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginTop:7}}>{i+1}. {x}</div>)}</>}{item.ingredients?.length>0&&<><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>INGREDIENTS</div>{item.ingredients.map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginTop:6}}>• {x}</div>)}</>}{item.nurseNote&&<div style={{background:"#F6EEF2",borderRadius:12,padding:"10px 11px",marginTop:18}}><div style={{fontSize:8.5,fontWeight:900,letterSpacing:1.2,color:C.blush}}>NURSE NOTE</div><div style={{fontSize:11.5,lineHeight:1.5,color:C.muted,marginTop:4}}>{item.nurseNote}</div></div>}</div>)
+  slides.push(<div key="details" style={{padding:"22px",minHeight:390}}><div style={{...S.serif,fontSize:25,fontWeight:700}}>{item.title||"Untitled"}</div><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>DESCRIPTION</div><div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginTop:6}}>{item.description||item.body||item.why||item.action||item.outcome||"Add the deeper content and it will appear here."}</div>{list.length>0&&<><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>HOW TO</div>{list.map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginTop:7}}>{i+1}. {x}</div>)}</>}{item.ingredients?.length>0&&<><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>INGREDIENTS</div>{item.ingredients.map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginTop:6}}>• {x}</div>)}</>}{item.nurseNote&&<div style={{background:"#F6EEF2",borderRadius:12,padding:"10px 11px",marginTop:18}}><div style={{fontSize:8.5,fontWeight:900,letterSpacing:1.2,color:C.blush}}>NURSE NOTE</div><div style={{fontSize:11.5,lineHeight:1.5,color:C.muted,marginTop:4}}>{item.nurseNote}</div></div>}</div>)
+  ;(item.extraSwipePages||[]).forEach((p,i)=>slides.push(<div key={p.id||`extra-${i}`} style={{padding:"22px",minHeight:390}}><div style={{...S.serif,fontSize:25,fontWeight:700,marginBottom:16}}>{item.title||"Untitled"}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.75,whiteSpace:"pre-wrap"}}>{p.content||"Type your extra page content in the editor and it will appear here."}</div></div>))
   const next=()=>setSlide((slide+1)%slides.length), prev=()=>setSlide((slide-1+slides.length)%slides.length)
   return <div style={{position:"sticky",top:24,height:"fit-content"}}><div style={{fontSize:9,fontWeight:900,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,marginBottom:9}}>Post preview · swipeable</div><div style={{...S.card,overflow:"hidden",maxWidth:340,margin:"0 auto",touchAction:"pan-y"}} onTouchStart={e=>{e.currentTarget._x=e.touches[0].clientX}} onTouchEnd={e=>{const x=e.currentTarget._x||0,dx=e.changedTouches[0].clientX-x;if(dx<-35)next();if(dx>35)prev()}}>{slides[slide]}</div><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginTop:10}}><button onClick={prev} style={tinyBtn}>←</button><div style={{display:"flex",gap:5}}>{slides.map((_,i)=><span key={i} onClick={()=>setSlide(i)} style={{width:7,height:7,borderRadius:"50%",background:i===slide?C.ink:C.line,cursor:"pointer"}}/>)}</div><button onClick={next} style={tinyBtn}>→</button></div><div style={{fontSize:10.5,color:C.muted,lineHeight:1.45,textAlign:"center",marginTop:8}}>Swipe it here before you publish it.</div></div>
 }
