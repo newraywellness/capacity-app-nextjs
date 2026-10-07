@@ -120,6 +120,7 @@ export default function App() {
   // reload, same as everywhere else in the app). Actual progress is bundled
   // into one object and persisted to localStorage, same pattern as setupData.
   const [rebuildActiveProgram, setRebuildActiveProgram] = useState(null)
+  const [rebuildDynamicExpId, setRebuildDynamicExpId] = useState(null)
   const [rebuildView, setRebuildView] = useState("intro") // 'intro'|'home'|'exp'|'reveal'|'recap'|'journey'
   const [rebuildCapPick, setRebuildCapPick] = useState(null) // manual capacity override for the open experience
   const [rebuildFLYA, setRebuildFLYA] = useState({ started: false, currentExp: 1, completed: [], log: {} })
