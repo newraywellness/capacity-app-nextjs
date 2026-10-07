@@ -25,7 +25,7 @@ const hasAny = (arr, value) => !value || (arr || []).includes(value)
 
 export function renderTrain(ctx) {
   const {
-    bodyView, checkedIn, doneFeed = [], isSavedBloom, moveCategory, moveMood, moveSearch = "", moveTime,
+    bodyView, checkedIn, doneFeed = [], isSavedBloom, moveCategory, moveMood, moveSearch = "", moveTime, supabaseMoveRows = [],
     pct, savedBloom, setDoneFeed, setMoveCategory, setMoveMood, setMoveSearch, setMoveTime,
     tab, toggleSaveBloom
   } = ctx
@@ -54,7 +54,25 @@ export function renderTrain(ctx) {
 
   const q = (moveSearch || "").trim().toLowerCase()
 
-  let feed = MOVE_IDEAS.filter(idea => {
+  // Admin Studio Move posts use the same card contract as the original curated ideas.
+  const studioIdeas = (supabaseMoveRows || []).map(row => {
+    const c = row.content || {}
+    return {
+      ...c, id: "studio-" + row.id, title: row.title || c.title || "Move",
+      image: row.image_url || c.image || null,
+      hook: c.hook || c.description || "", emoji: c.emoji || "✨",
+      mood: Array.isArray(c.moods) ? c.moods : (Array.isArray(c.mood) ? c.mood : []),
+      time: Array.isArray(c.time) ? c.time : (c.time ? [c.time] : []),
+      category: Array.isArray(c.category) ? c.category : (row.category ? [row.category] : []),
+      walkthrough: Array.isArray(c.walkthrough) ? c.walkthrough : [],
+      capacity: Array.isArray(c.capacity) ? c.capacity : ["red","yellow","green"],
+      imagePosition: c.imagePosition, imageZoom: c.imageZoom,
+      extraSwipePages: Array.isArray(row.extra_pages) ? row.extra_pages : []
+    }
+  })
+  const allMoveIdeas = [...studioIdeas, ...MOVE_IDEAS]
+
+  let feed = allMoveIdeas.filter(idea => {
     const searchable = [
       idea.title,
       idea.hook,
@@ -78,7 +96,7 @@ export function renderTrain(ctx) {
     const aa = (a.capacity || []).includes(capKey) ? 1 : 0
     const bb = (b.capacity || []).includes(capKey) ? 1 : 0
     if (aa !== bb) return bb - aa
-    return MOVE_IDEAS.indexOf(a) - MOVE_IDEAS.indexOf(b)
+    return allMoveIdeas.indexOf(a) - allMoveIdeas.indexOf(b)
   })
 
   // Default browse should feel mixed, not grouped.
@@ -148,7 +166,7 @@ export function renderTrain(ctx) {
           <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
             <div style={{ position: "relative", aspectRatio: "4 / 5", background: ideaGradient(idea), overflow: "hidden" }}>
               {img ? (
-                <img src={img} alt={idea.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <img src={img} alt={idea.title} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `${idea.imagePosition?.x ?? 50}% ${idea.imagePosition?.y ?? 50}%`, transform: `scale(${Number(idea.imageZoom) || 1})`, transformOrigin: `${idea.imagePosition?.x ?? 50}% ${idea.imagePosition?.y ?? 50}%`, display: "block" }} />
               ) : (
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10 }}>
                   <span style={{ fontSize: 72 }}>{idea.emoji}</span>
