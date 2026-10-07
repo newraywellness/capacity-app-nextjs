@@ -15,15 +15,28 @@ export function renderRebuild(ctx) {
     rebuildSection, rebuildCurrent, rebuildSaved, rebuildPlus, rebuildStartWarning,
     setRebuildActiveProgram, setRebuildCapPick, setRebuildView, setRebuildSection,
     setRebuildCurrent, setRebuildSaved, setRebuildStartWarning,
+    supabaseRebuildRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId,
     tab, updateRebuildFLYA,
   } = ctx
   if (tab !== "rebuild") return null
 
   const saveKey = (key) => setRebuildSaved((prev) => prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key])
   const isSaved = (key) => rebuildSaved.includes(key)
-  const programById = (id) => REBUILD_PROGRAMS.find((p) => p.id === id)
+  const studioPrograms = (supabaseRebuildRows || []).map((row) => {
+    const c = row.content || {}
+    return { ...c, id:`studio-${row.id}`, _studioId:row.id, title:row.title, image:row.image_url || c.cover || "", premium:!!row.is_premium, featured:!!row.is_featured, outcome:c.outcome || "", duration:c.duration || "Guided Rebuild", pace:c.pace || "Move at your own pace", gradient:"linear-gradient(135deg,#C97BA8,#A87BD1)" }
+  })
+  const allPrograms = [...studioPrograms, ...REBUILD_PROGRAMS]
+  const programById = (id) => allPrograms.find((p) => p.id === id)
 
   const openProgram = (p) => {
+    if (p._studioId) {
+      setRebuildActiveProgram(p.id)
+      setRebuildDynamicExpId(null)
+      setRebuildView("dynamic-intro")
+      if (typeof window!=="undefined") window.scrollTo({top:0,behavior:"instant"})
+      return
+    }
     if (p.id === "feel-like-yourself-again") {
       setRebuildActiveProgram(p.id)
       setRebuildView(rebuildFLYA.started ? "home" : "intro")
@@ -37,6 +50,9 @@ export function renderRebuild(ctx) {
   const actuallyStart = (p) => {
     if (!rebuildCurrent.includes(p.id)) setRebuildCurrent((prev) => [...prev, p.id])
     setRebuildStartWarning(null)
+    if (p._studioId) {
+      setRebuildActiveProgram(p.id); setRebuildDynamicExpId(null); setRebuildView("dynamic-home"); return
+    }
     if (p.id === "feel-like-yourself-again") {
       if (!rebuildFLYA.started) updateRebuildFLYA({ started: true })
       setRebuildActiveProgram(p.id)
@@ -56,7 +72,7 @@ export function renderRebuild(ctx) {
   const ProgramCard = ({ p, compact }) => {
     const current = rebuildCurrent.includes(p.id) || (p.id === "feel-like-yourself-again" && rebuildFLYA.started)
     return <div style={{ borderRadius:24, overflow:"hidden", marginBottom:18, background:BASE.surface, border:`1px solid ${BASE.border}`, boxShadow:"0 8px 24px rgba(66,40,62,.07)" }}>
-      <div onClick={()=>openProgram(p)} style={{ minHeight:compact?145:235, padding:compact?"20px":"22px 20px", background:p.gradient, position:"relative", cursor:"pointer", display:"flex", flexDirection:"column", justifyContent:"space-between" }}>
+      <div onClick={()=>openProgram(p)} style={{ minHeight:compact?145:235, padding:compact?"20px":"22px 20px", background:p.image?`linear-gradient(rgba(48,30,44,.16),rgba(48,30,44,.42)), url(${p.image}) center/cover no-repeat`:p.gradient, backgroundPosition:p.image?`${p.imagePosition?.x||50}% ${p.imagePosition?.y||50}%`:undefined, position:"relative", cursor:"pointer", display:"flex", flexDirection:"column", justifyContent:"space-between" }}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
           <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{p.premium&&<Pill light>True Reverie +</Pill>}<Pill light>{p.kind==="quick"?"Quick Rebuild":p.duration}</Pill></div>
           <SaveButton id={"program:"+p.id} light />
@@ -91,7 +107,7 @@ export function renderRebuild(ctx) {
         {currentIds.length>0&&<div style={{marginBottom:26}}><div style={{fontSize:9.5,fontWeight:800,letterSpacing:1.7,textTransform:"uppercase",color:BASE.taupe,marginBottom:10}}>Current Rebuilds</div><div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:5,scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch"}}>{currentIds.map((id)=>{const p=programById(id);if(!p)return null;const done=id==="feel-like-yourself-again"?rebuildFLYA.completed.length:0;return <div key={id} onClick={()=>openProgram(p)} style={{minWidth:"78%",scrollSnapAlign:"start",borderRadius:18,padding:"16px",background:p.gradient,color:"#fff",cursor:"pointer"}}><div style={{fontSize:9,fontWeight:800,letterSpacing:1.4,textTransform:"uppercase",opacity:.75}}>Continue your Rebuild</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:21,fontWeight:700,marginTop:7}}>{p.title}</div><div style={{fontSize:10.5,marginTop:6,opacity:.85}}>{id==="feel-like-yourself-again"?`Experience ${Math.min(rebuildFLYA.currentExp,28)} of 28`:"Ready when you are"}</div><div style={{height:4,borderRadius:999,background:"rgba(255,255,255,.24)",marginTop:11,overflow:"hidden"}}><div style={{height:"100%",width:id==="feel-like-yourself-again"?`${done/28*100}%`:"4%",background:"rgba(255,255,255,.9)"}}/></div></div>})}</div></div>}
         <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream,marginBottom:4}}>Find your next Rebuild</div>
         <div style={{fontSize:11.5,color:BASE.taupe,lineHeight:1.5,marginBottom:15}}>Longer journeys and small resets — start what fits, save what can wait.</div>
-        {REBUILD_PROGRAMS.map((p)=><ProgramCard key={p.id} p={p}/>)}
+        {allPrograms.map((p)=><ProgramCard key={p.id} p={p}/>)}
       </>}
 
       {rebuildSection==="rituals"&&<><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Rituals</div><div style={{fontSize:11.5,color:BASE.taupe,lineHeight:1.55,margin:"5px 0 15px"}}>Little things worth coming back to. No streaks, no catching up — just repeat what makes life feel better.</div>{RITUALS.map((r)=><RitualCard key={r.id} r={r}/>)}</>}
@@ -112,6 +128,48 @@ export function renderRebuild(ctx) {
       {rebuildStartWarning && typeof document !== "undefined" && createPortal(<div onClick={()=>setRebuildStartWarning(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(44,31,43,.38)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}><div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{width:"100%",maxWidth:440,borderRadius:"24px 24px 0 0",background:BASE.bg,padding:"24px 22px 30px",boxShadow:"0 -12px 40px rgba(45,25,42,.18)"}}>{rebuildStartWarning.type==="too-many"?<><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:24,fontWeight:700,color:BASE.cream}}>You already have 3 Rebuilds going.</div><div style={{fontSize:13,color:BASE.taupe,lineHeight:1.6,marginTop:9}}>Keeping your current list small can make it easier to actually finish what you started. But you know your life best.</div><button onClick={()=>{saveKey("program:"+rebuildStartWarning.program.id);setRebuildStartWarning(null)}} style={{width:"100%",padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800,marginTop:18}}>Save for later</button><button onClick={()=>actuallyStart(rebuildStartWarning.program)} style={{width:"100%",padding:13,borderRadius:999,border:"none",background:"linear-gradient(135deg,#D86FA6,#A87BD1)",color:"#fff",fontWeight:800,marginTop:9}}>Start it anyway</button></>:rebuildStartWarning.type==="plus"||rebuildStartWarning.type==="plus-ritual"?<><div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#A84E7D"}}>True Reverie +</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:25,fontWeight:700,color:BASE.cream,marginTop:7}}>Go deeper with True Reverie +</div><div style={{fontSize:13,color:BASE.taupe,lineHeight:1.6,marginTop:9}}>Your monthly membership unlocks every True Reverie + Rebuild and ritual. Start as many as you want, at your own pace.</div><button onClick={()=>setRebuildStartWarning(null)} style={{width:"100%",padding:13,borderRadius:999,border:"none",background:"linear-gradient(135deg,#D86FA6,#A87BD1)",color:"#fff",fontWeight:800,marginTop:18}}>Explore True Reverie +</button></>:rebuildStartWarning.type==="feel-better"?<><div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#A84E7D"}}>Feel Better</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:25,fontWeight:700,color:BASE.cream,marginTop:7}}>{rebuildStartWarning.feel?.title}</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15,color:BASE.creamDim,lineHeight:1.6,marginTop:12}}>{rebuildStartWarning.feel?.action}</div><div style={{fontSize:11.5,color:BASE.taupe,lineHeight:1.5,marginTop:14}}>Do just this, or make it even smaller. The point is to make the next few minutes feel a little better.</div><button onClick={()=>setRebuildStartWarning(null)} style={{width:"100%",padding:13,borderRadius:999,border:"none",background:"linear-gradient(135deg,#D86FA6,#A87BD1)",color:"#fff",fontWeight:800,marginTop:18}}>That feels doable</button></>:<><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:24,fontWeight:700,color:BASE.cream}}>{rebuildStartWarning.program?.title||rebuildStartWarning.ritual?.title}</div><div style={{fontSize:13,color:BASE.taupe,lineHeight:1.6,marginTop:9}}>The discovery experience is ready. We're building the full content next, so this one isn't startable in the prototype yet.</div><button onClick={()=>setRebuildStartWarning(null)} style={{width:"100%",padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800,marginTop:18}}>Got it</button></>}</div></div>, document.body)}
       <div style={{height:44,paddingBottom:"env(safe-area-inset-bottom)"}}/>
     </div>
+  }
+
+
+  // ═══════════════════════ STUDIO-PUBLISHED REBUILDS ═══════════════════════
+  const studioProgram = studioPrograms.find(p=>p.id===rebuildActiveProgram)
+  if (studioProgram) {
+    const experiences=(supabaseRebuildExperiences||[]).filter(e=>e.rebuild_id===studioProgram._studioId).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
+    const backStudio=()=>{setRebuildActiveProgram(null);setRebuildDynamicExpId(null);setRebuildView("intro")}
+    if(rebuildView==="dynamic-intro") return <div className="fade-in" style={{padding:"10px 22px 0"}}>
+      <div onClick={backStudio} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ Rebuild</div>
+      {studioProgram.image&&<div style={{height:265,borderRadius:24,overflow:"hidden",marginBottom:20,background:`url(${studioProgram.image}) ${studioProgram.imagePosition?.x||50}% ${studioProgram.imagePosition?.y||50}%/cover no-repeat`,transform:"translateZ(0)"}}/>}
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:10}}>{studioProgram.premium&&<Pill>True Reverie +</Pill>}<Pill>{experiences.length} {experiences.length===1?"experience":"experiences"}</Pill></div>
+      <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:31,fontWeight:700,color:BASE.cream,lineHeight:1.12}}>{studioProgram.title}</div>
+      {studioProgram.outcome&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:16,color:"#9B6BC3",lineHeight:1.5,marginTop:10}}>{studioProgram.outcome}</div>}
+      {studioProgram.intro&&<div style={{fontSize:13.5,color:BASE.creamDim,lineHeight:1.7,marginTop:15,whiteSpace:"pre-wrap"}}>{studioProgram.intro}</div>}
+      <div onClick={()=>setRebuildView("dynamic-home")} style={{marginTop:24,textAlign:"center",padding:"15px 0",borderRadius:999,cursor:"pointer",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:800}}>{experiences.length?"See Experiences":"Start Rebuild"}</div><div style={{height:44}}/>
+    </div>
+    if(rebuildView==="dynamic-home") return <div className="fade-in" style={{padding:"10px 22px 0"}}>
+      <div onClick={()=>setRebuildView("dynamic-intro")} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ {studioProgram.title}</div>
+      <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:27,fontWeight:700,color:BASE.cream}}>Your Experiences</div>
+      <div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.55,margin:"6px 0 18px"}}>Move through these at your own pace. There is nothing to catch up on.</div>
+      {experiences.map((e,i)=>{const c=e.content||{};return <button key={e.id} onClick={()=>{setRebuildDynamicExpId(e.id);setRebuildView("dynamic-exp");if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})}} style={{width:"100%",padding:0,textAlign:"left",border:`1px solid ${BASE.border}`,borderRadius:20,overflow:"hidden",background:BASE.surface,marginBottom:14,cursor:"pointer"}}>{c.photo&&<div style={{height:150,background:`url(${c.photo}) ${c.imagePosition?.x||50}% ${c.imagePosition?.y||50}%/cover no-repeat`}}/>}<div style={{padding:"15px 16px"}}><div style={{fontSize:9.5,fontWeight:800,letterSpacing:1.6,textTransform:"uppercase",color:"#A87BD1"}}>Experience {i+1}</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:21,fontWeight:700,color:BASE.cream,marginTop:4}}>{e.title}</div>{c.description&&<div style={{fontSize:11.5,color:BASE.taupe,lineHeight:1.5,marginTop:5}}>{c.description}</div>}</div></button>})}
+      {!experiences.length&&<div style={{padding:20,borderRadius:18,background:BASE.surface,border:`1px solid ${BASE.border}`,fontSize:12.5,color:BASE.taupe}}>Experiences are coming soon.</div>}<div style={{height:44}}/>
+    </div>
+    if(rebuildView==="dynamic-exp") {
+      const exp=experiences.find(e=>e.id===rebuildDynamicExpId)||experiences[0]
+      if(!exp){setRebuildView("dynamic-home");return null}
+      const c=exp.content||{}; const idx=experiences.findIndex(e=>e.id===exp.id)
+      const versions=[["green","I've got room"],["yellow","Keep it doable"],["red","Make it small"],["recovery","Bare minimum"]].filter(([k])=>c[k])
+      const chosen=(rebuildCapPick&&c[rebuildCapPick])?rebuildCapPick:(c.yellow?"yellow":versions[0]?.[0])
+      return <div className="fade-in" style={{padding:"10px 22px 0"}}>
+        <div onClick={()=>{setRebuildView("dynamic-home");setRebuildDynamicExpId(null)}} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ {studioProgram.title}</div>
+        {c.photo&&<div style={{height:250,borderRadius:22,background:`url(${c.photo}) ${c.imagePosition?.x||50}% ${c.imagePosition?.y||50}%/cover no-repeat`,marginBottom:18}}/>}
+        <div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:BASE.taupe}}>Experience {idx+1} of {experiences.length}</div>
+        <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:28,fontWeight:700,color:BASE.cream,marginTop:6,lineHeight:1.15}}>{exp.title}</div>
+        {c.description&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15,color:BASE.taupe,marginTop:10,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{c.description}</div>}
+        {c.anchorEnabled&&(c.anchorTitle||c.anchorBody)&&<div style={{borderTop:`1px solid ${BASE.border}`,paddingTop:20,marginTop:22}}><div style={{fontSize:10.5,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:7}}>Today's Anchor</div>{c.anchorTitle&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:23,fontWeight:700,color:BASE.cream}}>{c.anchorTitle}</div>}{c.anchorBody&&<div style={{fontSize:13,color:BASE.creamDim,lineHeight:1.65,marginTop:8,whiteSpace:"pre-wrap"}}>{c.anchorBody}</div>}</div>}
+        {c.versionEnabled&&versions.length>0&&<div style={{marginTop:24}}><div style={{fontSize:10.5,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:10}}>Your Version Today</div><div style={{marginBottom:10}}>{versions.map(([k,l])=><span key={k} onClick={()=>setRebuildCapPick(k)} style={{display:"inline-block",padding:"8px 11px",borderRadius:999,marginRight:6,marginBottom:7,fontSize:11,fontWeight:700,cursor:"pointer",background:chosen===k?"linear-gradient(135deg,#E984B4,#A87BD1)":BASE.surface,color:chosen===k?"#fff":BASE.creamDim,border:`1px solid ${chosen===k?"transparent":BASE.border}`}}>{l}</span>)}</div><div style={{borderRadius:16,background:"rgba(201,123,168,.1)",padding:"16px 18px",fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15,color:BASE.cream,lineHeight:1.55}}>{c[chosen]}</div></div>}
+        {c.stillEnabled&&c.stillQuestion&&<div style={{borderTop:`1px solid ${BASE.border}`,paddingTop:20,marginTop:24}}><div style={{fontSize:10.5,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:9}}>Still You or Not?</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream,lineHeight:1.35}}>{c.stillQuestion}</div>{(c.stillOptions||[]).map(o=><span key={o} style={{display:"inline-block",padding:"9px 12px",borderRadius:999,marginRight:7,marginTop:10,fontSize:11.5,fontWeight:700,background:BASE.surface,color:BASE.creamDim,border:`1px solid ${BASE.border}`}}>{o}</span>)}</div>}
+        <div style={{display:"flex",gap:9,marginTop:28}}>{idx>0&&<button onClick={()=>{setRebuildDynamicExpId(experiences[idx-1].id);setRebuildCapPick(null);window.scrollTo({top:0,behavior:"instant"})}} style={{flex:1,padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800}}>Previous</button>}{idx<experiences.length-1?<button onClick={()=>{setRebuildDynamicExpId(experiences[idx+1].id);setRebuildCapPick(null);window.scrollTo({top:0,behavior:"instant"})}} style={{flex:1,padding:13,borderRadius:999,border:0,background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontWeight:800}}>Next Experience</button>:<button onClick={()=>setRebuildView("dynamic-home")} style={{flex:1,padding:13,borderRadius:999,border:0,background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontWeight:800}}>Back to Rebuild</button>}</div><div style={{height:44}}/>
+      </div>
+    }
   }
 
   // ═══════════════════════ FEEL LIKE YOURSELF AGAIN ═══════════════════════
