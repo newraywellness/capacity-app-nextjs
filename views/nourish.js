@@ -42,7 +42,7 @@ const mealGradient = m => m.t === "breakfast"
 
 export function renderNourish(ctx) {
   const {
-    bodyView, learnOpen, mealFilter, mealType, nourishView, planView, savedFoods,
+    bodyView, learnOpen, mealFilter, mealType, nourishView, planView, savedFoods, supabaseNourishRows = [],
     setLearnOpen, setMealFilter, setMealType, setNourishView, setPlanView,
     setSuppOpen, suppOpen, tab, toggleFavorite
   } = ctx
@@ -51,6 +51,24 @@ export function renderNourish(ctx) {
 
   const browse = parseBrowse(mealFilter)
   const timeChoice = TIME_CHOICES.find(x => x.key === browse.time) || null
+
+  // Meals published from Admin Studio are normalized into the existing Nourish card shape.
+  const studioMeals = (supabaseNourishRows || []).filter(row => {
+    const c = row.content || {}
+    const t = c.mealType || row.category
+    return ["breakfast","lunch","dinner","snack"].includes(t)
+  }).map(row => {
+    const c = row.content || {}
+    const ingredients = Array.isArray(c.ingredients) ? c.ingredients.map(x => Array.isArray(x) ? x : ["", x]) : []
+    return {
+      ...c, id: "studio-" + row.id, n: row.title || "Meal", t: c.mealType || row.category || "dinner",
+      image: row.image_url || c.image || null, min: Number(c.minutes) || 0,
+      p: Number(c.protein) || 0, cal: Number(c.calories) || 0, c: Number(c.carbs) || 0, f: Number(c.fat) || 0,
+      tags: Array.isArray(c.tags) ? c.tags : [], ing: ingredients, method: Array.isArray(c.method) ? c.method : [],
+      imagePosition: c.imagePosition, imageZoom: c.imageZoom, extraSwipePages: Array.isArray(row.extra_pages) ? row.extra_pages : []
+    }
+  })
+  const allMeals = [...studioMeals, ...MEALS]
 
   const Back = ({ onClick, label }) => (
     <div onClick={onClick} style={{ fontSize:13, fontWeight:700, color:BASE.taupe, cursor:"pointer", marginBottom:16 }}>‹ {label}</div>
@@ -68,7 +86,7 @@ export function renderNourish(ctx) {
         <div style={{ display:"flex", overflowX:"auto", scrollSnapType:"x mandatory", WebkitOverflowScrolling:"touch", overscrollBehaviorX:"contain" }}>
           <div style={{ flex:"0 0 100%", scrollSnapAlign:"start" }}>
             <div style={{ position:"relative", aspectRatio:"4 / 5", background:mealGradient(m), overflow:"hidden" }}>
-              {img ? <img src={img} alt={m.n} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> :
+              {img ? <img src={img} alt={m.n} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:`${m.imagePosition?.x ?? 50}% ${m.imagePosition?.y ?? 50}%`, transform:`scale(${Number(m.imageZoom) || 1})`, transformOrigin:`${m.imagePosition?.x ?? 50}% ${m.imagePosition?.y ?? 50}%` }} /> :
                 <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10 }}>
                   <span style={{ fontSize:68 }}>{MEAL_EMOJI[m.t]}</span>
                   <span style={{ fontSize:10, fontWeight:800, letterSpacing:1.4, textTransform:"uppercase", color:"rgba(70,45,58,.58)" }}>Photo ready</span>
@@ -98,7 +116,7 @@ export function renderNourish(ctx) {
             </div>
             <div style={{ height:1, background:BASE.border, margin:"16px 0" }} />
             {(m.ing||[]).map(([cat,item],i)=><div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 0", borderBottom:`.5px solid ${BASE.border}` }}><span style={{ flex:1, fontSize:14, color:BASE.creamDim }}>{item}</span><span style={{ fontSize:10.5, color:BASE.taupe }}>{cat}</span></div>)}
-            <div style={{ marginTop:20, fontSize:12.5, color:BASE.taupe, fontStyle:"italic", lineHeight:1.55 }}>The recipe method will live here as each Nourish meal is individually perfected. The swipe structure is ready for it.</div>
+            {(m.method||[]).length > 0 ? <div style={{marginTop:18}}>{m.method.map((step,i)=><div key={i} style={{display:"flex",gap:10,padding:"9px 0"}}><span style={{fontWeight:800,color:"#C9558E"}}>{i+1}.</span><span style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.55}}>{step}</span></div>)}</div> : <div style={{ marginTop:20, fontSize:12.5, color:BASE.taupe, fontStyle:"italic", lineHeight:1.55 }}>Simple ingredients, made your way.</div>}
           </div>
 
           <div style={{ flex:"0 0 100%", scrollSnapAlign:"start", padding:"22px 20px 24px", minHeight:520 }}>
@@ -166,7 +184,7 @@ export function renderNourish(ctx) {
 
           <div>
             {(() => {
-              let list = MEALS.filter(m => (!mealType || m.t===mealType) && (!timeChoice || timeChoice.test(m)) && (!browse.tag || (m.tags||[]).includes(browse.tag)))
+              let list = allMeals.filter(m => (!mealType || m.t===mealType) && (!timeChoice || timeChoice.test(m)) && (!browse.tag || (m.tags||[]).includes(browse.tag)))
               if (!mealType) {
                 const groups = MEAL_TYPES.map(([k]) => list.filter(m => m.t===k))
                 const mixed = []
