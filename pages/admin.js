@@ -60,14 +60,12 @@ const SCHEMAS = {
     ["reaction","Reflection question","textarea"],["reactionOptions","Reaction options","list"],
   ],
   feel: [
-    ["title","Title","text"],["icon","Icon","text"],["description","Short description","textarea"],
-    ["action","What she can do right now","textarea"],["nurseNote","Nurse Note (optional)","textarea"],
-    ["tags","Tags","chips"],
+    ["title","Title","text"],["image","Photo","image"],["description","Short description","textarea"],
+    ["action","Popup text","textarea"],
   ],
   ritual: [
-    ["title","Ritual title","text"],["cover","Cover image","image"],["description","Description","textarea"],
-    ["timing","When","text"],["minutes","Minutes","number"],["steps","Steps","list"],
-    ["premium","True Reverie+","toggle"],["nurseNote","Nurse Note (optional)","textarea"],["tags","Tags","chips"],
+    ["title","Ritual title","text"],["cover","Photo","image"],["description","Short description","textarea"],
+    ["action","Popup text","textarea"],
   ],
 }
 
@@ -347,7 +345,7 @@ function Editor({item,setItem,onSave,onDelete,onCancel}){
           Build the program cover and introduction here. Once the program has been saved, manage its ordered experiences below — each experience is its own published record with its own photo and content.
         </div>}
         {schema.map(([key,label,type,opts])=><Field key={key} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)} cropPosition={item.imagePosition||{x:50,y:50}} cropZoom={Number(item.imageZoom)||1} onCropPosition={v=>set("imagePosition",v)} onCropZoom={v=>set("imageZoom",v)}/>)}
-        {!["rebuild","cycle"].includes(item.area) && <ExtraSwipePages item={item} set={set}/>} 
+        {!["rebuild","cycle","feel","ritual"].includes(item.area) && <ExtraSwipePages item={item} set={set}/>} 
         {item.area==="rebuild" && <ExperienceManager item={item}/>}
         <div style={{display:"flex",gap:9,borderTop:`1px solid ${C.line}`,paddingTop:18,marginTop:8}}>
           <button onClick={()=>onSave({...item,status:"draft"})} style={{...S.pill,flex:1}}>Save draft</button>
