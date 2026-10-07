@@ -134,7 +134,7 @@ export default function AdminStudio(){
     const reserved=new Set(["id","area","status","updated","publishedAt","title","category","format","premium","featured","image","cover","extraSwipePages"])
     const body={}
     Object.entries(item).forEach(([k,v])=>{ if(!reserved.has(k)) body[k]=v })
-    // Until Storage is wired, never put a base64 phone photo into Postgres.
+    // Photos are uploaded to Supabase Storage first; Postgres stores only the public URL.
     const imageCandidate=item.image||item.cover||""
     const imageUrl=imageCandidate && !String(imageCandidate).startsWith("data:") ? imageCandidate : null
     return {
@@ -182,7 +182,7 @@ export default function AdminStudio(){
     else result=await db.from("tr_content").insert(payload).select().single()
     setBusy(false)
     if(result.error){setNotice("Save failed: "+result.error.message);return}
-    if((item.image||item.cover||"").startsWith?.("data:")) setNotice("Saved. The post is real; photo upload will become permanent when we wire Supabase Storage next.")
+    if((item.image||item.cover||"").startsWith?.("data:")) setNotice("Saved, but this older local preview photo is not permanent. Re-upload it once and it will be stored in True Reverie.")
     else setNotice(status==="published"?"Published to True Reverie.":"Draft saved to Supabase.")
     const saved=fromRow(result.data)
     setItems(prev=>prev.some(x=>x.id===saved.id)?prev.map(x=>x.id===saved.id?saved:x):[saved,...prev])
@@ -357,12 +357,28 @@ function Editor({item,setItem,onSave,onCancel}){
 
 function Field({k,label,type,opts,value,onChange}){
   const [chip,setChip]=useState("")
+  const [uploading,setUploading]=useState(false)
+  const [uploadError,setUploadError]=useState("")
+  const uploadPhoto=async(file)=>{
+    if(!file)return
+    setUploading(true); setUploadError("")
+    try{
+      const ext=(file.name?.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"")||"jpg"
+      const path=`content/${Date.now()}-${Math.random().toString(36).slice(2,10)}.${ext}`
+      const {error}=await db.storage.from("tr-content-images").upload(path,file,{cacheControl:"3600",upsert:false,contentType:file.type||undefined})
+      if(error)throw error
+      const {data}=db.storage.from("tr-content-images").getPublicUrl(path)
+      if(!data?.publicUrl)throw new Error("Supabase did not return a public image URL.")
+      onChange(data.publicUrl)
+    }catch(err){ setUploadError(err?.message||"Photo upload failed.") }
+    finally{ setUploading(false) }
+  }
   if(type==="toggle") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><button onClick={()=>onChange(!value)} style={{width:48,height:27,border:0,borderRadius:99,padding:3,background:value?C.blush:"#D8CED2",display:"flex",justifyContent:value?"flex-end":"flex-start"}}><span style={{width:21,height:21,borderRadius:"50%",background:"#fff",display:"block"}}/></button></div>
-  if(type==="image") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><div style={{display:"flex",gap:10,alignItems:"center"}}>
+  if(type==="image") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
     {value&&<img src={value} style={{width:74,height:74,objectFit:"cover",borderRadius:14,border:`1px solid ${C.line}`}}/>}
-    <label style={{...S.pill,display:"inline-block"}}>Upload photo<input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f){const r=new FileReader();r.onload=()=>onChange(r.result);r.readAsDataURL(f)}}}/></label>
+    <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":"Upload photo"}<input disabled={uploading} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);e.target.value=""}}/></label>
     {value&&<button onClick={()=>onChange("")} style={tinyBtn}>Remove</button>}
-  </div></div>
+  </div>{uploadError&&<div style={{fontSize:11,color:"#A45B67",marginTop:7}}>{uploadError}</div>}{value&&String(value).startsWith("https://")&&<div style={{fontSize:10.5,color:C.muted,marginTop:7}}>✓ Photo stored in True Reverie</div>}</div>
   if(type==="textarea") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><textarea rows={4} value={value||""} onChange={e=>onChange(e.target.value)} style={{...S.input,resize:"vertical",lineHeight:1.5}}/></div>
   if(type==="select") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><select value={value||""} onChange={e=>onChange(e.target.value)} style={S.input}><option value="">Choose…</option>{opts.map(o=><option key={o}>{o}</option>)}</select></div>
   if(type==="number") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><input type="number" value={value??""} onChange={e=>onChange(e.target.value)} style={S.input}/></div>
