@@ -236,7 +236,7 @@ export default function AdminStudio(){
         </div>
         {notice&&<div style={{...S.card,padding:"12px 15px",marginBottom:16,fontSize:12,color:C.muted}}>{notice}</div>}
         {busy&&<div style={{fontSize:11,color:C.blush,marginBottom:10}}>Saving…</div>}
-        {loadingItems?<div style={{color:C.muted}}>Loading Studio content…</div>:editing ? <Editor item={editing} setItem={setEditing} onSave={saveItem} onCancel={()=>setEditing(null)}/> : area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> : <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>} 
+        {loadingItems?<div style={{color:C.muted}}>Loading Studio content…</div>:editing ? <Editor item={editing} setItem={setEditing} onSave={saveItem} onDelete={remove} onCancel={()=>setEditing(null)}/> : area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> : <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>} 
       </main>
     </div>
   </div>
@@ -323,17 +323,21 @@ function Status({s}){
   return <span style={{fontSize:10,fontWeight:850,padding:"5px 8px",borderRadius:999,background:pub?"#E9F1E7":"#F3ECEF",color:pub?"#667E62":C.muted}}>{pub?"Published":"Draft"}</span>
 }
 
-function Editor({item,setItem,onSave,onCancel}){
+function Editor({item,setItem,onSave,onDelete,onCancel}){
   const schema=SCHEMAS[item.area]||[]
   const [preview,setPreview]=useState(true)
   const set=(k,v)=>setItem(p=>({...p,[k]:v}))
   const publish=()=>onSave({...item,status:"published",publishedAt:item.publishedAt||Date.now()})
+  const unpublish=()=>{ if(confirm("Unpublish this post? It will disappear from the live app but stay in Admin Studio as a draft.")) onSave({...item,status:"draft",publishedAt:null}) }
+  const deleteHere=()=>{ if(confirm("Permanently delete this content? This cannot be undone.")){ onDelete(item.id); onCancel() } }
   return <>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
       <button onClick={onCancel} style={S.pill}>← Content library</button>
       <button onClick={()=>{ window.location.href="/admin" }} style={S.pill}>⌂ Studio</button>
       <div style={{flex:1}}/>
       <button onClick={()=>setPreview(x=>!x)} style={S.pill}>{preview?"Hide":"Show"} preview</button>
+      {item.status==="published"&&<button onClick={unpublish} style={{...S.pill,color:"#8B6472"}}>Unpublish</button>}
+      {typeof item.id==="number"&&<button onClick={deleteHere} style={{...S.pill,color:"#A45B67"}}>Delete</button>}
       <button onClick={()=>onSave({...item,status:"draft"})} style={S.pill}>Save draft</button>
       <button onClick={publish} style={{...S.pill,border:0,background:C.ink,color:"#fff",padding:"9px 16px"}}>Publish</button>
     </div>
@@ -342,7 +346,7 @@ function Editor({item,setItem,onSave,onCancel}){
         {item.area==="rebuild" && <div style={{padding:"12px 14px",borderRadius:14,background:"#F8F1F5",fontSize:12,color:C.muted,lineHeight:1.5,marginBottom:18}}>
           Programs and experiences are separate content records. Save the program here, then use <b>＋ Add experience</b> below to prototype its guided content.
         </div>}
-        {schema.map(([key,label,type,opts])=><Field key={key} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)}/>)}
+        {schema.map(([key,label,type,opts])=><Field key={key} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)} cropPosition={item.imagePosition||{x:50,y:50}} cropZoom={Number(item.imageZoom)||1} onCropPosition={v=>set("imagePosition",v)} onCropZoom={v=>set("imageZoom",v)}/>)}
         <ExtraSwipePages item={item} set={set}/>
         {item.area==="rebuild" && <ExperienceManager item={item} set={set}/>}
         <div style={{display:"flex",gap:9,borderTop:`1px solid ${C.line}`,paddingTop:18,marginTop:8}}>
@@ -355,7 +359,7 @@ function Editor({item,setItem,onSave,onCancel}){
   </>
 }
 
-function Field({k,label,type,opts,value,onChange}){
+function Field({k,label,type,opts,value,onChange,cropPosition,cropZoom,onCropPosition,onCropZoom}){
   const [chip,setChip]=useState("")
   const [uploading,setUploading]=useState(false)
   const [uploadError,setUploadError]=useState("")
@@ -374,11 +378,29 @@ function Field({k,label,type,opts,value,onChange}){
     finally{ setUploading(false) }
   }
   if(type==="toggle") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><button onClick={()=>onChange(!value)} style={{width:48,height:27,border:0,borderRadius:99,padding:3,background:value?C.blush:"#D8CED2",display:"flex",justifyContent:value?"flex-end":"flex-start"}}><span style={{width:21,height:21,borderRadius:"50%",background:"#fff",display:"block"}}/></button></div>
-  if(type==="image") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-    {value&&<img src={value} style={{width:74,height:74,objectFit:"cover",borderRadius:14,border:`1px solid ${C.line}`}}/>}
-    <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":"Upload photo"}<input disabled={uploading} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);e.target.value=""}}/></label>
-    {value&&<button onClick={()=>onChange("")} style={tinyBtn}>Remove</button>}
-  </div>{uploadError&&<div style={{fontSize:11,color:"#A45B67",marginTop:7}}>{uploadError}</div>}{value&&String(value).startsWith("https://")&&<div style={{fontSize:10.5,color:C.muted,marginTop:7}}>✓ Photo stored in True Reverie</div>}</div>
+  if(type==="image") {
+    const pos=cropPosition||{x:50,y:50}, zoom=cropZoom||1
+    const dragStart={current:null}
+    const movePhoto=(e)=>{
+      if(!dragStart.current)return
+      const point=e.touches?.[0]||e
+      const dx=point.clientX-dragStart.current.x, dy=point.clientY-dragStart.current.y
+      onCropPosition?.({x:Math.max(0,Math.min(100,dragStart.current.px-dx/2.2)),y:Math.max(0,Math.min(100,dragStart.current.py-dy/2.8))})
+    }
+    return <div style={fieldWrap}><label style={labelStyle}>{label}</label>
+      {value&&<div style={{marginBottom:12}}>
+        <div onMouseDown={e=>{dragStart.current={x:e.clientX,y:e.clientY,px:pos.x,py:pos.y}}} onMouseMove={movePhoto} onMouseUp={()=>dragStart.current=null} onMouseLeave={()=>dragStart.current=null} onTouchStart={e=>{const t=e.touches[0];dragStart.current={x:t.clientX,y:t.clientY,px:pos.x,py:pos.y}}} onTouchMove={movePhoto} onTouchEnd={()=>dragStart.current=null} style={{height:240,maxWidth:330,borderRadius:16,overflow:"hidden",background:C.soft,border:`1px solid ${C.line}`,touchAction:"none",cursor:"grab",position:"relative"}}>
+          <img src={value} draggable={false} style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:`${pos.x}% ${pos.y}%`,transform:`scale(${zoom})`,transformOrigin:`${pos.x}% ${pos.y}%`,userSelect:"none",pointerEvents:"none"}}/>
+          <div style={{position:"absolute",left:10,bottom:10,background:"rgba(255,255,255,.86)",borderRadius:999,padding:"5px 9px",fontSize:10,fontWeight:800,color:C.muted}}>Drag to reposition</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:9,maxWidth:330,marginTop:9}}><span style={{fontSize:10,fontWeight:800,color:C.muted}}>Zoom</span><input aria-label="Photo zoom" type="range" min="1" max="2.5" step="0.05" value={zoom} onChange={e=>onCropZoom?.(Number(e.target.value))} style={{flex:1}}/><button onClick={()=>{onCropPosition?.({x:50,y:50});onCropZoom?.(1)}} style={tinyBtn}>Reset</button></div>
+      </div>}
+      <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+        <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":value?"Replace photo":"Upload photo"}<input disabled={uploading} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);if(f){onCropPosition?.({x:50,y:50});onCropZoom?.(1)}e.target.value=""}}/></label>
+        {value&&<button onClick={()=>onChange("")} style={tinyBtn}>Remove</button>}
+      </div>{uploadError&&<div style={{fontSize:11,color:"#A45B67",marginTop:7}}>{uploadError}</div>}{value&&String(value).startsWith("https://")&&<div style={{fontSize:10.5,color:C.muted,marginTop:7}}>✓ Photo stored in True Reverie</div>}
+    </div>
+  }
   if(type==="textarea") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><textarea rows={4} value={value||""} onChange={e=>onChange(e.target.value)} style={{...S.input,resize:"vertical",lineHeight:1.5}}/></div>
   if(type==="select") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><select value={value||""} onChange={e=>onChange(e.target.value)} style={S.input}><option value="">Choose…</option>{opts.map(o=><option key={o}>{o}</option>)}</select></div>
   if(type==="number") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><input type="number" value={value??""} onChange={e=>onChange(e.target.value)} style={S.input}/></div>
@@ -442,7 +464,7 @@ function Preview({item}){
   const tags=[...(item.tags||[]),...(item.moods||[])]
   const slides=[]
   slides.push(<div key="front">
-    <div style={{height:235,background:"linear-gradient(145deg,#E8D7DF,#D9D0E7)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>{img?<img src={img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:46}}>{item.emoji||item.icon||"✿"}</span>}</div>
+    <div style={{height:235,background:"linear-gradient(145deg,#E8D7DF,#D9D0E7)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>{img?<img src={img} style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:`${item.imagePosition?.x??50}% ${item.imagePosition?.y??50}%`,transform:`scale(${Number(item.imageZoom)||1})`,transformOrigin:`${item.imagePosition?.x??50}% ${item.imagePosition?.y??50}%`}}/>:<span style={{fontSize:46}}>{item.emoji||item.icon||"✿"}</span>}</div>
     <div style={{padding:"18px"}}><div style={{fontSize:9,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase",color:C.blush}}>{labelFor(item.area)}{item.premium?" · TRUE REVERIE+":""}</div><div style={{...S.serif,fontSize:25,fontWeight:700,lineHeight:1.12,marginTop:7}}>{item.title||"Untitled"}</div><div style={{...S.serif,fontSize:14,fontStyle:"italic",color:C.muted,lineHeight:1.5,marginTop:7}}>{item.teaser||item.hook||item.description||item.outcome||"Your description will appear here."}</div><div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:12}}>{tags.slice(0,4).map(t=><span key={t} style={{fontSize:9.5,padding:"5px 7px",borderRadius:999,background:C.soft,color:C.muted,fontWeight:800}}>{t}</span>)}</div>{slides.length!==1&&null}<div style={{fontSize:9.5,color:C.muted,textAlign:"right",marginTop:15}}>Swipe for details →</div></div>
   </div>)
   slides.push(<div key="details" style={{padding:"22px",minHeight:390}}><div style={{...S.serif,fontSize:25,fontWeight:700}}>{item.title||"Untitled"}</div><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>DESCRIPTION</div><div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginTop:6}}>{item.description||item.body||item.why||item.action||item.outcome||"Add the deeper content and it will appear here."}</div>{list.length>0&&<><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>HOW TO</div>{list.map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginTop:7}}>{i+1}. {x}</div>)}</>}{item.ingredients?.length>0&&<><div style={{fontSize:9,fontWeight:900,letterSpacing:1.4,color:C.blush,marginTop:18}}>INGREDIENTS</div>{item.ingredients.map((x,i)=><div key={i} style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginTop:6}}>• {x}</div>)}</>}{item.nurseNote&&<div style={{background:"#F6EEF2",borderRadius:12,padding:"10px 11px",marginTop:18}}><div style={{fontSize:8.5,fontWeight:900,letterSpacing:1.2,color:C.blush}}>NURSE NOTE</div><div style={{fontSize:11.5,lineHeight:1.5,color:C.muted,marginTop:4}}>{item.nurseNote}</div></div>}</div>)
