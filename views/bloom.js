@@ -1270,22 +1270,22 @@ export function renderBloom(ctx) {
         return cards
       })
       const seasonalItems = SEASONAL_ITEMS.map((item) => ({ ...item, tags: Array.from(new Set([...(item.tags || []), "Seasonal"])), _source: "seasonal" }))
-      const supabaseItems = (supabaseBloomRows || []).map((row) => ({
-        id: `supabase-${row.id}`,
-        type: row.format || "idea",
-        emoji: "🌸",
-        image: null,
-        title: row.title || "A True Reverie idea",
-        // Intentionally empty for this vertical-slice test. These will become
-        // real Supabase fields once we expand the Bloom content schema.
-        teaser: "",
-        tags: [row.category, row.format].filter(Boolean),
-        detail: { sections: [
-          { heading: "Description", body: [] },
-          { heading: "How To", body: [] }
-        ] },
-        _source: "supabase"
-      }))
+      const supabaseItems = (supabaseBloomRows || []).map((row) => {
+        const c = row.content || {}
+        const sections = []
+        if (c.description) sections.push({ heading: "Description", body: [c.description] })
+        if (Array.isArray(c.howTo) && c.howTo.filter(Boolean).length) sections.push({ heading: "How To", body: c.howTo.filter(Boolean) })
+        if (Array.isArray(c.need) && c.need.filter(Boolean).length) sections.push({ heading: "What You Need", body: c.need.filter(Boolean) })
+        if (c.nurseNote) sections.push({ heading: "Nurse Note", body: [c.nurseNote] })
+        if (Array.isArray(c.products) && c.products.filter(Boolean).length) sections.push({ heading: "Products", body: c.products.filter(Boolean) })
+        ;(row.extra_pages || []).forEach((page, i) => { if (page?.content) sections.push({ heading: `More ${i + 1}`, body: [page.content] }) })
+        return {
+          id: `supabase-${row.id}`, type: row.format || "idea", emoji: c.emoji || "🌸",
+          image: row.image_url || null, title: row.title || "A True Reverie idea", teaser: c.teaser || "",
+          tags: [...(c.tags || []), row.category, row.format].filter(Boolean),
+          detail: { sections }, _source: "supabase"
+        }
+      })
       const forYouItems = FOR_YOU_ITEMS.map((item) => ({ ...item, _source: "foryou" }))
       const allBloomItems = [...supabaseItems, ...forYouItems, ...seasonalItems, ...glowItems]
       const itemText = (item) => [item.title, item.teaser, item.type, ...(item.tags || [])].filter(Boolean).join(" ").toLowerCase()
