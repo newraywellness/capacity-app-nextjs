@@ -344,11 +344,11 @@ function Editor({item,setItem,onSave,onDelete,onCancel}){
     <div className="tr-editor" style={{gridTemplateColumns:preview?undefined:"1fr"}}>
       <div style={{...S.card,padding:"22px"}}>
         {item.area==="rebuild" && <div style={{padding:"12px 14px",borderRadius:14,background:"#F8F1F5",fontSize:12,color:C.muted,lineHeight:1.5,marginBottom:18}}>
-          Programs and experiences are separate content records. Save the program here, then use <b>＋ Add experience</b> below to prototype its guided content.
+          Build the program cover and introduction here. Once the program has been saved, manage its ordered experiences below — each experience is its own published record with its own photo and content.
         </div>}
         {schema.map(([key,label,type,opts])=><Field key={key} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)} cropPosition={item.imagePosition||{x:50,y:50}} cropZoom={Number(item.imageZoom)||1} onCropPosition={v=>set("imagePosition",v)} onCropZoom={v=>set("imageZoom",v)}/>)}
-        <ExtraSwipePages item={item} set={set}/>
-        {item.area==="rebuild" && <ExperienceManager item={item} set={set}/>}
+        {!["rebuild","cycle"].includes(item.area) && <ExtraSwipePages item={item} set={set}/>} 
+        {item.area==="rebuild" && <ExperienceManager item={item}/>}
         <div style={{display:"flex",gap:9,borderTop:`1px solid ${C.line}`,paddingTop:18,marginTop:8}}>
           <button onClick={()=>onSave({...item,status:"draft"})} style={{...S.pill,flex:1}}>Save draft</button>
           <button onClick={publish} style={{...S.pill,flex:1,border:0,background:"linear-gradient(135deg,#C97BA8,#A87BD1)",color:"#fff"}}>Publish</button>
@@ -439,22 +439,54 @@ function ExtraSwipePages({item,set}){
   </div>
 }
 
-function ExperienceManager({item,set}){
-  const ex=item.experiences||[]
-  const add=()=>set("experiences",[...ex,{id:uid(),title:"",why:"",anchor:"",nurseNote:""}])
-  const update=(i,k,v)=>set("experiences",ex.map((e,j)=>j===i?{...e,[k]:v}:e))
-  return <div style={{borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:6}}>
-    <div style={{display:"flex",alignItems:"center",marginBottom:12}}><div style={{...S.serif,fontSize:22,fontWeight:700,flex:1}}>Experiences</div><button onClick={add} style={S.pill}>＋ Add experience</button></div>
-    {ex.length===0&&<div style={{fontSize:12,color:C.muted,padding:"12px 0 18px"}}>No experiences added to this program yet.</div>}
-    {ex.map((e,i)=><div key={e.id} style={{border:`1px solid ${C.line}`,borderRadius:15,padding:14,marginBottom:10}}>
-      <div style={{fontSize:10,fontWeight:900,color:C.blush,marginBottom:8}}>EXPERIENCE {i+1}</div>
-      <input placeholder="Experience title" value={e.title} onChange={ev=>update(i,"title",ev.target.value)} style={{...S.input,marginBottom:8}}/>
-      <textarea placeholder="Why this matters" value={e.why} onChange={ev=>update(i,"why",ev.target.value)} style={{...S.input,marginBottom:8}}/>
-      <textarea placeholder="Main experience" value={e.anchor} onChange={ev=>update(i,"anchor",ev.target.value)} style={S.input}/>
-      <button onClick={()=>set("experiences",ex.filter((_,j)=>j!==i))} style={{...tinyBtn,marginTop:8}}>Remove</button>
-    </div>)}
+function ExperienceManager({item}){
+  const [rows,setRows]=useState([])
+  const [editing,setEditing]=useState(null)
+  const [loading,setLoading]=useState(false)
+  const [msg,setMsg]=useState("")
+  const savedProgram=typeof item.id==="number"
+
+  const load=async()=>{
+    if(!savedProgram)return
+    setLoading(true)
+    const {data,error}=await db.from("tr_rebuild_experiences").select("*").eq("rebuild_id",item.id).order("sort_order",{ascending:true})
+    setLoading(false)
+    if(error){setMsg(error.message);return}
+    setRows((data||[]).map(r=>({id:r.id,title:r.title||"",status:r.status||"draft",sort_order:r.sort_order||0,...(r.content||{})})))
+  }
+  useEffect(()=>{load()},[item.id])
+  const blankExp=()=>({title:"",status:"draft",sort_order:rows.length,photo:"",imagePosition:{x:50,y:50},imageZoom:1,description:"",anchorEnabled:false,anchorTitle:"",anchorBody:"",versionEnabled:false,green:"",yellow:"",red:"",recovery:"",stillEnabled:false,stillQuestion:"",stillOptions:[]})
+  const saveExp=async(exp,status=exp.status||"draft")=>{
+    if(!exp.title?.trim()){setMsg("Add an experience title first.");return}
+    const {id,title,sort_order,...content}=exp
+    const payload={rebuild_id:item.id,title:title.trim(),sort_order:Number(sort_order)||0,status,content}
+    const res=typeof id==="number"?await db.from("tr_rebuild_experiences").update(payload).eq("id",id).select().single():await db.from("tr_rebuild_experiences").insert(payload).select().single()
+    if(res.error){setMsg("Experience save failed: "+res.error.message);return}
+    setMsg(status==="published"?"Experience published.":"Experience draft saved.");setEditing(null);await load()
+  }
+  const removeExp=async(exp)=>{if(!confirm("Delete this experience permanently?"))return; if(typeof exp.id==="number"){const {error}=await db.from("tr_rebuild_experiences").delete().eq("id",exp.id);if(error){setMsg(error.message);return}} setEditing(null);await load()}
+  const move=async(i,dir)=>{const j=i+dir;if(j<0||j>=rows.length)return;const a=rows[i],b=rows[j];await Promise.all([db.from("tr_rebuild_experiences").update({sort_order:j}).eq("id",a.id),db.from("tr_rebuild_experiences").update({sort_order:i}).eq("id",b.id)]);await load()}
+  const setE=(k,v)=>setEditing(e=>({...e,[k]:v}))
+
+  if(!savedProgram)return <div style={{borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:8}}><div style={{...S.serif,fontSize:22,fontWeight:700}}>Experiences</div><div style={{fontSize:12,color:C.muted,lineHeight:1.55,marginTop:6}}>Save this Rebuild as a draft first. Then reopen it and you can add its experiences here.</div></div>
+  return <div style={{borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:8}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><div style={{flex:1}}><div style={{...S.serif,fontSize:23,fontWeight:700}}>Experiences</div><div style={{fontSize:11.5,color:C.muted,marginTop:2}}>{rows.length} {rows.length===1?"experience":"experiences"} added</div></div><button onClick={()=>setEditing(blankExp())} style={S.pill}>＋ Add experience</button></div>
+    {msg&&<div style={{fontSize:11.5,color:C.muted,marginBottom:10}}>{msg}</div>}
+    {loading?<div style={{fontSize:12,color:C.muted}}>Loading experiences…</div>:rows.map((e,i)=><div key={e.id} style={{border:`1px solid ${C.line}`,borderRadius:15,padding:13,marginBottom:9,background:"#FFFEFD"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:10,background:C.soft,display:"grid",placeItems:"center",fontSize:11,fontWeight:900,color:C.blush}}>{i+1}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:800}}>{e.title||"Untitled experience"}</div><div style={{fontSize:10.5,color:C.muted,marginTop:2}}>{e.status==="published"?"Published":"Draft"}</div></div><button onClick={()=>move(i,-1)} disabled={i===0} style={{...tinyBtn,opacity:i===0?.35:1}}>↑</button><button onClick={()=>move(i,1)} disabled={i===rows.length-1} style={{...tinyBtn,opacity:i===rows.length-1?.35:1}}>↓</button><button onClick={()=>setEditing(e)} style={tinyBtn}>Edit</button></div></div>)}
+    {rows.length===0&&!loading&&<div style={{fontSize:12,color:C.muted,padding:"10px 0 16px"}}>No experiences yet. Add the first one whenever you're ready.</div>}
+    {editing&&<div style={{marginTop:15,padding:16,borderRadius:18,background:"#F8F2F4",border:`1px solid ${C.line}`}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:15}}><div style={{...S.serif,fontSize:22,fontWeight:700,flex:1}}>{editing.id?"Edit experience":"New experience"}</div><button onClick={()=>setEditing(null)} style={tinyBtn}>×</button></div>
+      <Field label="Experience photo" type="image" value={editing.photo} onChange={v=>setE("photo",v)} cropPosition={editing.imagePosition||{x:50,y:50}} cropZoom={Number(editing.imageZoom)||1} onCropPosition={v=>setE("imagePosition",v)} onCropZoom={v=>setE("imageZoom",v)}/>
+      <Field label="Experience title" type="text" value={editing.title} onChange={v=>setE("title",v)}/>
+      <Field label="Today's experience — intro paragraph" type="textarea" value={editing.description} onChange={v=>setE("description",v)}/>
+      <ExperienceBlock title="Today's Anchor" enabled={editing.anchorEnabled} onToggle={()=>setE("anchorEnabled",!editing.anchorEnabled)}><Field label="Anchor title" type="text" value={editing.anchorTitle} onChange={v=>setE("anchorTitle",v)}/><Field label="Anchor text" type="textarea" value={editing.anchorBody} onChange={v=>setE("anchorBody",v)}/></ExperienceBlock>
+      <ExperienceBlock title="Your Version Today" enabled={editing.versionEnabled} onToggle={()=>setE("versionEnabled",!editing.versionEnabled)}>{editing.versionEnabled&&<><Field label="I've got room" type="textarea" value={editing.green} onChange={v=>setE("green",v)}/><Field label="Keep it doable" type="textarea" value={editing.yellow} onChange={v=>setE("yellow",v)}/><Field label="Make it small" type="textarea" value={editing.red} onChange={v=>setE("red",v)}/><Field label="Bare minimum" type="textarea" value={editing.recovery} onChange={v=>setE("recovery",v)}/></>}</ExperienceBlock>
+      <ExperienceBlock title="Still You or Not?" enabled={editing.stillEnabled} onToggle={()=>setE("stillEnabled",!editing.stillEnabled)}>{editing.stillEnabled&&<><Field label="Reflection question" type="textarea" value={editing.stillQuestion} onChange={v=>setE("stillQuestion",v)}/><Field label="Answer options" type="list" value={editing.stillOptions||[]} onChange={v=>setE("stillOptions",v)}/></>}</ExperienceBlock>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",borderTop:`1px solid ${C.line}`,paddingTop:14}}>{editing.id&&<button onClick={()=>removeExp(editing)} style={{...S.pill,color:"#A45B67"}}>Delete</button>}{editing.status==="published"&&<button onClick={()=>saveExp(editing,"draft")} style={S.pill}>Unpublish</button>}<div style={{flex:1}}/><button onClick={()=>saveExp(editing,"draft")} style={S.pill}>Save draft</button><button onClick={()=>saveExp(editing,"published")} style={{...S.pill,border:0,background:C.ink,color:"#fff"}}>Publish experience</button></div>
+    </div>}
   </div>
 }
+function ExperienceBlock({title,enabled,onToggle,children}){return <div style={{border:`1px solid ${C.line}`,borderRadius:15,padding:14,marginBottom:13,background:"#fff"}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:enabled?14:0}}><div style={{...S.serif,fontSize:19,fontWeight:700,flex:1}}>{title}</div><button onClick={onToggle} style={{...S.pill,padding:"6px 9px"}}>{enabled?"Remove block":"＋ Add"}</button></div>{enabled&&children}</div>}
 
 function Preview({item}){
   const [slide,setSlide]=useState(0)
