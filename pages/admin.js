@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { db } from "../lib/supabase.js"
 
 const C = {
   bg:"#FBF7F3", paper:"#FFFDFC", ink:"#382D35", muted:"#8D7E86", line:"#E9DFE2",
@@ -94,84 +95,152 @@ const S = {
 
 export default function AdminStudio(){
   const [area,setArea] = useState("dashboard")
-  const [items,setItems] = useState(SAMPLE)
+  const [items,setItems] = useState([])
   const [editing,setEditing] = useState(null)
   const [query,setQuery] = useState("")
   const [filter,setFilter] = useState("all")
   const [mobileNav,setMobileNav] = useState(false)
+  const [session,setSession] = useState(null)
+  const [authLoading,setAuthLoading] = useState(true)
+  const [loadingItems,setLoadingItems] = useState(false)
+  const [busy,setBusy] = useState(false)
+  const [notice,setNotice] = useState("")
+  const [loginEmail,setLoginEmail] = useState("")
+  const [loginPassword,setLoginPassword] = useState("")
+  const [loginError,setLoginError] = useState("")
+
+  const areaToType=(a)=>a==="feel"?"feel_better":a
+  const typeToArea=(t)=>t==="feel_better"?"feel":t
+  const fromRow=(row)=>{
+    const body=row.content&&typeof row.content==="object"?row.content:{}
+    return {
+      ...body,
+      id:row.id,
+      area:typeToArea(row.content_type),
+      title:row.title||"",
+      status:row.status||"draft",
+      category:row.category||body.category||"",
+      format:row.format||body.format||"",
+      premium:!!row.is_premium,
+      featured:!!row.is_featured,
+      image:row.image_url||body.image||"",
+      cover:row.image_url||body.cover||"",
+      extraSwipePages:Array.isArray(row.extra_pages)?row.extra_pages:[],
+      updated:row.updated_at?new Date(row.updated_at).toLocaleDateString():"Just now",
+      publishedAt:row.published_at?new Date(row.published_at).getTime():null,
+    }
+  }
+  const toRow=(item,status)=>{
+    const reserved=new Set(["id","area","status","updated","publishedAt","title","category","format","premium","featured","image","cover","extraSwipePages"])
+    const body={}
+    Object.entries(item).forEach(([k,v])=>{ if(!reserved.has(k)) body[k]=v })
+    // Until Storage is wired, never put a base64 phone photo into Postgres.
+    const imageCandidate=item.image||item.cover||""
+    const imageUrl=imageCandidate && !String(imageCandidate).startsWith("data:") ? imageCandidate : null
+    return {
+      content_type:areaToType(item.area), title:(item.title||"Untitled").trim(), status,
+      category:item.category||item.section||item.mealType||null,
+      format:item.format||null, is_premium:!!item.premium, is_featured:!!item.featured,
+      image_url:imageUrl, content:body, extra_pages:item.extraSwipePages||[],
+      published_at:status==="published"?(item.publishedAt?new Date(item.publishedAt).toISOString():new Date().toISOString()):null,
+    }
+  }
+
+  const loadItems=async()=>{
+    setLoadingItems(true); setNotice("")
+    const {data,error}=await db.from("tr_content").select("*").order("updated_at",{ascending:false})
+    setLoadingItems(false)
+    if(error){ setNotice("Could not load Studio content: "+error.message); return }
+    setItems((data||[]).map(fromRow))
+  }
 
   useEffect(()=>{
-    try{
-      const saved=localStorage.getItem("tr-admin-prototype-v1")
-      if(saved) setItems(JSON.parse(saved))
-    }catch{}
+    let mounted=true
+    db.auth.getSession().then(({data})=>{ if(mounted){setSession(data.session||null);setAuthLoading(false)} })
+    const {data:sub}=db.auth.onAuthStateChange((_event,next)=>{setSession(next);setAuthLoading(false)})
+    return()=>{mounted=false;sub.subscription.unsubscribe()}
   },[])
-  useEffect(()=>{ try{localStorage.setItem("tr-admin-prototype-v1",JSON.stringify(items))}catch{} },[items])
+  useEffect(()=>{ if(session) loadItems(); else setItems([]) },[session?.user?.id])
+
+  const signIn=async(e)=>{
+    e?.preventDefault(); setLoginError(""); setBusy(true)
+    const {error}=await db.auth.signInWithPassword({email:loginEmail.trim(),password:loginPassword})
+    setBusy(false); if(error)setLoginError(error.message)
+  }
+  const signOut=async()=>{await db.auth.signOut();setEditing(null);setArea("dashboard")}
 
   const counts = useMemo(()=>Object.fromEntries(AREAS.map(a=>[a.id,items.filter(x=>x.area===a.id).length])),[items])
   const visible = useMemo(()=>items.filter(x=>(area==="dashboard"||x.area===area) && (filter==="all"||x.status===filter) && (!query||JSON.stringify(x).toLowerCase().includes(query.toLowerCase()))),[items,area,filter,query])
 
-  const saveItem=(item)=>{
-    const next={...item,updated:"Just now",publishedAt:item.status==="published"?(item.publishedAt||Date.now()):item.publishedAt}
-    setItems(prev=>prev.some(x=>x.id===next.id)?prev.map(x=>x.id===next.id?next:x):[next,...prev])
+  const saveItem=async(item)=>{
+    const status=item.status==="published"?"published":"draft"
+    if(!item.title?.trim()){setNotice("Add a title before saving.");return}
+    setBusy(true);setNotice("")
+    const payload=toRow(item,status)
+    let result
+    if(typeof item.id==="number") result=await db.from("tr_content").update(payload).eq("id",item.id).select().single()
+    else result=await db.from("tr_content").insert(payload).select().single()
+    setBusy(false)
+    if(result.error){setNotice("Save failed: "+result.error.message);return}
+    if((item.image||item.cover||"").startsWith?.("data:")) setNotice("Saved. The post is real; photo upload will become permanent when we wire Supabase Storage next.")
+    else setNotice(status==="published"?"Published to True Reverie.":"Draft saved to Supabase.")
+    const saved=fromRow(result.data)
+    setItems(prev=>prev.some(x=>x.id===saved.id)?prev.map(x=>x.id===saved.id?saved:x):[saved,...prev])
     setEditing(null)
   }
-  const duplicate=(item)=>setEditing({...item,id:uid(),title:(item.title||"Untitled")+" — Copy",status:"draft",updated:"Just now"})
-  const remove=(id)=>{ if(confirm("Delete this draft/content item from the Admin Studio prototype?")) setItems(p=>p.filter(x=>x.id!==id)) }
+  const duplicate=(item)=>setEditing({...item,id:uid(),title:(item.title||"Untitled")+" — Copy",status:"draft",updated:"Just now",publishedAt:null})
+  const remove=async(id)=>{
+    if(!confirm("Delete this content item from True Reverie?"))return
+    if(typeof id!=="number"){setItems(p=>p.filter(x=>x.id!==id));return}
+    setBusy(true);const {error}=await db.from("tr_content").delete().eq("id",id);setBusy(false)
+    if(error){setNotice("Delete failed: "+error.message);return} setItems(p=>p.filter(x=>x.id!==id));setNotice("Deleted.")
+  }
+
+  if(authLoading) return <div style={{...S.shell,display:"grid",placeItems:"center"}}>Opening Admin Studio…</div>
+  if(!session) return <div style={{...S.shell,minHeight:"100vh",display:"grid",placeItems:"center",padding:20}}>
+    <form onSubmit={signIn} style={{...S.card,width:"100%",maxWidth:430,padding:28}}>
+      <div style={{...S.serif,fontSize:31,fontWeight:700}}>True Reverie</div>
+      <div style={{fontSize:10,fontWeight:900,letterSpacing:2,textTransform:"uppercase",color:C.blush,marginTop:3}}>Admin Studio</div>
+      <div style={{fontSize:13,color:C.muted,lineHeight:1.6,margin:"18px 0"}}>Sign in with the owner account you just created in Supabase.</div>
+      <label style={labelStyle}>Email</label><input type="email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} style={{...S.input,marginBottom:14}} required/>
+      <label style={labelStyle}>Password</label><input type="password" value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} style={{...S.input,marginBottom:14}} required/>
+      {loginError&&<div style={{fontSize:12,color:"#A45B67",marginBottom:12}}>{loginError}</div>}
+      <button disabled={busy} style={{width:"100%",border:0,borderRadius:999,background:C.ink,color:"#fff",padding:"12px 16px",fontWeight:850}}>{busy?"Signing in…":"Sign in to Studio"}</button>
+    </form>
+  </div>
 
   return <div style={S.shell}>
     <style>{`
       *{box-sizing:border-box} body{margin:0}
-      button,input,textarea,select{font:inherit}
-      button{cursor:pointer}
-      .tr-grid{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh}
-      .tr-side{display:block}
-      .tr-main{padding:34px 38px 70px;max-width:1280px;width:100%;margin:0 auto}
-      .tr-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-      .tr-listhead{display:grid;grid-template-columns:minmax(220px,1.4fr) 130px 110px 90px;gap:12px}
-      .tr-row{display:grid;grid-template-columns:minmax(220px,1.4fr) 130px 110px 90px;gap:12px;align-items:center}
-      .tr-editor{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px}
-      @media(max-width:850px){
-        .tr-grid{display:block}.tr-side{display:none}.tr-side.open{display:block;position:fixed;inset:0 18% 0 0;z-index:50;box-shadow:20px 0 50px rgba(0,0,0,.15)}
-        .tr-main{padding:20px 16px 80px}.tr-cards{grid-template-columns:1fr 1fr}
-        .tr-listhead{display:none}.tr-row{grid-template-columns:1fr auto;gap:8px}.tr-row .hide-sm{display:none}
-        .tr-editor{grid-template-columns:1fr}.desktop-only{display:none!important}
-      }
-      @media(max-width:520px){.tr-cards{grid-template-columns:1fr}}
+      button,input,textarea,select{font:inherit} button{cursor:pointer}
+      .tr-grid{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh}.tr-side{display:block}
+      .tr-main{padding:34px 38px 70px;max-width:1280px;width:100%;margin:0 auto}.tr-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+      .tr-listhead{display:grid;grid-template-columns:minmax(220px,1.4fr) 130px 110px 90px;gap:12px}.tr-row{display:grid;grid-template-columns:minmax(220px,1.4fr) 130px 110px 90px;gap:12px;align-items:center}.tr-editor{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px}
+      @media(max-width:850px){.tr-grid{display:block}.tr-side{display:none}.tr-side.open{display:block;position:fixed;inset:0 18% 0 0;z-index:50;box-shadow:20px 0 50px rgba(0,0,0,.15)}.tr-main{padding:20px 16px 80px}.tr-cards{grid-template-columns:1fr 1fr}.tr-listhead{display:none}.tr-row{grid-template-columns:1fr auto;gap:8px}.tr-row .hide-sm{display:none}.tr-editor{grid-template-columns:1fr}.desktop-only{display:none!important}}@media(max-width:520px){.tr-cards{grid-template-columns:1fr}}
     `}</style>
     <div className="tr-grid">
       <aside className={"tr-side "+(mobileNav?"open":"")} style={{background:"#F3EAEC",borderRight:`1px solid ${C.line}`,padding:"28px 18px",position:"relative"}}>
         <button onClick={()=>setMobileNav(false)} style={{display:mobileNav?"block":"none",position:"absolute",right:15,top:15,border:0,background:"transparent",fontSize:22}}>×</button>
-        <div style={{padding:"2px 10px 26px"}}>
-          <div style={{...S.serif,fontSize:25,fontWeight:700}}>True Reverie</div>
-          <div style={{fontSize:10,fontWeight:800,letterSpacing:2.2,textTransform:"uppercase",color:C.blush,marginTop:3}}>Admin Studio</div>
-        </div>
+        <div style={{padding:"2px 10px 26px"}}><div style={{...S.serif,fontSize:25,fontWeight:700}}>True Reverie</div><div style={{fontSize:10,fontWeight:800,letterSpacing:2.2,textTransform:"uppercase",color:C.blush,marginTop:3}}>Admin Studio</div></div>
         <Nav active={area==="dashboard"} onClick={()=>{setArea("dashboard");setEditing(null);setMobileNav(false)}} icon="⌂" label="Dashboard"/>
         <div style={{fontSize:9,fontWeight:800,letterSpacing:1.7,textTransform:"uppercase",color:C.muted,padding:"22px 11px 8px"}}>Content</div>
-        {AREAS.map(a=><Nav key={a.id} active={area===a.id} onClick={()=>{setArea(a.id);setEditing(null);setMobileNav(false)}} icon={a.icon} label={a.label} count={counts[a.id]}/>)}
-        <div style={{margin:"28px 8px 0",padding:"14px",borderRadius:16,background:"rgba(255,255,255,.5)",fontSize:11.5,lineHeight:1.5,color:C.muted}}>
-          <b style={{color:C.ink}}>Prototype mode</b><br/>Everything saves only in this browser for now. Supabase comes after the workflow feels right.
-        </div>
+        {AREAS.map(a=><Nav key={a.id} active={area===a.id} onClick={()=>{setArea(a.id);setEditing(null);setMobileNav(false)}} icon={a.icon} label={a.label} count={counts[a.id]}/>) }
+        <div style={{margin:"28px 8px 0",padding:"14px",borderRadius:16,background:"rgba(255,255,255,.5)",fontSize:11.5,lineHeight:1.5,color:C.muted}}><b style={{color:C.ink}}>Live Supabase mode</b><br/>Drafts and published content now save to the True Reverie database.</div>
+        <button onClick={signOut} style={{...S.pill,margin:"12px 8px"}}>Sign out</button>
       </aside>
-
       <main className="tr-main">
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:25}}>
           <button onClick={()=>setMobileNav(true)} style={{border:`1px solid ${C.line}`,background:C.paper,borderRadius:12,padding:"9px 11px",fontWeight:800}} className="desktop-only">☰</button>
-          <div style={{flex:1}}>
-            <div style={{...S.serif,fontSize:34,fontWeight:700,lineHeight:1}}>{editing ? (editing.title||"New content") : area==="dashboard" ? "Studio" : labelFor(area)}</div>
-            {!editing && <div style={{fontSize:13,color:C.muted,marginTop:6}}>{area==="dashboard"?"Create the things that make True Reverie feel alive.":AREAS.find(a=>a.id===area)?.sub}</div>}
-          </div>
+          <div style={{flex:1}}><div style={{...S.serif,fontSize:34,fontWeight:700,lineHeight:1}}>{editing ? (editing.title||"New content") : area==="dashboard" ? "Studio" : labelFor(area)}</div>{!editing && <div style={{fontSize:13,color:C.muted,marginTop:6}}>{area==="dashboard"?"Create the things that make True Reverie feel alive.":AREAS.find(a=>a.id===area)?.sub}</div>}</div>
           {!editing && area!=="dashboard" && <button onClick={()=>setEditing(blank(area))} style={{border:0,borderRadius:999,background:C.ink,color:"#fff",padding:"11px 16px",fontWeight:800}}>＋ New {labelFor(area)}</button>}
         </div>
-
-        {editing ? <Editor item={editing} setItem={setEditing} onSave={saveItem} onCancel={()=>setEditing(null)}/> :
-         area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> :
-         <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>}
+        {notice&&<div style={{...S.card,padding:"12px 15px",marginBottom:16,fontSize:12,color:C.muted}}>{notice}</div>}
+        {busy&&<div style={{fontSize:11,color:C.blush,marginBottom:10}}>Saving…</div>}
+        {loadingItems?<div style={{color:C.muted}}>Loading Studio content…</div>:editing ? <Editor item={editing} setItem={setEditing} onSave={saveItem} onCancel={()=>setEditing(null)}/> : area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> : <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>} 
       </main>
     </div>
   </div>
 }
-
 function Nav({active,onClick,icon,label,count}){
   return <button onClick={onClick} style={{width:"100%",display:"flex",alignItems:"center",gap:10,border:0,borderRadius:13,padding:"10px 11px",marginBottom:3,background:active?"rgba(255,255,255,.82)":"transparent",color:active?C.ink:C.muted,textAlign:"left",fontWeight:active?800:650}}>
     <span style={{width:22,textAlign:"center"}}>{icon}</span><span style={{flex:1}}>{label}</span>{count!=null&&<span style={{fontSize:10,opacity:.7}}>{count}</span>}
@@ -184,7 +253,7 @@ function Dashboard({items,counts,setArea,setEditing}){
     <div style={{...S.card,padding:"25px 26px",marginBottom:22,background:"linear-gradient(135deg,#FFFDFC,#F4E8EF)"}}>
       <div style={{fontSize:10,fontWeight:900,letterSpacing:2,textTransform:"uppercase",color:C.blush}}>Dream Her. Become Her.</div>
       <div style={{...S.serif,fontSize:29,fontWeight:700,marginTop:8}}>What do you want to make today?</div>
-      <div style={{fontSize:13,color:C.muted,lineHeight:1.6,maxWidth:650,marginTop:6}}>Create the idea here first. Later, Publish will send it to Supabase and the live True Reverie app — without touching GitHub.</div>
+      <div style={{fontSize:13,color:C.muted,lineHeight:1.6,maxWidth:650,marginTop:6}}>Create it here, preview it, and publish it to True Reverie — without touching GitHub.</div>
       <div style={{display:"flex",gap:9,flexWrap:"wrap",marginTop:17}}>
         {["bloom","move","nourish","cycle","rebuild","feel","ritual"].map(a=><button key={a} onClick={()=>setEditing(blank(a))} style={{...S.pill,color:C.ink}}>＋ {labelFor(a)}</button>)}
       </div>
