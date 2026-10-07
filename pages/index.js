@@ -278,14 +278,15 @@ export default function App() {
 
     const loadSupabaseBloom = async () => {
       const { data, error } = await db
-        .from("bloom_discoveries")
-        .select("id,title,format,category,published,created_at")
-        .eq("published", true)
-        .order("created_at", { ascending: false })
+        .from("tr_content")
+        .select("id,title,format,category,image_url,content,extra_pages,published_at,created_at")
+        .eq("content_type", "bloom")
+        .eq("status", "published")
+        .order("published_at", { ascending: false, nullsFirst: false })
 
       if (cancelled) return
       if (error) {
-        console.error("Could not load Bloom discoveries from Supabase:", error.message)
+        console.error("Could not load True Reverie Bloom content from Supabase:", error.message)
         return
       }
       setSupabaseBloomRows(data || [])
