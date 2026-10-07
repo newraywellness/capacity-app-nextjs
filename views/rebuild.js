@@ -132,10 +132,16 @@ export function renderRebuild(ctx) {
 
 
   // ═══════════════════════ STUDIO-PUBLISHED REBUILDS ═══════════════════════
+  // Studio content uses the same guided consumer flow as the original Rebuild:
+  // intro -> one current experience -> See Today's Experience -> complete -> next.
+  // The full experience list is an Admin Studio concern, not a consumer screen.
   const studioProgram = studioPrograms.find(p=>p.id===rebuildActiveProgram)
   if (studioProgram) {
     const experiences=(supabaseRebuildExperiences||[]).filter(e=>e.rebuild_id===studioProgram._studioId).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
     const backStudio=()=>{setRebuildActiveProgram(null);setRebuildDynamicExpId(null);setRebuildView("intro")}
+    const currentStudioExp=experiences.find(e=>e.id===rebuildDynamicExpId)||experiences[0]
+    const currentStudioIdx=currentStudioExp?experiences.findIndex(e=>e.id===currentStudioExp.id):0
+
     if(rebuildView==="dynamic-intro") return <div className="fade-in" style={{padding:"10px 22px 0"}}>
       <div onClick={backStudio} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ Rebuild</div>
       {studioProgram.image&&<div style={{height:265,borderRadius:24,overflow:"hidden",marginBottom:20,background:`url(${studioProgram.image}) ${studioProgram.imagePosition?.x||50}% ${studioProgram.imagePosition?.y||50}%/cover no-repeat`,transform:"translateZ(0)"}}/>}
@@ -143,31 +149,71 @@ export function renderRebuild(ctx) {
       <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:31,fontWeight:700,color:BASE.cream,lineHeight:1.12}}>{studioProgram.title}</div>
       {studioProgram.outcome&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:16,color:"#9B6BC3",lineHeight:1.5,marginTop:10}}>{studioProgram.outcome}</div>}
       {studioProgram.intro&&<div style={{fontSize:13.5,color:BASE.creamDim,lineHeight:1.7,marginTop:15,whiteSpace:"pre-wrap"}}>{studioProgram.intro}</div>}
-      <div onClick={()=>setRebuildView("dynamic-home")} style={{marginTop:24,textAlign:"center",padding:"15px 0",borderRadius:999,cursor:"pointer",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:800}}>{experiences.length?"See Experiences":"Start Rebuild"}</div><div style={{height:44}}/>
+      <div onClick={()=>{if(experiences.length&&!rebuildDynamicExpId)setRebuildDynamicExpId(experiences[0].id);setRebuildView("dynamic-home");if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})}} style={{marginTop:24,textAlign:"center",padding:"15px 0",borderRadius:999,cursor:"pointer",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:800}}>{rebuildCurrent.includes(studioProgram.id)?"Continue Rebuild":"Start Rebuild"}</div><div style={{height:44}}/>
     </div>
-    if(rebuildView==="dynamic-home") return <div className="fade-in" style={{padding:"10px 22px 0"}}>
-      <div onClick={()=>setRebuildView("dynamic-intro")} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ {studioProgram.title}</div>
-      <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:27,fontWeight:700,color:BASE.cream}}>Your Experiences</div>
-      <div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.55,margin:"6px 0 18px"}}>Move through these at your own pace. There is nothing to catch up on.</div>
-      {experiences.map((e,i)=>{const c=e.content||{};return <button key={e.id} onClick={()=>{setRebuildDynamicExpId(e.id);setRebuildView("dynamic-exp");if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})}} style={{width:"100%",padding:0,textAlign:"left",border:`1px solid ${BASE.border}`,borderRadius:20,overflow:"hidden",background:BASE.surface,marginBottom:14,cursor:"pointer"}}>{c.photo&&<div style={{height:150,background:`url(${c.photo}) ${c.imagePosition?.x||50}% ${c.imagePosition?.y||50}%/cover no-repeat`}}/>}<div style={{padding:"15px 16px"}}><div style={{fontSize:9.5,fontWeight:800,letterSpacing:1.6,textTransform:"uppercase",color:"#A87BD1"}}>Experience {i+1}</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:21,fontWeight:700,color:BASE.cream,marginTop:4}}>{e.title}</div>{c.description&&<div style={{fontSize:11.5,color:BASE.taupe,lineHeight:1.5,marginTop:5}}>{c.description}</div>}</div></button>})}
-      {!experiences.length&&<div style={{padding:20,borderRadius:18,background:BASE.surface,border:`1px solid ${BASE.border}`,fontSize:12.5,color:BASE.taupe}}>Experiences are coming soon.</div>}<div style={{height:44}}/>
-    </div>
+
+    if(rebuildView==="dynamic-home") {
+      const exp=currentStudioExp
+      const c=exp?.content||{}
+      const total=experiences.length
+      const number=exp?currentStudioIdx+1:0
+      return <div className="fade-in" style={{padding:"10px 22px 0"}}>
+        <div onClick={backStudio} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ Rebuild</div>
+        <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:30,fontWeight:700,color:BASE.cream,lineHeight:1.15}}>{studioProgram.title}</div>
+        <div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15.5,color:BASE.taupe,marginTop:10}}>Welcome back. Your Rebuild is right where you left it.</div>
+
+        {exp?<>
+          <div style={{marginTop:28}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#9B6BC3",marginBottom:8}}>Experience {number} of {total}</div>
+            <div style={{height:6,borderRadius:999,background:BASE.bg2||BASE.surface2,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.max(4,(number-1)/Math.max(total,1)*100)}%`,borderRadius:999,background:"linear-gradient(90deg,#E984B4,#A87BD1)"}}/></div>
+          </div>
+
+          <div style={{marginTop:30}}>
+            <div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:BASE.taupe,marginBottom:10}}>Today</div>
+            <div style={{borderRadius:20,background:BASE.surface,border:`1px solid ${BASE.border}`,overflow:"hidden"}}>
+              {c.photo&&<div style={{height:190,background:`url(${c.photo}) ${c.imagePosition?.x||50}% ${c.imagePosition?.y||50}%/cover no-repeat`}}/>}
+              <div style={{padding:"20px 20px 22px"}}>
+                <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:21,fontWeight:700,color:BASE.cream,lineHeight:1.2}}>{exp.title}</div>
+                {c.description&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:13.5,color:BASE.taupe,marginTop:8,lineHeight:1.5}}>{c.description}</div>}
+                <div onClick={()=>{setRebuildView("dynamic-exp");if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})}} style={{marginTop:22,textAlign:"center",padding:"15px 0",borderRadius:999,cursor:"pointer",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:700}}>See Today's Experience</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{marginTop:34,marginBottom:4}}><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:18,fontWeight:700,color:BASE.cream}}>Your Rebuild So Far</div></div>
+          <div style={{fontSize:12.5,color:BASE.taupe,fontStyle:"italic",lineHeight:1.6,marginTop:8}}>This will fill in as you go — sparks found, things you loved, patterns starting to show.</div>
+        </>:<div style={{marginTop:24,padding:20,borderRadius:18,background:BASE.surface,border:`1px solid ${BASE.border}`,fontSize:12.5,color:BASE.taupe}}>Experiences are coming soon.</div>}
+        <div style={{height:44}}/>
+      </div>
+    }
+
     if(rebuildView==="dynamic-exp") {
-      const exp=experiences.find(e=>e.id===rebuildDynamicExpId)||experiences[0]
+      const exp=currentStudioExp
       if(!exp){setRebuildView("dynamic-home");return null}
-      const c=exp.content||{}; const idx=experiences.findIndex(e=>e.id===exp.id)
+      const c=exp.content||{}; const idx=currentStudioIdx
       const versions=[["green","I've got room"],["yellow","Keep it doable"],["red","Make it small"],["recovery","Bare minimum"]].filter(([k])=>c[k])
       const chosen=(rebuildCapPick&&c[rebuildCapPick])?rebuildCapPick:(c.yellow?"yellow":versions[0]?.[0])
+      const completeStudioExperience=()=>{
+        setRebuildCapPick(null)
+        if(idx<experiences.length-1)setRebuildDynamicExpId(experiences[idx+1].id)
+        setRebuildView("dynamic-home")
+        if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})
+      }
       return <div className="fade-in" style={{padding:"10px 22px 0"}}>
-        <div onClick={()=>{setRebuildView("dynamic-home");setRebuildDynamicExpId(null)}} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ {studioProgram.title}</div>
-        {c.photo&&<div style={{height:250,borderRadius:22,background:`url(${c.photo}) ${c.imagePosition?.x||50}% ${c.imagePosition?.y||50}%/cover no-repeat`,marginBottom:18}}/>}
-        <div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:BASE.taupe}}>Experience {idx+1} of {experiences.length}</div>
-        <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:28,fontWeight:700,color:BASE.cream,marginTop:6,lineHeight:1.15}}>{exp.title}</div>
-        {c.description&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15,color:BASE.taupe,marginTop:10,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{c.description}</div>}
-        {c.anchorEnabled&&(c.anchorTitle||c.anchorBody)&&<div style={{borderTop:`1px solid ${BASE.border}`,paddingTop:20,marginTop:22}}><div style={{fontSize:10.5,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:7}}>Today's Anchor</div>{c.anchorTitle&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:23,fontWeight:700,color:BASE.cream}}>{c.anchorTitle}</div>}{c.anchorBody&&<div style={{fontSize:13,color:BASE.creamDim,lineHeight:1.65,marginTop:8,whiteSpace:"pre-wrap"}}>{c.anchorBody}</div>}</div>}
-        {c.versionEnabled&&versions.length>0&&<div style={{marginTop:24}}><div style={{fontSize:10.5,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:10}}>Your Version Today</div><div style={{marginBottom:10}}>{versions.map(([k,l])=><span key={k} onClick={()=>setRebuildCapPick(k)} style={{display:"inline-block",padding:"8px 11px",borderRadius:999,marginRight:6,marginBottom:7,fontSize:11,fontWeight:700,cursor:"pointer",background:chosen===k?"linear-gradient(135deg,#E984B4,#A87BD1)":BASE.surface,color:chosen===k?"#fff":BASE.creamDim,border:`1px solid ${chosen===k?"transparent":BASE.border}`}}>{l}</span>)}</div><div style={{borderRadius:16,background:"rgba(201,123,168,.1)",padding:"16px 18px",fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15,color:BASE.cream,lineHeight:1.55}}>{c[chosen]}</div></div>}
-        {c.stillEnabled&&c.stillQuestion&&<div style={{borderTop:`1px solid ${BASE.border}`,paddingTop:20,marginTop:24}}><div style={{fontSize:10.5,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:9}}>Still You or Not?</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream,lineHeight:1.35}}>{c.stillQuestion}</div>{(c.stillOptions||[]).map(o=><span key={o} style={{display:"inline-block",padding:"9px 12px",borderRadius:999,marginRight:7,marginTop:10,fontSize:11.5,fontWeight:700,background:BASE.surface,color:BASE.creamDim,border:`1px solid ${BASE.border}`}}>{o}</span>)}</div>}
-        <div style={{display:"flex",gap:9,marginTop:28}}>{idx>0&&<button onClick={()=>{setRebuildDynamicExpId(experiences[idx-1].id);setRebuildCapPick(null);window.scrollTo({top:0,behavior:"instant"})}} style={{flex:1,padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800}}>Previous</button>}{idx<experiences.length-1?<button onClick={()=>{setRebuildDynamicExpId(experiences[idx+1].id);setRebuildCapPick(null);window.scrollTo({top:0,behavior:"instant"})}} style={{flex:1,padding:13,borderRadius:999,border:0,background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontWeight:800}}>Next Experience</button>:<button onClick={()=>setRebuildView("dynamic-home")} style={{flex:1,padding:13,borderRadius:999,border:0,background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontWeight:800}}>Back to Rebuild</button>}</div><div style={{height:44}}/>
+        <div onClick={()=>setRebuildView("dynamic-home")} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ {studioProgram.title}</div>
+        {c.photo&&<div style={{height:250,borderRadius:22,background:`url(${c.photo}) ${c.imagePosition?.x||50}% ${c.imagePosition?.y||50}%/cover no-repeat`,marginBottom:20}}/>}
+        <div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:BASE.taupe}}>Experience {idx+1}</div>
+        <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:26,fontWeight:700,color:BASE.cream,marginTop:6,lineHeight:1.2}}>{exp.title}</div>
+        {c.description&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:14.5,color:BASE.taupe,marginTop:10,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{c.description}</div>}
+
+        {c.anchorEnabled&&(c.anchorTitle||c.anchorBody)&&<><div style={{height:1,background:BASE.border,margin:"22px 0 20px"}}/><div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:10}}>Today's Anchor</div>{c.anchorTitle&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:26,fontWeight:700,color:BASE.cream,lineHeight:1.25}}>{c.anchorTitle}</div>}{c.anchorBody&&<div style={{fontSize:13,color:BASE.creamDim,lineHeight:1.65,marginTop:10,whiteSpace:"pre-wrap"}}>{c.anchorBody}</div>}</>}
+
+        {c.versionEnabled&&versions.length>0&&<div style={{marginTop:28}}><div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:10}}>Your Version Today</div><div style={{marginBottom:12}}>{versions.map(([k,l])=><span key={k} onClick={()=>setRebuildCapPick(k)} style={{display:"inline-block",padding:"9px 14px",borderRadius:999,marginRight:7,marginBottom:8,fontSize:12,fontWeight:700,cursor:"pointer",background:chosen===k?"linear-gradient(135deg,#E984B4,#A87BD1)":BASE.surface,color:chosen===k?"#fff":BASE.creamDim,border:`1px solid ${chosen===k?"transparent":BASE.border}`}}>{l}</span>)}</div><div style={{borderRadius:16,background:"rgba(201,123,168,.1)",padding:"16px 18px",fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15,color:BASE.cream,lineHeight:1.5}}>{c[chosen]}</div></div>}
+
+        {c.stillEnabled&&c.stillQuestion&&<div style={{marginTop:24}}><div style={{height:1,background:BASE.border,margin:"0 0 20px"}}/><div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:"#9B6BC3",marginBottom:10}}>Still You or Not?</div><div style={{fontSize:13.5,fontWeight:700,color:BASE.cream,marginBottom:12}}>{c.stillQuestion}</div><div>{(c.stillOptions||[]).map(o=><span key={o} style={{display:"inline-block",padding:"9px 14px",borderRadius:999,marginRight:7,marginBottom:8,fontSize:12,fontWeight:700,background:BASE.surface,color:BASE.creamDim,border:`1px solid ${BASE.border}`}}>{o}</span>)}</div></div>}
+
+        <div onClick={completeStudioExperience} style={{marginTop:26,textAlign:"center",padding:"15px 0",borderRadius:999,cursor:"pointer",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:700}}>{idx===experiences.length-1?"Complete Rebuild":"Complete Experience"}</div>
+        <div style={{height:44}}/>
       </div>
     }
   }
