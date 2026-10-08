@@ -162,7 +162,7 @@ export function renderTrain(ctx) {
     const slides = link || walkthrough.length ? 2 : 1
 
     return (
-      <div style={{ borderRadius: 25, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 24 }}>
+      <div id={`move-card-${idea.id}`} style={{ borderRadius: 25, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 24 }}>
         <div style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
           <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
             <div style={{ position: "relative", aspectRatio: "4 / 5", background: ideaGradient(idea), overflow: "hidden" }}>
