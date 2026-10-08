@@ -16,6 +16,7 @@ export function renderRebuild(ctx) {
     setRebuildActiveProgram, setRebuildCapPick, setRebuildView, setRebuildSection,
     setRebuildCurrent, setRebuildSaved, setRebuildStartWarning,
     supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId,
+    rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience,
     tab, updateRebuildFLYA,
   } = ctx
   if (tab !== "rebuild") return null
@@ -40,8 +41,9 @@ export function renderRebuild(ctx) {
   const openProgram = (p) => {
     if (p._studioId) {
       setRebuildActiveProgram(p.id)
-      setRebuildDynamicExpId(null)
-      setRebuildView("dynamic-intro")
+      const savedProgress = getRebuildProgress ? getRebuildProgress(p.id) : null
+      setRebuildDynamicExpId(savedProgress?.current_experience_id || null)
+      setRebuildView(savedProgress ? "dynamic-home" : "dynamic-intro")
       if (typeof window!=="undefined") window.scrollTo({top:0,behavior:"instant"})
       return
     }
@@ -59,7 +61,10 @@ export function renderRebuild(ctx) {
     if (!rebuildCurrent.includes(p.id)) setRebuildCurrent((prev) => [...prev, p.id])
     setRebuildStartWarning(null)
     if (p._studioId) {
-      setRebuildActiveProgram(p.id); setRebuildDynamicExpId(null); setRebuildView("dynamic-home"); return
+      const firstExp = (supabaseRebuildExperiences || []).filter((e) => e.rebuild_id === p._studioId).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))[0] || null
+      setRebuildActiveProgram(p.id); setRebuildDynamicExpId(firstExp?.id || null); setRebuildView("dynamic-home")
+      if (startRebuildProgress) startRebuildProgress({ programKey:p.id, rebuildId:p._studioId, currentExperienceId:firstExp?.id || null, currentExperienceNumber:1 })
+      return
     }
     if (p.id === "feel-like-yourself-again") {
       if (!rebuildFLYA.started) updateRebuildFLYA({ started: true })
@@ -146,9 +151,12 @@ export function renderRebuild(ctx) {
   const studioProgram = studioPrograms.find(p=>p.id===rebuildActiveProgram)
   if (studioProgram) {
     const experiences=(supabaseRebuildExperiences||[]).filter(e=>e.rebuild_id===studioProgram._studioId).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
+    const studioProgress=getRebuildProgress?getRebuildProgress(studioProgram.id):null
     const backStudio=()=>{setRebuildActiveProgram(null);setRebuildDynamicExpId(null);setRebuildView("intro")}
-    const currentStudioExp=experiences.find(e=>e.id===rebuildDynamicExpId)||experiences[0]
+    const restoredExpId=rebuildDynamicExpId||studioProgress?.current_experience_id
+    const currentStudioExp=experiences.find(e=>e.id===restoredExpId)||experiences[0]
     const currentStudioIdx=currentStudioExp?experiences.findIndex(e=>e.id===currentStudioExp.id):0
+    const studioCompleted=Array.isArray(studioProgress?.completed_experience_ids)?studioProgress.completed_experience_ids:[]
 
     if(rebuildView==="dynamic-intro") return <div className="fade-in" style={{padding:"10px 22px 0"}}>
       <div onClick={backStudio} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ Rebuild</div>
@@ -157,7 +165,7 @@ export function renderRebuild(ctx) {
       <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:31,fontWeight:700,color:BASE.cream,lineHeight:1.12}}>{studioProgram.title}</div>
       {studioProgram.outcome&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:16,color:"#9B6BC3",lineHeight:1.5,marginTop:10}}>{studioProgram.outcome}</div>}
       {studioProgram.intro&&<div style={{fontSize:13.5,color:BASE.creamDim,lineHeight:1.7,marginTop:15,whiteSpace:"pre-wrap"}}>{studioProgram.intro}</div>}
-      <div onClick={()=>{if(experiences.length&&!rebuildDynamicExpId)setRebuildDynamicExpId(experiences[0].id);setRebuildView("dynamic-home");if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})}} style={{marginTop:24,textAlign:"center",padding:"15px 0",borderRadius:999,cursor:"pointer",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:800}}>{rebuildCurrent.includes(studioProgram.id)?"Continue Rebuild":"Start Rebuild"}</div><div style={{height:44}}/>
+      <div onClick={()=>{const first=experiences[0]||null;const resumeId=studioProgress?.current_experience_id||first?.id||null;if(resumeId)setRebuildDynamicExpId(resumeId);if(!rebuildCurrent.includes(studioProgram.id))setRebuildCurrent((prev)=>[...prev,studioProgram.id]);if(!studioProgress&&startRebuildProgress)startRebuildProgress({programKey:studioProgram.id,rebuildId:studioProgram._studioId,currentExperienceId:first?.id||null,currentExperienceNumber:1});setRebuildView("dynamic-home");if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})}} style={{marginTop:24,textAlign:"center",padding:"15px 0",borderRadius:999,cursor:"pointer",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:800}}>{studioProgress?"Continue Rebuild":"Start Rebuild"}</div><div style={{height:44}}/>
     </div>
 
     if(rebuildView==="dynamic-home") {
@@ -173,7 +181,7 @@ export function renderRebuild(ctx) {
         {exp?<>
           <div style={{marginTop:28}}>
             <div style={{fontSize:12,fontWeight:700,color:"#9B6BC3",marginBottom:8}}>Experience {number} of {total}</div>
-            <div style={{height:6,borderRadius:999,background:BASE.bg2||BASE.surface2,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.max(4,(number-1)/Math.max(total,1)*100)}%`,borderRadius:999,background:"linear-gradient(90deg,#E984B4,#A87BD1)"}}/></div>
+            <div style={{height:6,borderRadius:999,background:BASE.bg2||BASE.surface2,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.max(4,studioCompleted.length/Math.max(total,1)*100)}%`,borderRadius:999,background:"linear-gradient(90deg,#E984B4,#A87BD1)"}}/></div>
           </div>
 
           <div style={{marginTop:30}}>
@@ -189,7 +197,7 @@ export function renderRebuild(ctx) {
           </div>
 
           <div style={{marginTop:34,marginBottom:4}}><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:18,fontWeight:700,color:BASE.cream}}>Your Rebuild So Far</div></div>
-          <div style={{fontSize:12.5,color:BASE.taupe,fontStyle:"italic",lineHeight:1.6,marginTop:8}}>This will fill in as you go — sparks found, things you loved, patterns starting to show.</div>
+          <div style={{fontSize:12.5,color:BASE.taupe,fontStyle:"italic",lineHeight:1.6,marginTop:8}}>{studioCompleted.length?`${studioCompleted.length} ${studioCompleted.length===1?"experience":"experiences"} complete. Your progress is saved to your account.`:"This will fill in as you go — sparks found, things you loved, patterns starting to show."}</div>
         </>:<div style={{marginTop:24,padding:20,borderRadius:18,background:BASE.surface,border:`1px solid ${BASE.border}`,fontSize:12.5,color:BASE.taupe}}>Experiences are coming soon.</div>}
         <div style={{height:44}}/>
       </div>
@@ -201,9 +209,11 @@ export function renderRebuild(ctx) {
       const c=exp.content||{}; const idx=currentStudioIdx
       const versions=[["green","I've got room"],["yellow","Keep it doable"],["red","Make it small"],["recovery","Bare minimum"]].filter(([k])=>c[k])
       const chosen=(rebuildCapPick&&c[rebuildCapPick])?rebuildCapPick:(c.yellow?"yellow":versions[0]?.[0])
-      const completeStudioExperience=()=>{
+      const completeStudioExperience=async()=>{
         setRebuildCapPick(null)
-        if(idx<experiences.length-1)setRebuildDynamicExpId(experiences[idx+1].id)
+        const nextExp=idx<experiences.length-1?experiences[idx+1]:null
+        if(completeRebuildExperience) await completeRebuildExperience({programKey:studioProgram.id,rebuildId:studioProgram._studioId,experienceId:exp.id,experienceNumber:idx+1,nextExperienceId:nextExp?.id||null,nextExperienceNumber:nextExp?idx+2:null,isLast:!nextExp})
+        if(nextExp)setRebuildDynamicExpId(nextExp.id)
         setRebuildView("dynamic-home")
         if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})
       }
