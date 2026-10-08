@@ -344,7 +344,7 @@ function Editor({item,setItem,onSave,onDelete,onCancel}){
         {item.area==="rebuild" && <div style={{padding:"12px 14px",borderRadius:14,background:"#F8F1F5",fontSize:12,color:C.muted,lineHeight:1.5,marginBottom:18}}>
           Build the program cover and introduction here. Once the program has been saved, manage its ordered experiences below — each experience is its own published record with its own photo and content.
         </div>}
-        {schema.map(([key,label,type,opts])=><Field key={key} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)} cropPosition={item.imagePosition||{x:50,y:50}} cropZoom={Number(item.imageZoom)||1} onCropPosition={v=>set("imagePosition",v)} onCropZoom={v=>set("imageZoom",v)}/>)}
+        {schema.map(([key,label,type,opts])=><Field key={key} area={item.area} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)} cropPosition={item.imagePosition||{x:50,y:50}} cropZoom={Number(item.imageZoom)||1} onCropPosition={v=>set("imagePosition",v)} onCropZoom={v=>set("imageZoom",v)}/>)}
         {!["rebuild","cycle","feel","ritual"].includes(item.area) && <ExtraSwipePages item={item} set={set}/>} 
         {item.area==="rebuild" && <ExperienceManager item={item}/>}
         <div style={{display:"flex",gap:9,borderTop:`1px solid ${C.line}`,paddingTop:18,marginTop:8}}>
@@ -357,7 +357,7 @@ function Editor({item,setItem,onSave,onDelete,onCancel}){
   </>
 }
 
-function Field({k,label,type,opts,value,onChange,cropPosition,cropZoom,onCropPosition,onCropZoom}){
+function Field({area,k,label,type,opts,value,onChange,cropPosition,cropZoom,onCropPosition,onCropZoom}){
   const [chip,setChip]=useState("")
   const [uploading,setUploading]=useState(false)
   const [uploadError,setUploadError]=useState("")
@@ -394,7 +394,10 @@ function Field({k,label,type,opts,value,onChange,cropPosition,cropZoom,onCropPos
         <div style={{display:"flex",alignItems:"center",gap:9,maxWidth:330,marginTop:9}}><span style={{fontSize:10,fontWeight:800,color:C.muted}}>Zoom</span><input aria-label="Photo zoom" type="range" min="1" max="2.5" step="0.05" value={zoom} onChange={e=>onCropZoom?.(Number(e.target.value))} style={{flex:1}}/><button onClick={()=>{onCropPosition?.({x:50,y:50});onCropZoom?.(1)}} style={tinyBtn}>Reset</button></div>
       </div>}
       <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-        <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":value?"Replace photo":"Upload photo"}<input disabled={uploading} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);if(f){onCropPosition?.({x:50,y:50});onCropZoom?.(1)}e.target.value=""}}/></label>
+        {area==="ritual" ? <>
+          <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":value?"Replace photo":"Upload photo"}<input disabled={uploading} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);if(f){onCropPosition?.({x:50,y:50});onCropZoom?.(1)}e.target.value=""}}/></label>
+          <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>Take photo<input disabled={uploading} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);if(f){onCropPosition?.({x:50,y:50});onCropZoom?.(1)}e.target.value=""}}/></label>
+        </> : <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":value?"Replace photo":"Upload photo"}<input disabled={uploading} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);if(f){onCropPosition?.({x:50,y:50});onCropZoom?.(1)}e.target.value=""}}/></label>}
         {value&&<button onClick={()=>onChange("")} style={tinyBtn}>Remove</button>}
       </div>{uploadError&&<div style={{fontSize:11,color:"#A45B67",marginTop:7}}>{uploadError}</div>}{value&&String(value).startsWith("https://")&&<div style={{fontSize:10.5,color:C.muted,marginTop:7}}>✓ Photo stored in True Reverie</div>}
     </div>
