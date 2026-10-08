@@ -211,7 +211,7 @@ export function renderBloom(ctx) {
     }
 
     const FeedCard = ({ item, prefix }) => (
-      <div style={{ borderRadius: 24, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 22 }}>
+      <div id={`bloom-card-${prefix || "foryou"}-${item.id}`} style={{ borderRadius: 24, overflow: "hidden", border: `1px solid ${BASE.border}`, background: BASE.surface, marginBottom: 22 }}>
         <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
           <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
             <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
