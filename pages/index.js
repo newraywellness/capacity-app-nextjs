@@ -345,6 +345,14 @@ export default function App() {
   }, [restLeft])
 
   useEffect(() => {
+    // Supabase emits PASSWORD_RECOVERY after a valid recovery link establishes
+    // a temporary session. The query marker is only a UI fallback so the app
+    // can still present the password form after the redirect completes.
+    try {
+      const qs = new URLSearchParams(window.location.search)
+      if (qs.get("recovery") === "1") setRecovery(true)
+    } catch (e) {}
+
     const { data: sub } = db.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") setRecovery(true)
     })
@@ -508,7 +516,14 @@ export default function App() {
     if (!email) { setAuthMsg("Enter your email above first, then tap reset."); return }
     setAuthMsg("")
     try {
-      await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+      // Always give Supabase a fully-qualified recovery destination. This is
+      // the URL embedded into the recovery flow and must also be allowed in
+      // Supabase Authentication > URL Configuration.
+      const recoveryUrl = `${window.location.origin}/?recovery=1`
+      const { error } = await db.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: recoveryUrl,
+      })
+      if (error) { setAuthMsg(error.message || "Couldn't send the reset email."); return }
       setAuthMsg("Check your email for a link to reset your password.")
     } catch (err) { setAuthMsg("Couldn't send the reset email — double-check the address.") }
   }
