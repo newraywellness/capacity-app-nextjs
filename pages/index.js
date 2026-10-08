@@ -345,16 +345,28 @@ export default function App() {
   }, [restLeft])
 
   useEffect(() => {
-    // Supabase emits PASSWORD_RECOVERY after a valid recovery link establishes
-    // a temporary session. The query marker is only a UI fallback so the app
-    // can still present the password form after the redirect completes.
-    try {
-      const qs = new URLSearchParams(window.location.search)
-      if (qs.get("recovery") === "1") setRecovery(true)
-    } catch (e) {}
+    // Recovery links can come back in a few different shapes depending on the
+    // Supabase auth flow/browser. Recognize all of them, plus a same-device
+    // pending flag set when the reset email is requested. Keep that flag until
+    // the password is actually changed so normal auth/profile routing cannot
+    // swallow the reset-password screen.
+    const detectRecovery = async () => {
+      try {
+        const qs = new URLSearchParams(window.location.search)
+        const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""))
+        const marked = qs.get("recovery") === "1" || qs.get("type") === "recovery" || hash.get("type") === "recovery"
+        const pending = localStorage.getItem("tr_password_recovery_pending") === "1"
+        const { data } = await db.auth.getSession()
+        if ((marked || pending) && data?.session) setRecovery(true)
+      } catch (e) {}
+    }
+    detectRecovery()
 
     const { data: sub } = db.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setRecovery(true)
+      if (event === "PASSWORD_RECOVERY") {
+        try { localStorage.setItem("tr_password_recovery_pending", "1") } catch (e) {}
+        setRecovery(true)
+      }
     })
     return () => { try { sub.subscription.unsubscribe() } catch (e) {} }
   }, [])
@@ -524,6 +536,7 @@ export default function App() {
         redirectTo: recoveryUrl,
       })
       if (error) { setAuthMsg(error.message || "Couldn't send the reset email."); return }
+      try { localStorage.setItem("tr_password_recovery_pending", "1") } catch (e) {}
       setAuthMsg("Check your email for a link to reset your password.")
     } catch (err) { setAuthMsg("Couldn't send the reset email — double-check the address.") }
   }
@@ -533,7 +546,12 @@ export default function App() {
     try {
       const { error } = await db.auth.updateUser({ password: newPass })
       if (error) { setAuthMsg(error.message); return }
+      try { localStorage.removeItem("tr_password_recovery_pending") } catch (e) {}
       setRecovery(false); setNewPass(""); setAuthMsg("")
+      try {
+        const cleanUrl = `${window.location.origin}${window.location.pathname}`
+        window.history.replaceState({}, "", cleanUrl)
+      } catch (e) {}
       await checkAuth()
     } catch (err) { setAuthMsg("Couldn't update password. Try the reset link again.") }
   }
