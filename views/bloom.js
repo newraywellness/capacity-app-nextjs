@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import { BLOOM_INVITATIONS, BLOOM_PILLARS, BLOOM_SECTIONS, BLOOM_TRENDING } from '../data/bloom.js'
 import { FOR_YOU_ITEMS, TIME_FILTERS, byTimeBucket } from '../data/foryou.js'
 import { SEASONS, SEASONAL_ITEMS, bySeason, SEASON_LABEL } from '../data/seasonal.js'
@@ -9,30 +8,8 @@ import { F_TIMES, F_IMG, F_BY_ID, byTag, seasonalSet, timeFeed, relatedByMood } 
 import { BASE, ENV, dayIndex } from '../lib/theme.js'
 import GlowDiscovery from './GlowDiscovery.js'
 
-function BloomInfiniteLoader({ hasMore, loadMore }) {
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const node = ref.current
-    if (!node || !hasMore || typeof IntersectionObserver === "undefined") return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) loadMore()
-      },
-      { rootMargin: "500px 0px" }
-    )
-
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [hasMore, loadMore])
-
-  if (!hasMore) return null
-  return <div ref={ref} aria-hidden="true" style={{ height: 1 }} />
-}
-
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomFeedLimit, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomFeedLimit, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, supabaseBloomRows, tab, toggleSaveBloom } = ctx
+  const { bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomPillar, setBloomSearchOpen, setDoneFeed, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, tab, toggleSaveBloom, toggleDidThis, hasInteraction } = ctx
 
     const Heart = ({ id, overlay }) => {
       const saved = isSavedBloom(id)
@@ -92,12 +69,11 @@ export function renderBloom(ctx) {
     )
 
     const LABEL = { fontSize: 10.5, fontWeight: 700, letterSpacing: 2.6, textTransform: "uppercase", color: BASE.taupe }
-    // Bloom is intentionally a stable editorial/light environment.
-    // Do not derive its palette from new Date() during render; that caused
-    // the server/client night-to-day flash on refresh.
-    const bloomDark = false
-    const ink = BASE.cream
-    const mut = BASE.taupe
+    const hour = new Date().getHours()
+    const env = ENV(hour, checkedIn ? cur : null)
+    const bloomDark = env.mode === "night"
+    const ink = bloomDark ? "#F5E9F2" : BASE.cream
+    const mut = bloomDark ? "rgba(240,220,240,0.72)" : BASE.taupe
 
     const Tag = ({ children }) => (
       <span style={{ display: "inline-block", padding: "5px 11px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: BASE.taupe, background: BASE.bg2 || BASE.surface2, border: `1px solid ${BASE.border}`, marginRight: 6, marginBottom: 6 }}>{children}</span>
@@ -111,31 +87,13 @@ export function renderBloom(ctx) {
     const ActionRow = ({ item, prefix }) => {
       const sid = (prefix || "foryou") + ":" + item.id
       const saved = isSavedBloom(sid)
-      const done = doneFeed.indexOf(item.id) >= 0
-      const Btn = ({ on, onClick, onIcon, offIcon, label }) => (
-        <span onClick={(e) => { e.stopPropagation(); onClick() }} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "8px 2px" }}>
-          <span style={{ fontSize: 16, lineHeight: 1, color: on ? "#C9558E" : BASE.taupe }}>{on ? onIcon : offIcon}</span>
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.2, color: on ? "#C9558E" : BASE.taupe }}>{label}</span>
-        </span>
-      )
+      const done = hasInteraction ? hasInteraction("did_this", sid) : doneFeed.indexOf(sid) >= 0
+      const meta = { contentType:"bloom", title:item.title || item.name || item.n || "Bloom idea", image:item.img || item.image || item.image_url || null }
+      const actionStyle = (on, primary=false) => ({ flex:1, padding:"13px 8px", borderRadius:13, border: primary ? "none" : `1px solid ${on ? "#C9558E" : BASE.border}`, background: primary ? (on ? "rgba(127,160,84,.14)" : "linear-gradient(135deg,#E984B4,#A87BD1)") : (on ? "rgba(201,85,142,.10)" : BASE.surface), color: primary ? (on ? "#6F9148" : "#fff") : (on ? "#C9558E" : BASE.creamDim), fontSize:12.5, fontWeight:800, cursor:"pointer" })
       return (
-        <div style={{ display: "flex", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BASE.border}` }}>
-          <Btn on={saved} onClick={() => toggleSaveBloom(sid)} onIcon={"\u2665"} offIcon={"\u2661"} label="Save" />
-          <Btn on={done} onClick={() => {
-            const entryId = `bloom-done:${sid}`
-            if (done) {
-              setDoneFeed(doneFeed.filter((x) => x !== item.id)); try{localStorage.setItem('nr_done_feed',JSON.stringify(doneFeed.filter((x)=>x!==item.id)))}catch(err){}
-              setReverieEntries(prev => { const next=(prev||[]).filter(e=>e.id!==entryId); try{localStorage.setItem('nr_reverie_entries',JSON.stringify(next))}catch(err){} return next })
-            } else {
-              setDoneFeed([...doneFeed, item.id]); try{localStorage.setItem('nr_done_feed',JSON.stringify([...doneFeed,item.id]))}catch(err){}
-              setReverieEntries(prev => {
-                if ((prev||[]).some(e=>e.id===entryId)) return prev
-                const next=[...(prev||[]),{id:entryId,title:item.title||item.name||item.n||'Something I did',note:'',date:new Date().toISOString().slice(0,10),photo:null,originalImage:item.image||null,source:'bloom',contentId:sid,share:false}]
-                try{localStorage.setItem('nr_reverie_entries',JSON.stringify(next))}catch(err){}
-                return next
-              })
-            }
-          }} onIcon={"\u2713"} offIcon={"\u25cb"} label="I Did This" />
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginTop:14 }}>
+          <button onClick={(e)=>{e.stopPropagation(); toggleDidThis ? toggleDidThis(sid, meta) : setDoneFeed(done ? doneFeed.filter(x=>x!==sid) : [...doneFeed,sid])}} style={actionStyle(done,true)}>{done ? "✓ I Did This" : "I Did This"}</button>
+          <button onClick={(e)=>{e.stopPropagation(); toggleSaveBloom(sid, meta)}} style={actionStyle(saved,false)}>{saved ? "♥ Saved" : "♡ Save"}</button>
         </div>
       )
     }
@@ -233,7 +191,7 @@ export function renderBloom(ctx) {
         <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
           <div style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
             <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden", background: "linear-gradient(150deg,#F3E4EC 0%,#E9DCEE 45%,#DCD3E8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {item.image && <img src={item.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: `${item.imagePosition?.x ?? 50}% ${item.imagePosition?.y ?? 50}%`, transform: `scale(${Number(item.imageZoom) || 1})`, transformOrigin: `${item.imagePosition?.x ?? 50}% ${item.imagePosition?.y ?? 50}%` }} />}
+              {item.image && <img src={item.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
               {!item.image && <span style={{ fontSize: 66, position: "relative" }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).emoji || "\u2728") : item.emoji}</span>}
               <div style={{ position: "absolute", bottom: 12, right: 14, fontSize: 10, fontWeight: 700, color: "#6B4A5E", fontStyle: "italic", background: "rgba(255,255,255,0.75)", padding: "5px 10px", borderRadius: 999 }}>Swipe for details {"\u2192"}</div>
             </div>
@@ -328,7 +286,7 @@ export function renderBloom(ctx) {
     // ══════════════ GLOW · discovery feed ══════════════
     if (
       tab === "bloom" &&
-      false && bloomPillar === "glow" &&
+      bloomPillar === "glow" &&
       !glowItem &&
       !glowSheet
     ) {
@@ -843,9 +801,7 @@ export function renderBloom(ctx) {
       )
 
       return (
-        // Keep this wrapper untransformed: a transform/animation here makes the fixed
-        // Bloom search sheet position itself against the long feed instead of viewport.
-        <div style={{ padding: "0 24px" }}>
+        <div className="fade-in" style={{ padding: "0 24px" }}>
           <div onClick={() => setBloomPillar(null)} style={{ fontSize: 13, fontWeight: 700, color: BASE.taupe, cursor: "pointer", paddingTop: 10, marginBottom: 20 }}>{"\u2039 Bloom"}</div>
 
           <div style={{ textAlign: "center", paddingTop: 6 }}>
@@ -1080,7 +1036,7 @@ export function renderBloom(ctx) {
       )
     }
 
-    if (false && tab === "bloom" && bloomPillar === "seasonal") {
+    if (tab === "bloom" && bloomPillar === "seasonal") {
       const items = bySeason(seasonalSeason)
       const seasonLabel = SEASON_LABEL(seasonalSeason)
       return (
@@ -1132,7 +1088,7 @@ export function renderBloom(ctx) {
       )
     }
 
-    if (tab === "bloom" && bloomPillar && bloomPillar !== "glow" && bloomPillar !== "seasonal") {
+    if (tab === "bloom" && bloomPillar) {
       const P = BLOOM_PILLARS.find((x) => x.key === bloomPillar) || BLOOM_PILLARS[0]
       return (
         <div className="fade-in" style={{ padding: "10px 22px 0" }}>
@@ -1190,265 +1146,82 @@ export function renderBloom(ctx) {
       const capKey = checkedIn ? (pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green") : "yellow"
       const invites = (BLOOM_INVITATIONS && BLOOM_INVITATIONS[capKey]) || []
       const inviteRaw = invites.length ? invites[dayIndex(invites.length)] : null
-      const invite = inviteRaw && typeof inviteRaw === "object" ? inviteRaw : { emoji: "🤍", text: inviteRaw || "Be gentle with yourself today." }
+      const invite = inviteRaw && typeof inviteRaw === "object" ? inviteRaw : { emoji: "\ud83e\udd0d", text: inviteRaw || "Be gentle with yourself today." }
       const trending = Array.isArray(BLOOM_TRENDING) ? BLOOM_TRENDING : []
       const feat = trending.length ? trending[dayIndex(trending.length)] : null
       const fid = feat ? "article:" + feat.id : ""
 
-      // Bloom is one discovery world now. Mood + time guide it; personal signals
-      // and a per-visit rotation keep the six-card prototype from feeling static.
-      const MOODS = [
-        { key: "pretty", label: "Feel pretty", ic: "✨", words: ["beauty","skin","hair","makeup","glow","style","perfume","self-care"] },
-        { key: "cozy", label: "I want cozy", ic: "🕯️", words: ["cozy","bake","recipe","home","coffee","tea","movie","slow"] },
-        { key: "outside", label: "Get me outside", ic: "🌿", words: ["outside","outdoor","walk","outing","garden","orchard","nature"] },
-        { key: "fun", label: "I need something fun", ic: "💃", words: ["fun","dance","outing","date","party","try","play"] },
-        { key: "make", label: "I want to make something", ic: "🎨", words: ["bake","recipe","craft","make","home","diy","cook"] },
-        { key: "home", label: "Let me stay home", ic: "🏡", words: ["home","cozy","recipe","bake","beauty","self-care","reset"] },
-        { key: "glow", label: "I need a glow-up", ic: "💄", words: ["beauty","skin","hair","makeup","glow","style","perfume"] },
-        { key: "slow", label: "Slow morning", ic: "☕", words: ["coffee","tea","breakfast","slow","morning","cozy"] },
-        { key: "romance", label: "Romanticize today", ic: "💕", words: ["date","outing","beauty","flowers","bake","cozy","seasonal"] },
-        { key: "new", label: "Try something new", ic: "🌸", words: ["try","outing","movement","recipe","beauty","home"] },
-      ]
-      const rotate = (arr, n) => arr.length ? arr.slice(n % arr.length).concat(arr.slice(0, n % arr.length)) : arr
-      const moodChoices = rotate(MOODS, feedRotation || 0).slice(0, 7)
-      const CATEGORY_FILTERS = {
-        "__glow__": { label: "Glow", words: ["glow","hair","skin","makeup","perfume","nails","brows","lips","jewelry","facials","body care","wardrobe","beauty"] },
-        "__seasonal__": { label: "Seasonal", words: ["seasonal","fall","halloween","thanksgiving","christmas","winter","valentine","spring","summer"] },
-        "__food__": { label: "Food + baking", words: ["food","bake","baking","recipe","cook","cooking","breakfast","dessert"] },
-        "__home__": { label: "Home", words: ["home","porch","decor","organize","clean","cozy"] },
-        "__outside__": { label: "Outside", words: ["outside","outdoor","walk","outing","garden","orchard","nature"] },
-        "__make__": { label: "Make something", words: ["make","craft","diy","bake","recipe","create"] },
-        "__reset__": { label: "Gentle reset", words: ["reset","gentle","slow","self-care","care"] },
-        "__fun__": { label: "Things to do", words: ["fun","outing","date","party","try","play","go"] },
-      }
-      const activeCategory = CATEGORY_FILTERS[feedMoodFilter] || null
-      const activeMood = activeCategory ? null : (MOODS.find((m) => m.key === feedMoodFilter) || null)
-
-      const productLines = (p) => {
-        if (!p || typeof p !== "object") return []
-        return [p.budget, p.best, p.lux].filter(Boolean).map((x) => x.n + (x.w ? " — " + x.w : ""))
-      }
-      const arr = (v) => Array.isArray(v) ? v.filter(Boolean).map(String) : (v ? [String(v)] : [])
-      const glowCard = (topic, kind, x, index) => {
-        const title = x.title || x.name || x.n || (topic.name + " idea")
-        const emoji = x.ic || topic.ic || "✨"
-        const sections = []
-        if (x.why) sections.push({ heading: "Why it helps", body: arr(x.why) })
-        if (x.how) sections.push({ heading: "How to", body: arr(x.how) })
-        if (x.b) sections.push({ heading: "Know this", body: arr(x.b) })
-        if (x.do) sections.push({ heading: "Do this", body: arr(x.do) })
-        if (x.no) sections.push({ heading: "Skip this", body: arr(x.no) })
-        if (x.i) sections.push({ heading: "What it is", body: arr(x.i) })
-        if (x.body) sections.push({ heading: "Learn", body: arr(x.body) })
-        const products = productLines(x.prod || x.p)
-        if (products.length) sections.push({ heading: "Products we love", body: products })
-        if (x.items) sections.push({ heading: "The details", body: arr(x.items) })
-        if (x.tip) sections.push({ heading: "True Reverie tip", body: arr(x.tip) })
-        if (x.note) sections.push({ heading: "A nurse's note", body: arr(x.note) })
-        if (!sections.length) {
-          const fallback = Object.keys(x || {}).filter(k => !["id","ic","img","image","n","name","title","g","sub","eyebrow"].includes(k)).flatMap(k => arr(x[k]))
-          sections.push({ heading: "Details", body: fallback.length ? fallback : ["More from True Reverie Glow."] })
-        }
-        return {
-          id: "glow-" + topic.key + "-" + kind + "-" + (x.id || String(title).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || index),
-          type: "glow", emoji, image: x.img || x.image || null,
-          title, teaser: x.desc || x.i || x.sub || x.why || ("From " + topic.name + " in Glow."),
-          tags: ["Glow", topic.name, kind === "learn" ? "Learn" : kind === "guides" ? "Products" : kind === "wins" ? "Quick win" : "Guide"],
-          detail: { sections }, _source: "glow"
-        }
-      }
-      const glowItems = GLOW_TOPICS.flatMap((topic) => {
-        const cards = []
-        ;[["wins",topic.wins],["types",topic.types],["guides",topic.guides],["learn",topic.learn],["extra",topic.extra]].forEach(([kind,list]) => {
-          ;(Array.isArray(list) ? list : []).forEach((x,i) => cards.push(glowCard(topic,kind,x,i)))
-        })
-        if (topic.wardrobe && typeof topic.wardrobe === "object") {
-          Object.keys(topic.wardrobe).forEach((group) => {
-            ;(Array.isArray(topic.wardrobe[group]) ? topic.wardrobe[group] : []).forEach((x,i) => cards.push(glowCard(topic,"wardrobe-"+group,x,i)))
-          })
-        }
-        return cards
-      })
-      const seasonalItems = SEASONAL_ITEMS.map((item) => ({ ...item, tags: Array.from(new Set([...(item.tags || []), "Seasonal"])), _source: "seasonal" }))
-      const supabaseItems = (supabaseBloomRows || []).map((row) => {
-        const c = row.content || {}
-        const sections = []
-        if (c.description) sections.push({ heading: "Description", body: [c.description] })
-        if (Array.isArray(c.howTo) && c.howTo.filter(Boolean).length) sections.push({ heading: "How To", body: c.howTo.filter(Boolean) })
-        if (Array.isArray(c.need) && c.need.filter(Boolean).length) sections.push({ heading: "What You Need", body: c.need.filter(Boolean) })
-        if (c.nurseNote) sections.push({ heading: "Nurse Note", body: [c.nurseNote] })
-        if (Array.isArray(c.products) && c.products.filter(Boolean).length) sections.push({ heading: "Products", body: c.products.filter(Boolean) })
-        ;(row.extra_pages || []).forEach((page, i) => { if (page?.content) sections.push({ heading: `More ${i + 1}`, body: [page.content] }) })
-        return {
-          id: `supabase-${row.id}`, type: row.format || "idea", emoji: c.emoji || "🌸",
-          image: row.image_url || null, imagePosition: c.imagePosition || { x: 50, y: 50 }, imageZoom: Number(c.imageZoom) || 1, title: row.title || "A True Reverie idea", teaser: c.teaser || "",
-          tags: [...(c.tags || []), row.category, row.format].filter(Boolean),
-          detail: { sections }, _source: "supabase"
-        }
-      })
-      const forYouItems = FOR_YOU_ITEMS.map((item) => ({ ...item, _source: "foryou" }))
-      const allBloomItems = [...supabaseItems, ...forYouItems, ...seasonalItems, ...glowItems]
-      const itemText = (item) => [item.title, item.teaser, item.type, ...(item.tags || [])].filter(Boolean).join(" ").toLowerCase()
-
-      let sourceItems = allBloomItems
-      if (feedTimeFilter && feedTimeFilter !== "__open__") {
-        const timedIds = new Set(byTimeBucket(feedTimeFilter).map((x) => x.id))
-        sourceItems = sourceItems.filter((x) => x._source !== "foryou" || timedIds.has(x.id))
-      }
-      if (activeCategory) {
-        sourceItems = sourceItems.filter((item) => {
-          if (feedMoodFilter === "__glow__") return item._source === "glow"
-          if (feedMoodFilter === "__seasonal__") return item._source === "seasonal"
-          const txt = itemText(item)
-          return activeCategory.words.some((w) => txt.indexOf(w) >= 0)
-        })
-      }
-      const personalized = [...sourceItems].map((item, originalIndex) => {
-        const sid = (item._source || "foryou") + ":" + item.id
-        let score = 0
-        if (doneFeed.indexOf(item.id) >= 0) score -= 1 // gently favor something new next time
-        if (activeMood) {
-          const txt = itemText(item)
-          score += activeMood.words.reduce((n, w) => n + (txt.indexOf(w) >= 0 ? 5 : 0), 0)
-        }
-
-        // Stable for this visit, genuinely different on the next refresh.
-        // This avoids the old "rotate by one" behavior that kept the same
-        // discovery (Cookies) effectively pinned near the top.
-        const seedText = `${item._source || "foryou"}:${item.id}:${feedRotation || 0}`
-        let shuffleRank = 0x811c9dc5
-        for (let i = 0; i < seedText.length; i += 1) {
-          shuffleRank ^= seedText.charCodeAt(i)
-          shuffleRank = Math.imul(shuffleRank, 0x01000193)
-        }
-        // Avalanche the hash so neighboring visit numbers do not produce
-        // neighboring feed positions. This keeps the whole feed rotating.
-        shuffleRank ^= shuffleRank >>> 16
-        shuffleRank = Math.imul(shuffleRank, 0x85ebca6b)
-        shuffleRank ^= shuffleRank >>> 13
-        shuffleRank = Math.imul(shuffleRank, 0xc2b2ae35)
-        shuffleRank ^= shuffleRank >>> 16
-        shuffleRank >>>= 0
-        return { item, score, shuffleRank, originalIndex }
-      }).sort((a,b) => (b.score - a.score) || (a.shuffleRank - b.shuffleRank) || (a.originalIndex - b.originalIndex)).map((x) => x.item)
-      // Migration test only: keep the normal rotating feed, but pin the first
-      // Supabase discovery to position #1 so we can verify the real card UI.
-      // Remove this pin after the vertical slice is confirmed.
-      const rotatedItems = feedRotation == null ? [] : personalized
-      const firstSupabaseItem = supabaseItems[0] || null
-      const visibleItems = firstSupabaseItem
-        ? [firstSupabaseItem, ...rotatedItems.filter((item) => item.id !== firstSupabaseItem.id)]
-        : rotatedItems
-
-      const ChipRail = ({ children }) => (
-        <div style={{ display:"flex", gap:8, overflowX:"auto", overflowY:"hidden", WebkitOverflowScrolling:"touch", scrollbarWidth:"none", padding:"2px 2px 7px", marginRight:-24 }}>{children}</div>
-      )
-      const chipStyle = (active) => ({ flex:"0 0 auto", whiteSpace:"nowrap", padding:"8px 12px", borderRadius:999, cursor:"pointer", fontSize:11.5, fontWeight:700,
-        background: active ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface, color: active ? "#fff" : BASE.creamDim,
-        border:`1px solid ${active ? "transparent" : BASE.border}` })
-      const openCategory = (key) => {
-        setBloomSearchOpen(false); setFeedTimeFilter(null); setBloomFeedLimit(12); setBloomPillar(null)
-        const map = { glow:"__glow__", seasonal:"__seasonal__", food:"__food__", home:"__home__", outside:"__outside__", make:"__make__", reset:"__reset__", fun:"__fun__" }
-        setFeedMoodFilter(map[key] || null)
-        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
-      }
-      const SEARCH_CATS = [
-        ["✨","Glow","glow"],["🍂","Seasonal","seasonal"],["🍳","Food + baking","food"],["🏡","Home","home"],
-        ["🌿","Outside","outside"],["🎨","Make something","make"],["🤍","Gentle reset","reset"],["💃","Things to do","fun"],
-      ]
-
-      if (bloomSearchOpen) {
-        return (
-          <div className="fade-in" style={{ padding: "0 24px", minHeight: "100vh" }}>
-            <div style={{ paddingTop: 52, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18 }}>
-              <div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 700, color: ink, lineHeight: 1.05 }}>Find something for today</div>
-                <div style={{ fontSize: 13.5, color: mut, marginTop: 8 }}>What sounds good right now?</div>
-              </div>
-              <button onClick={() => setBloomSearchOpen(false)} aria-label="Close search" style={{ border: 0, background: "transparent", fontSize: 28, lineHeight: 1, padding: "0 2px", cursor: "pointer", color: ink }}>×</button>
-            </div>
-
-            <div style={{ ...LABEL, color: mut, marginTop: 34, marginBottom: 13 }}>What are you looking for?</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {SEARCH_CATS.map(([ic,label,key]) => (
-                <div key={key} onClick={() => openCategory(key)} style={{ minHeight: 76, padding: "14px 13px", borderRadius: 18, background: BASE.surface, border: `1px solid ${BASE.border}`, fontSize: 13, fontWeight: 700, color: ink, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
-                  <span style={{ fontSize: 21 }}>{ic}</span><span>{label}</span>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ ...LABEL, color: mut, marginTop: 30, marginBottom: 11 }}>Or start with a feeling</div>
-            <ChipRail>{MOODS.map(m => <span key={m.key} onClick={() => { setFeedMoodFilter(m.key); setBloomSearchOpen(false) }} style={chipStyle(false)}>{m.ic} {m.label}</span>)}</ChipRail>
-
-            <div style={{ ...LABEL, color: mut, marginTop: 23, marginBottom: 11 }}>How much time do you have?</div>
-            <ChipRail>{TIME_FILTERS.map(t => <span key={t} onClick={() => { setFeedTimeFilter(t); setBloomSearchOpen(false) }} style={chipStyle(false)}>⏱ {t}</span>)}</ChipRail>
-
-            <div onClick={() => setBloomSearchOpen(false)} style={{ marginTop: 34, marginBottom: 110, height: 46, borderRadius: 999, border: `1px solid ${BASE.border}`, background: BASE.surface, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 800, color: ink, cursor: "pointer" }}>Back to Bloom</div>
-          </div>
-        )
-      }
+      const visibleItems = feedTimeFilter ? byTimeBucket(feedTimeFilter) : FOR_YOU_ITEMS
 
       return (
         <div className="fade-in" style={{ padding: "0 24px" }}>
-          <div style={{ paddingTop: 52, textAlign: "center" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 600, color: ink, lineHeight: 1.05 }}>Bloom</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.45, marginTop: 9 }}>Wonderful discoveries for the life you’re building to live more like her.</div>
+
+          <div style={{ paddingTop: 48 }}><BloomTabs /></div>
+
+          <div style={{ paddingTop: 8, textAlign: "center" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: ink, lineHeight: 1.08, letterSpacing: 0.2 }}>Wonderful Discoveries</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15, color: mut, lineHeight: 1.4, marginTop: 10 }}>Small ways to live more like her, shaped by what you love.</div>
           </div>
 
-          <div onClick={() => setBloomSearchOpen(true)} style={{ marginTop:24, height:46, borderRadius:16, background:BASE.surface, border:`1px solid ${BASE.border}`, display:"flex", alignItems:"center", gap:10, padding:"0 15px", cursor:"pointer", boxShadow:"0 5px 18px rgba(78,53,71,0.05)" }}>
-            <span style={{fontSize:15}}>⌕</span><span style={{fontSize:12.5,color:BASE.taupe}}>Search Bloom</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14, marginTop: 30 }}>
+            <span onClick={() => setFeedTimeFilter(feedTimeFilter ? null : "__open__")} style={{ fontSize: 11.5, fontWeight: 700, color: feedTimeFilter ? "#C9558E" : mut, cursor: "pointer" }}>{"\u23f1\ufe0f Browse by Time"}</span>
+            <span onClick={() => setBloomSearchOpen(!bloomSearchOpen)} style={{ fontSize: 15, color: bloomSearchOpen ? "#C9558E" : mut, cursor: "pointer" }}>{"\ud83d\udd0d"}</span>
           </div>
+          {bloomSearchOpen && (
+            <div className="fade-in" style={{ borderRadius: 14, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "12px 15px", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <span style={{ fontSize: 12, color: BASE.taupe, fontStyle: "italic" }}>Search is coming soon {"\u2014"} for now, explore Glow and Seasonal from the tabs above.</span>
+              <span onClick={() => setBloomSearchOpen(false)} style={{ fontSize: 15, color: BASE.taupe, cursor: "pointer", flexShrink: 0 }}>{"\u00d7"}</span>
+            </div>
+          )}
+          {feedTimeFilter && (
+            <div className="fade-in" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+              {TIME_FILTERS.map((t) => (
+                <span key={t} onClick={() => setFeedTimeFilter(feedTimeFilter === t ? "__open__" : t)}
+                  style={{ padding: "7px 13px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                    background: feedTimeFilter === t ? "linear-gradient(135deg,#E984B4,#A87BD1)" : BASE.surface,
+                    color: feedTimeFilter === t ? "#fff" : BASE.creamDim,
+                    border: `1px solid ${feedTimeFilter === t ? "transparent" : BASE.border}` }}>{t}</span>
+              ))}
+            </div>
+          )}
 
-          <div style={{ marginTop:20 }}>
-            <div style={{ ...LABEL, color:mut, marginBottom:9 }}>Browse by mood</div>
-            <ChipRail>
-              {moodChoices.map((m) => <span key={m.key} onClick={() => setFeedMoodFilter(feedMoodFilter===m.key?null:m.key)} style={chipStyle(feedMoodFilter===m.key)}>{m.ic} {m.label}</span>)}
-            </ChipRail>
-          </div>
-          <div style={{ marginTop:10 }}>
-            <div style={{ ...LABEL, color:mut, marginBottom:9 }}>Browse by time</div>
-            <ChipRail>
-              {TIME_FILTERS.map((t) => <span key={t} onClick={() => setFeedTimeFilter(feedTimeFilter===t?null:t)} style={chipStyle(feedTimeFilter===t)}>⏱ {t}</span>)}
-            </ChipRail>
-          </div>
+          <div style={{ marginTop: 26 }}>
+            {visibleItems.slice(0, 2).map((item) => <FeedCard key={item.id} item={item} />)}
 
-          {(feedMoodFilter || feedTimeFilter) && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,fontSize:11.5,color:mut}}>
-            <span>{activeCategory ? activeCategory.label : (activeMood ? activeMood.ic+" "+activeMood.label : "")}{(activeCategory || activeMood) && feedTimeFilter ? " · " : ""}{feedTimeFilter || ""}</span>
-            <span onClick={() => {setFeedMoodFilter(null);setFeedTimeFilter(null)}} style={{color:"#C9558E",fontWeight:800,cursor:"pointer"}}>Clear</span>
-          </div>}
-
-          <div style={{ ...LABEL, color:mut, marginTop:24, marginBottom:13 }}>{activeCategory ? activeCategory.label : "For you"}</div>
-          <div>
-            {visibleItems.slice(0, Math.min(2, bloomFeedLimit || 12)).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
-            {!feedTimeFilter && !feedMoodFilter && feat && (
+            {!feedTimeFilter && feat && (
               <div style={{ marginBottom: 22 }}>
                 <div style={{ ...LABEL, color: mut, textAlign: "center", marginBottom: 14 }}>Trending</div>
                 <div onClick={() => setBloomArticle(feat)} style={{ borderRadius: 22, background: BASE.surface, border: `1px solid ${BASE.border}`, padding: "22px 22px 20px", cursor: "pointer", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: -14, right: -8, fontSize: 78, opacity: 0.08 }}>{feat.ic}</div>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", position: "relative" }}><span style={{ fontSize: 26 }}>{feat.ic}</span><span onClick={(e) => { e.stopPropagation(); toggleSaveBloom(fid) }} style={{ fontSize:19,cursor:"pointer",color:"#C9558E",opacity:isSavedBloom(fid)?1:.4 }}>{isSavedBloom(fid)?"♥":"♡"}</span></div>
-                  <div style={{ fontFamily:"'Cormorant Garamond', serif",fontSize:30,fontWeight:700,color:BASE.cream,marginTop:12,lineHeight:1.18 }}>{feat.title}</div>
-                  <div style={{ fontSize:14.5,color:BASE.taupe,lineHeight:1.6,marginTop:10 }}>{feat.desc}</div>
-                  <div style={{ fontSize:14.5,fontWeight:800,color:"#C9558E",marginTop:16 }}>Read ›</div>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", position: "relative" }}>
+                    <span style={{ fontSize: 26, lineHeight: 1 }}>{feat.ic}</span>
+                    <span onClick={(e) => { e.stopPropagation(); toggleSaveBloom(fid) }} style={{ fontSize: 19, cursor: "pointer", lineHeight: 1, color: "#C9558E", opacity: isSavedBloom(fid) ? 1 : 0.4, padding: "0 0 8px 12px" }}>{isSavedBloom(fid) ? "\u2665" : "\u2661"}</span>
+                  </div>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 700, color: BASE.cream, marginTop: 12, lineHeight: 1.18, position: "relative" }}>{feat.title}</div>
+                  <div style={{ fontSize: 14.5, color: BASE.taupe, lineHeight: 1.6, marginTop: 10, position: "relative" }}>{feat.desc}</div>
+                  <div style={{ fontSize: 14.5, fontWeight: 800, letterSpacing: 0.4, color: "#C9558E", marginTop: 16, position: "relative" }}>Read {"\u203a"}</div>
                 </div>
               </div>
             )}
-            {visibleItems.slice(2, bloomFeedLimit || 12).map((item) => <FeedCard key={(item._source || "foryou") + ":" + item.id} item={item} prefix={item._source || "foryou"} />)}
-            <BloomInfiniteLoader
-              hasMore={visibleItems.length > (bloomFeedLimit || 12)}
-              loadMore={() => setBloomFeedLimit((n) => Math.min((n || 12) + 12, visibleItems.length))}
-            />
-            {feedRotation != null && visibleItems.length === 0 && <div style={{ textAlign:"center",padding:"30px 10px",fontSize:12.5,color:mut,fontStyle:"italic" }}>Nothing here just yet — try another filter.</div>}
+
+            {visibleItems.slice(2).map((item) => <FeedCard key={item.id} item={item} />)}
+
+            {visibleItems.length === 0 && (
+              <div style={{ textAlign: "center", padding: "30px 10px", fontSize: 12.5, color: mut, fontStyle: "italic" }}>Nothing at that length just yet {"\u2014"} more ideas are on the way.</div>
+            )}
           </div>
 
           <div style={{ height: 24 }} />
           <div style={{ textAlign: "center", paddingBottom: 48 }}>
-            <div style={{ ...LABEL, color: mut }}>Today's invitation</div><div style={{ fontSize:28,marginTop:16 }}>{invite.emoji}</div>
-            <div style={{ fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:26,color:ink,lineHeight:1.4,marginTop:10 }}>{invite.text}</div>
-            <div onClick={() => switchPillar("reset")} style={{ fontSize:12.5,fontWeight:700,color:"#C9558E",marginTop:18,cursor:"pointer" }}>More gentle ideas in Reset →</div>
+            <div style={{ ...LABEL, color: mut }}>Today's invitation</div>
+            <div style={{ fontSize: 28, marginTop: 16 }}>{invite.emoji}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 26, color: ink, lineHeight: 1.4, marginTop: 10 }}>{invite.text}</div>
+            <div onClick={() => switchPillar("reset")} style={{ fontSize: 12.5, fontWeight: 700, color: "#C9558E", marginTop: 18, cursor: "pointer", letterSpacing: 0.2 }}>More gentle ideas in Reset {"\u2192"}</div>
           </div>
 
           <FloatingTop />
-          <div style={{ height:44,paddingBottom:"env(safe-area-inset-bottom)" }} />
+          <div style={{ height: 44, paddingBottom: "env(safe-area-inset-bottom)" }} />
+
         </div>
       )
     }
