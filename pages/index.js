@@ -32,7 +32,7 @@ export default function App() {
   // localStorage-loading effect further down is untouched and still runs:
   // if real nr_setup/nr_name data exists, it overwrites these placeholders
   // moments later exactly as it always has.
-  const PROTOTYPE_MODE = true
+  const PROTOTYPE_MODE = false
   const PROTOTYPE_USER = { id: "prototype-user", email: "prototype@truereverie.local" }
 
   const [user, setUser] = useState(PROTOTYPE_MODE ? PROTOTYPE_USER : null)
@@ -388,8 +388,11 @@ export default function App() {
             if (typeof sd.greetingOn === "boolean") { setGreetingOnRaw(sd.greetingOn); try { localStorage.setItem("nr_greeting_on", sd.greetingOn ? "1" : "0") } catch (e) {} }
             if (sd.greetingStyle) { setGreetingStyleRaw(sd.greetingStyle); try { localStorage.setItem("nr_greeting_style", sd.greetingStyle) } catch (e) {} }
             try { localStorage.setItem("nr_setup", JSON.stringify(sd)) } catch (e) {}
-          } else if (p.data.first_name) {
-            setFirstName(p.data.first_name)
+          } else {
+            // Supabase is the source of truth for onboarding. Do not let an old
+            // nr_setup cache from another/prototype account skip onboarding.
+            setSetupData(null)
+            if (p.data.first_name) setFirstName(p.data.first_name)
           }
           // Cross-device program restore (profile wins over local if present)
           if (p.data.program) {
@@ -452,22 +455,34 @@ export default function App() {
       if (res.error) { setAuthMsg(res.error.message || "Login failed — check your email and password."); return }
       if (res.data.user) {
         setUser(res.data.user)
-        const p = await db.from("profiles").select("*").eq("id", res.data.user.id).single()
-        if (p.data) setProfile(p.data)
-        await loadHistory(res.data.user.id)
-        await loadWorkouts(res.data.user.id)
+        setSetupData(null)
         setEmail(""); setPassword(""); setAuthMsg("")
+        await checkAuth()
       }
     } catch (err) { setAuthMsg("Login failed — please try again.") }
   }
 
   const handleSignUp = async () => {
     try {
-      const res = await db.auth.signUp({ email, password })
+      const cleanName = firstName.trim()
+      const res = await db.auth.signUp({
+        email,
+        password,
+        options: { data: { first_name: cleanName } },
+      })
       if (res.error) { setAuthMsg(res.error.message || "Sign up failed — please try again."); return }
-      if (res.data.user) {
-        await db.from("profiles").insert([{ id: res.data.user.id, email, has_membership: false }])
-        setUser(res.data.user); setEmail(""); setPassword(""); setAuthMsg("")
+      if (res.data.session && res.data.user) {
+        // The database trigger creates the profile. Upsert here too so this also
+        // works in projects where email confirmation is disabled.
+        await db.from("profiles").upsert([{ id: res.data.user.id, email, first_name: cleanName, has_membership: false }], { onConflict: "id" })
+        setUser(res.data.user)
+        setSetupData(null)
+        setEmail(""); setPassword(""); setConfirmPw(""); setAuthMsg("")
+        await checkAuth()
+      } else if (res.data.user) {
+        // Supabase email confirmation is enabled: stay on auth until the link is used.
+        setPassword(""); setConfirmPw("")
+        setAuthMsg("Account created — check your email to confirm it, then log in.")
       }
     } catch (err) { setAuthMsg("Sign up failed — please try again.") }
   }
@@ -891,11 +906,14 @@ export default function App() {
       setDraftSetup({ ...draftSetup, [st.key]: next })
     }
     const canNext = st.type === "q" ? val.length > 0 : true
-    const finish = () => {
+    const finish = async () => {
       const data = { ...draftSetup, name: firstName }
-      setSetupData(data)
-      try { localStorage.setItem("nr_setup", JSON.stringify(data)); localStorage.setItem("nr_name", firstName) } catch (e) {}
-      try { db.from("profiles").update({ setup: data, first_name: firstName }).eq("id", user.id).then(() => {}) } catch (e) {}
+      try {
+        const { error } = await db.from("profiles").upsert({ id: user.id, email: user.email || null, setup: data, first_name: firstName, has_membership: false }, { onConflict: "id" })
+        if (error) { setAuthMsg(error.message || "Could not save onboarding yet."); return }
+        setSetupData(data)
+        try { localStorage.setItem("nr_setup", JSON.stringify(data)); localStorage.setItem("nr_name", firstName) } catch (e) {}
+      } catch (e) { setAuthMsg("Could not save onboarding yet. Please try again.") }
     }
     const advance = () => (setupStep < steps.length - 1 ? setSetupStep(setupStep + 1) : finish())
     return (
