@@ -226,6 +226,7 @@ export default function App() {
   const [supabaseFeelBetterRows, setSupabaseFeelBetterRows] = useState([])
   const [supabaseRitualRows, setSupabaseRitualRows] = useState([])
   const [supabaseRebuildExperiences, setSupabaseRebuildExperiences] = useState([])
+  const [rebuildProgressRows, setRebuildProgressRows] = useState([])
 
   useEffect(() => {
     try { const rb = localStorage.getItem("nr_rebuild_flya"); if (rb) setRebuildFLYA(JSON.parse(rb)) } catch (e) {}
@@ -424,6 +425,7 @@ export default function App() {
         await loadHistory(u.id)
         await loadWorkouts(u.id)
         await loadContentInteractions(u.id)
+        await loadRebuildProgress(u.id)
       }
     } catch (err) { console.log(err) }
     setLoading(false)
@@ -465,6 +467,79 @@ export default function App() {
   }
 
   const toggleDidThis = (contentKey, meta = {}) => setInteraction("did_this", contentKey, meta)
+
+  const loadRebuildProgress = async (uid) => {
+    if (!uid) return
+    const { data, error } = await db.from("tr_rebuild_progress").select("*").eq("user_id", uid).order("updated_at", { ascending: false })
+    if (error) { console.log("rebuild progress load", error); return }
+    const rows = data || []
+    setRebuildProgressRows(rows)
+    // Supabase is authoritative for signed-in Rebuild membership/progress.
+    const activeKeys = rows.filter((r) => r.status === "active").map((r) => r.program_key)
+    if (activeKeys.length) setRebuildCurrentRaw(activeKeys)
+    const legacy = rows.find((r) => r.program_key === "feel-like-yourself-again")
+    if (legacy) {
+      const next = {
+        started: true,
+        currentExp: Number(legacy.current_experience_number) || 1,
+        completed: Array.isArray(legacy.completed_experience_ids) ? legacy.completed_experience_ids.map(Number).filter(Number.isFinite) : [],
+        log: legacy.log && typeof legacy.log === "object" ? legacy.log : {},
+      }
+      setRebuildFLYA(next)
+      try { localStorage.setItem("nr_rebuild_flya", JSON.stringify(next)) } catch (e) {}
+    }
+  }
+
+  const getRebuildProgress = (programKey) => rebuildProgressRows.find((r) => r.program_key === String(programKey)) || null
+
+  const startRebuildProgress = async ({ programKey, rebuildId = null, currentExperienceId = null, currentExperienceNumber = 1 }) => {
+    if (!user || user.id === "prototype-user") return null
+    const key = String(programKey)
+    const existing = getRebuildProgress(key)
+    const row = {
+      user_id: user.id,
+      program_key: key,
+      rebuild_id: rebuildId,
+      status: "active",
+      current_experience_id: currentExperienceId,
+      current_experience_number: currentExperienceNumber || 1,
+      completed_experience_ids: existing?.completed_experience_ids || [],
+      log: existing?.log || {},
+      started_at: existing?.started_at || new Date().toISOString(),
+      completed_at: null,
+      updated_at: new Date().toISOString(),
+    }
+    setRebuildProgressRows((prev) => [row, ...prev.filter((r) => r.program_key !== key)])
+    const { data, error } = await db.from("tr_rebuild_progress").upsert(row, { onConflict: "user_id,program_key" }).select().single()
+    if (error) { console.log("rebuild progress start", error); await loadRebuildProgress(user.id); return null }
+    setRebuildProgressRows((prev) => [data, ...prev.filter((r) => r.program_key !== key)])
+    return data
+  }
+
+  const completeRebuildExperience = async ({ programKey, rebuildId = null, experienceId, experienceNumber, nextExperienceId = null, nextExperienceNumber = null, logPatch = null, isLast = false }) => {
+    if (!user || user.id === "prototype-user") return null
+    const key = String(programKey)
+    const existing = getRebuildProgress(key)
+    const completed = Array.from(new Set([...(Array.isArray(existing?.completed_experience_ids) ? existing.completed_experience_ids : []), experienceId]))
+    const row = {
+      user_id: user.id,
+      program_key: key,
+      rebuild_id: rebuildId,
+      status: isLast ? "completed" : "active",
+      current_experience_id: isLast ? experienceId : nextExperienceId,
+      current_experience_number: isLast ? experienceNumber : (nextExperienceNumber || experienceNumber + 1),
+      completed_experience_ids: completed,
+      log: { ...(existing?.log || {}), ...(logPatch || {}) },
+      started_at: existing?.started_at || new Date().toISOString(),
+      completed_at: isLast ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    }
+    setRebuildProgressRows((prev) => [row, ...prev.filter((r) => r.program_key !== key)])
+    const { data, error } = await db.from("tr_rebuild_progress").upsert(row, { onConflict: "user_id,program_key" }).select().single()
+    if (error) { console.log("rebuild progress complete", error); await loadRebuildProgress(user.id); return null }
+    setRebuildProgressRows((prev) => [data, ...prev.filter((r) => r.program_key !== key)])
+    return data
+  }
 
   const loadHistory = async (uid) => {
     const { data } = await db.from("checkins").select("*").eq("user_id", uid).order("date", { ascending: true })
@@ -650,7 +725,21 @@ export default function App() {
     setRebuildFLYA((prev) => {
       const next = typeof updater === "function" ? updater(prev) : { ...prev, ...updater }
       try { localStorage.setItem("nr_rebuild_flya", JSON.stringify(next)) } catch (e) {}
-      try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), rebuildFLYA: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
+      try {
+        if (user && user.id !== "prototype-user") {
+          db.from("profiles").update({ setup: { ...(setupData || {}), rebuildFLYA: next } }).eq("id", user.id).then(() => {})
+          const legacyRow = {
+            user_id: user.id, program_key: "feel-like-yourself-again", rebuild_id: null,
+            status: next.completed?.length >= 28 ? "completed" : "active",
+            current_experience_id: null, current_experience_number: Number(next.currentExp) || 1,
+            completed_experience_ids: next.completed || [], log: next.log || {},
+            started_at: new Date().toISOString(), completed_at: next.completed?.length >= 28 ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+          }
+          db.from("tr_rebuild_progress").upsert(legacyRow, { onConflict: "user_id,program_key" }).then(({ error }) => { if (error) console.log("legacy rebuild progress", error) })
+          setRebuildProgressRows((prevRows) => [legacyRow, ...prevRows.filter((r) => r.program_key !== "feel-like-yourself-again")])
+        }
+      } catch (e) {}
       return next
     })
   }
@@ -1148,7 +1237,7 @@ export default function App() {
   })
 
   const renderContent = () => {
-    const ctx = { Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateEntry, updateRebuildFLYA, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    const ctx = { Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateEntry, updateRebuildFLYA, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
     return renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
   }
 
