@@ -23,14 +23,14 @@ function ReverieSearchBox({ value, onChange, placeholder }) {
 }
 
 export function renderReverie(ctx) {
-  const { tab, reverieSection, setReverieSection, reverieEntries, setReverieEntries, reverieDraft, setReverieDraft, reverieComposerOpen, setReverieComposerOpen, reverieSearch, setReverieSearch, savedBloom, contentInteractions = [], rebuildSaved, woLog, foodDays, progress, rebuildFLYA, likedFeed, setTab, setBloomArticle, openBloomCard, setBloomPillar, setGlowTopic, setGlowItem, setGlowSheet, setGlowOpen, setResetPage, setFlourishProject, setRebuildSection, setRebuildActiveProgram, setRebuildView } = ctx
+  const { tab, reverieSection, setReverieSection, reverieEntries, setReverieEntries, reverieDraft, setReverieDraft, reverieComposerOpen, setReverieComposerOpen, reverieSearch, setReverieSearch, savedBloom, contentInteractions = [], rebuildSaved, woLog, foodDays, progress, rebuildFLYA, likedFeed, setTab, setBodyView, setMoveCategory, setMoveMood, setMoveTime, setMoveSearch, setBloomArticle, openBloomCard, setBloomPillar, setGlowTopic, setGlowItem, setGlowSheet, setGlowOpen, setResetPage, setFlourishProject, setRebuildSection, setRebuildActiveProgram, setRebuildView } = ctx
   if (tab !== 'reverie') return null
 
   const today = new Date().toISOString().slice(0,10)
   const entries = [...(reverieEntries || [])].sort((a,b)=>(a.date < b.date ? 1 : -1))
   const scrapbookEntries = entries
   const q = (reverieSearch || '').trim().toLowerCase()
-  const didThisEntries = (contentInteractions || []).filter(x=>x.action==='did_this').map(x=>({ id:'did-'+x.id, title:x.title || x.content_key, note:'', source:x.content_type || 'bloom', date:(x.created_at||'').slice(0,10), photo:x.image_url || null, interaction:true }))
+  const didThisEntries = (contentInteractions || []).filter(x=>x.action==='did_this').map(x=>({ id:'did-'+x.id, contentKey:x.content_key, title:x.title || x.content_key, note:'', source:x.content_type || 'bloom', date:(x.created_at||'').slice(0,10), photo:x.image_url || null, interaction:true }))
   const allHistoryEntries = [...entries, ...didThisEntries].sort((a,b)=>(a.date < b.date ? 1 : -1))
   const filteredHistory = allHistoryEntries.filter(x => !q || [x.title,x.note,x.source].join(' ').toLowerCase().includes(q))
 
@@ -76,7 +76,36 @@ export function renderReverie(ctx) {
     else { setBloomPillar(null) }
     setTab('bloom'); if (typeof window!=='undefined') window.scrollTo({top:0,behavior:'auto'})
   }
-  const interactionSaves = (contentInteractions || []).filter(x=>x.action==='saved').map(x=>({ id:'i-'+x.id, rawId:x.content_key, title:x.title || x.content_key, source:(x.content_type || 'Saved').replace('_',' '), image:x.image_url || null, onOpen: String(x.content_key||'').startsWith('move:') ? undefined : ()=>openBloomSaved(x.content_key) }))
+  const openInteraction = (contentKey) => {
+    const key = String(contentKey || '')
+    if (!key) return
+
+    if (key.startsWith('move:')) {
+      const moveId = key.slice(5)
+      if (setMoveCategory) setMoveCategory(null)
+      if (setMoveMood) setMoveMood(null)
+      if (setMoveTime) setMoveTime(null)
+      if (setMoveSearch) setMoveSearch('')
+      if (setBodyView) setBodyView('gym')
+      setTab('body')
+      setTimeout(() => {
+        const el = typeof document !== 'undefined' ? document.getElementById(`move-card-${moveId}`) : null
+        if (el) el.scrollIntoView({behavior:'smooth',block:'start'})
+      }, 80)
+      return
+    }
+
+    const parts = key.split(':')
+    const prefix = parts.shift() || 'foryou'
+    const itemId = parts.join(':')
+    setTab('bloom')
+    setTimeout(() => {
+      const el = typeof document !== 'undefined' ? document.getElementById(`bloom-card-${prefix}-${itemId}`) : null
+      if (el) el.scrollIntoView({behavior:'smooth',block:'center'})
+    }, 80)
+  }
+
+  const interactionSaves = (contentInteractions || []).filter(x=>x.action==='saved').map(x=>({ id:'i-'+x.id, rawId:x.content_key, title:x.title || x.content_key, source:(x.content_type || 'Saved').replace('_',' '), image:x.image_url || null, onOpen:()=>openInteraction(x.content_key) }))
   const interactionKeys = new Set(interactionSaves.map(x=>x.rawId))
   const saved = [
     ...interactionSaves,
@@ -158,7 +187,7 @@ export function renderReverie(ctx) {
 
     {reverieSection==='saved' && <><div style={{fontFamily:FONT,fontSize:28,fontWeight:600}}>Saved</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.5,margin:'5px 0 17px'}}>Everything you wanted to come back to, in one place.</div><ReverieSearchBox value={reverieSearch} onChange={setReverieSearch} placeholder="Search your saves"/>{filteredSaved.length?<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{filteredSaved.map(x=><div key={x.id} onClick={x.onOpen} role={x.onOpen?'button':undefined} tabIndex={x.onOpen?0:undefined} style={{minHeight:150,borderRadius:18,background:x.image?`linear-gradient(rgba(244,230,242,.25),rgba(233,228,244,.82)), url(${x.image}) center/cover`:'linear-gradient(145deg,#F4E6F2,#E9E4F4)',padding:14,display:'flex',flexDirection:'column',justifyContent:'flex-end',cursor:x.onOpen?'pointer':'default'}}><div style={{fontFamily:FONT,fontSize:18,fontWeight:600,textTransform:'capitalize'}}>{x.title}</div><div style={{fontSize:10,color:BASE.taupe,marginTop:4,textTransform:'uppercase',letterSpacing:1}}>{x.source}</div></div>)}</div>:<div style={{padding:'35px 20px',borderRadius:20,background:'#fff',border:`1px solid ${BASE.border}`,textAlign:'center'}}><div style={{fontFamily:FONT,fontSize:22,fontWeight:600}}>Nothing saved here yet.</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.55,marginTop:7}}>Save something anywhere in True Reverie and this becomes the place to find it again.</div></div>}</>}
 
-    {reverieSection==='history' && <><div style={{display:'flex',justifyContent:'space-between',alignItems:'end'}}><div><div style={{fontFamily:FONT,fontSize:28,fontWeight:600}}>History</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.5,marginTop:5}}>Things you’ve actually brought into your life.</div></div><button onClick={()=>openComposer()} style={{border:'none',background:'#FBEAF2',color:pink,borderRadius:999,padding:'9px 12px',fontSize:11,fontWeight:700}}>＋ Add</button></div><div style={{marginTop:17}}><ReverieSearchBox value={reverieSearch} onChange={setReverieSearch} placeholder="Search what you’ve done"/></div>{filteredHistory.length?<div style={{display:'grid',gap:22}}>{filteredHistory.map(e=>{const visual=e.photo||e.originalImage;return <article key={e.id} style={{overflow:'hidden',borderRadius:22,background:'#fff',border:`1px solid ${BASE.border}`,boxShadow:'0 6px 22px rgba(55,31,45,.04)'}}><div style={{aspectRatio:'19 / 23',background:'linear-gradient(145deg,#F4E6F2,#E9E4F4)',position:'relative'}}>{visual?<img src={visual} alt="" style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:`${e.photoPosition?.x??50}% ${e.photoPosition?.y??50}%`}}/>:<div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:48,color:'#B987A3'}}>✧</div>}{!e.photo&&<button onClick={()=>openComposer(e)} style={{position:'absolute',right:14,bottom:14,border:'none',borderRadius:999,padding:'10px 13px',background:'rgba(255,255,255,.95)',color:pink,fontSize:11,fontWeight:800}}>＋ Add your photo</button>}</div><div style={{padding:'16px 17px 18px'}}><div style={{fontFamily:FONT,fontSize:23,fontWeight:600}}>{e.title}</div><div style={{fontSize:11,color:BASE.taupe,marginTop:4}}>{fmtDate(e.date)} · {sourceLabels[e.source]||e.source}</div>{e.note&&<div style={{fontSize:13,color:BASE.creamDim,lineHeight:1.5,marginTop:9}}>{e.note}</div>}{e.share&&<div style={{fontSize:10.5,color:pink,marginTop:8}}>Ready to share to Community</div>}</div></article>})}</div>:<div style={{padding:'34px 20px',borderRadius:20,background:'#fff',border:`1px solid ${BASE.border}`,textAlign:'center'}}><div style={{fontFamily:FONT,fontSize:22,fontWeight:600}}>Your history starts with living.</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.55,margin:'7px 0 17px'}}>Add something you did—even if True Reverie never suggested it.</div><button onClick={()=>openComposer()} style={{border:'none',borderRadius:999,padding:'11px 15px',background:grad,color:'#fff',fontWeight:700,fontSize:11.5}}>＋ Add something I did</button></div>}</>}
+    {reverieSection==='history' && <><div style={{display:'flex',justifyContent:'space-between',alignItems:'end'}}><div><div style={{fontFamily:FONT,fontSize:28,fontWeight:600}}>History</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.5,marginTop:5}}>Things you’ve actually brought into your life.</div></div><button onClick={()=>openComposer()} style={{border:'none',background:'#FBEAF2',color:pink,borderRadius:999,padding:'9px 12px',fontSize:11,fontWeight:700}}>＋ Add</button></div><div style={{marginTop:17}}><ReverieSearchBox value={reverieSearch} onChange={setReverieSearch} placeholder="Search what you’ve done"/></div>{filteredHistory.length?<div style={{display:'grid',gap:22}}>{filteredHistory.map(e=>{const visual=e.photo||e.originalImage;return <article key={e.id} onClick={e.interaction?()=>openInteraction(e.contentKey):undefined} role={e.interaction?'button':undefined} style={{overflow:'hidden',borderRadius:22,background:'#fff',border:`1px solid ${BASE.border}`,boxShadow:'0 6px 22px rgba(55,31,45,.04)',cursor:e.interaction?'pointer':'default'}}><div style={{aspectRatio:'19 / 23',background:'linear-gradient(145deg,#F4E6F2,#E9E4F4)',position:'relative'}}>{visual?<img src={visual} alt="" style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:`${e.photoPosition?.x??50}% ${e.photoPosition?.y??50}%`}}/>:<div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:48,color:'#B987A3'}}>✧</div>}{!e.photo&&<button onClick={()=>openComposer(e)} style={{position:'absolute',right:14,bottom:14,border:'none',borderRadius:999,padding:'10px 13px',background:'rgba(255,255,255,.95)',color:pink,fontSize:11,fontWeight:800}}>＋ Add your photo</button>}</div><div style={{padding:'16px 17px 18px'}}><div style={{fontFamily:FONT,fontSize:23,fontWeight:600}}>{e.title}</div><div style={{fontSize:11,color:BASE.taupe,marginTop:4}}>{fmtDate(e.date)} · {sourceLabels[e.source]||e.source}</div>{e.note&&<div style={{fontSize:13,color:BASE.creamDim,lineHeight:1.5,marginTop:9}}>{e.note}</div>}{e.share&&<div style={{fontSize:10.5,color:pink,marginTop:8}}>Ready to share to Community</div>}</div></article>})}</div>:<div style={{padding:'34px 20px',borderRadius:20,background:'#fff',border:`1px solid ${BASE.border}`,textAlign:'center'}}><div style={{fontFamily:FONT,fontSize:22,fontWeight:600}}>Your history starts with living.</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.55,margin:'7px 0 17px'}}>Add something you did—even if True Reverie never suggested it.</div><button onClick={()=>openComposer()} style={{border:'none',borderRadius:999,padding:'11px 15px',background:grad,color:'#fff',fontWeight:700,fontSize:11.5}}>＋ Add something I did</button></div>}</>}
     <Composer/>
   </div>
 }
