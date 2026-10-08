@@ -26,7 +26,7 @@ const hasAny = (arr, value) => !value || (arr || []).includes(value)
 export function renderTrain(ctx) {
   const {
     bodyView, checkedIn, doneFeed = [], isSavedBloom, moveCategory, moveMood, moveSearch = "", moveTime, supabaseMoveRows = [],
-    pct, savedBloom, setDoneFeed, setMoveCategory, setMoveMood, setMoveSearch, setMoveTime,
+    pct, savedBloom, setDoneFeed, toggleDidThis, hasInteraction, setMoveCategory, setMoveMood, setMoveSearch, setMoveTime,
     tab, toggleSaveBloom
   } = ctx
 
@@ -45,8 +45,9 @@ export function renderTrain(ctx) {
     setMoveSearch("")
   }
 
-  const isDone = (idea) => doneFeed.includes("move:" + idea.id)
+  const isDone = (idea) => hasInteraction ? hasInteraction("did_this", "move:" + idea.id) : doneFeed.includes("move:" + idea.id)
   const toggleDone = (idea) => {
+    if (toggleDidThis) return toggleDidThis("move:" + idea.id, { contentType:"move", title:idea.title, image:idea.img || idea.image || idea.image_url || null })
     if (!setDoneFeed) return
     const id = "move:" + idea.id
     setDoneFeed(doneFeed.includes(id) ? doneFeed.filter(x => x !== id) : [...doneFeed, id])
@@ -131,7 +132,7 @@ export function renderTrain(ctx) {
     const id = "move:" + idea.id
     const saved = isSavedBloom(id)
     return (
-      <button onClick={() => toggleSaveBloom(id)} style={{
+      <button onClick={() => toggleSaveBloom(id, { contentType:"move", title:idea.title, image:idea.img || idea.image || idea.image_url || null })} style={{
         padding: "12px 8px", borderRadius: 13,
         border: `1px solid ${saved ? "#C9558E" : BASE.border}`,
         background: saved ? "rgba(201,85,142,.10)" : BASE.surface,
