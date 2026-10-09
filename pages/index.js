@@ -511,8 +511,16 @@ export default function App() {
       const res = await db.auth.signInWithPassword({ email, password })
       if (res.error) { setAuthMsg(res.error.message || "Login failed — check your email and password."); setLoading(false); return }
       if (res.data.user) {
+        // Start the signed-in app from a clean document. This prevents any
+        // pre-login/prototype DOM snapshot from being reused during the auth
+        // transition (including Safari bfcache/history snapshots). The normal
+        // mount-time auth restore remains the single source of truth.
         setSetupData(null)
         setEmail(""); setPassword(""); setAuthMsg("")
+        if (typeof window !== "undefined") {
+          window.location.replace("/")
+          return
+        }
         await checkAuth()
       }
     } catch (err) { setAuthMsg("Login failed — please try again."); setLoading(false) }
@@ -725,6 +733,25 @@ export default function App() {
     } catch (e) {}
     if (user && db && user.id !== "prototype-user") { try { db.from("tr_cycle_tracking").upsert({ user_id: user.id, cycle_length: Number(L), last_period: start || lastPeriod || null, updated_at: new Date().toISOString() }, { onConflict: "user_id" }).then(() => {}) } catch (e) {} }
   }
+
+  const setPeriodStartDate = async (date) => {
+    const start = date || cycleLocalDateISO()
+    setLastPeriod(start)
+    setTmpStart(start)
+    setPeriodDismissed(false)
+    try { window.localStorage.setItem("cap_last_period", start) } catch (e) {}
+    if (user && db && user.id !== "prototype-user") {
+      const { error } = await db.from("tr_cycle_tracking").upsert({
+        user_id: user.id,
+        cycle_length: Number(cycleLength || tmpLen || 28),
+        last_period: start,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" })
+      if (error) console.log("period start save", error)
+    }
+  }
+
+  const startPeriodToday = () => setPeriodStartDate(cycleLocalDateISO())
 
   const saveCycle = () => {
     const L = String(Math.max(20, Math.min(45, parseInt(tmpLen) || 28)))
