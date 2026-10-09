@@ -23,7 +23,7 @@ function ReverieSearchBox({ value, onChange, placeholder }) {
 }
 
 export function renderReverie(ctx) {
-  const { tab, reverieSection, setReverieSection, reverieEntries, setReverieEntries, reverieDraft, setReverieDraft, reverieComposerOpen, setReverieComposerOpen, reverieSearch, setReverieSearch, savedBloom, contentInteractions = [], rebuildSaved, woLog, foodDays, progress, rebuildFLYA, likedFeed, setTab, setBodyView, setMoveCategory, setMoveMood, setMoveTime, setMoveSearch, setBloomArticle, openBloomCard, setBloomPillar, setGlowTopic, setGlowItem, setGlowSheet, setGlowOpen, setResetPage, setFlourishProject, setRebuildSection, setRebuildActiveProgram, setRebuildView } = ctx
+  const { tab, reverieSection, setReverieSection, reverieEntries, setReverieEntries, reverieDraft, setReverieDraft, reverieComposerOpen, setReverieComposerOpen, reverieSearch, setReverieSearch, savedBloom, contentInteractions = [], rebuildSaved, rebuildFLYA, likedFeed, setTab, setBodyView, setMoveCategory, setMoveMood, setMoveTime, setMoveSearch, setBloomArticle, openBloomCard, setBloomPillar, setGlowTopic, setGlowItem, setGlowSheet, setGlowOpen, setResetPage, setFlourishProject, setRebuildSection, setRebuildActiveProgram, setRebuildView } = ctx
   if (tab !== 'reverie') return null
   if (reverieSection === 'history') setTimeout(()=>setReverieSection('home'),0)
 
@@ -119,18 +119,10 @@ export function renderReverie(ctx) {
   ]
   const filteredSaved = saved.filter(x=>!q || (x.title+' '+x.source).toLowerCase().includes(q))
 
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0)
-  const workoutsThisMonth = (woLog||[]).filter(w=>new Date((w.date||'')+'T12:00:00') >= monthStart).length
-  const mealsThisMonth = Object.entries(foodDays||{}).filter(([d])=>new Date(d+'T12:00:00')>=monthStart).reduce((n,[,v])=>n+((v&&v.items)||[]).length,0)
-  const livedThisMonth = entries.filter(e=>new Date((e.date||'')+'T12:00:00')>=monthStart).length
-  const rebuildDone = (rebuildFLYA && rebuildFLYA.completed ? rebuildFLYA.completed.length : 0)
-
   const taste = []
   if ((likedFeed||[]).length) taste.push('Things you love')
   if ((savedBloom||[]).length) taste.push('Discovering')
-  if ((woLog||[]).length) taste.push('Movement')
-  if (mealsThisMonth) taste.push('Nourishing')
-  if (rebuildDone) taste.push('Becoming')
+  if (rebuildFLYA && rebuildFLYA.completed && rebuildFLYA.completed.length) taste.push('Becoming')
   if (!taste.length) taste.push('Cozy','Beauty','Strength','At home')
 
   const persistEntries = (next) => {
@@ -206,8 +198,7 @@ export function renderReverie(ctx) {
       <div style={{marginBottom:14}}><div style={{fontSize:10,fontWeight:800,letterSpacing:2.2,color:BASE.taupe,textTransform:'uppercase'}}>Your life, lately</div><div style={{fontFamily:FONT,fontSize:27,fontWeight:600,marginTop:5}}>A scrapbook of living.</div></div>
       <PhotoStrip/>
 
-      <div style={{marginTop:48}}><div style={{fontSize:10,fontWeight:800,letterSpacing:2.2,color:BASE.taupe,textTransform:'uppercase'}}>Becoming Her</div><div style={{fontFamily:FONT,fontSize:27,fontWeight:600,marginTop:5}}>Evidence of the life you’re building.</div><div style={{fontSize:12.5,color:BASE.taupe,fontStyle:'italic',marginTop:5}}>No grades. No streaks. Just what you’ve actually made room for.</div></div>
-      <div style={{marginTop:17,borderRadius:22,background:'#fff',border:`1px solid ${BASE.border}`,padding:'20px'}}><div style={{fontFamily:FONT,fontSize:20,fontWeight:600}}>{new Date().toLocaleDateString('en-US',{month:'long'})}, so far</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:16}}>{[[livedThisMonth,'things you added'],[workoutsThisMonth,'times you moved'],[mealsThisMonth,'foods you logged'],[rebuildDone,'Rebuild experiences']].map(([n,l])=><div key={l} style={{padding:'14px',borderRadius:16,background:'#FCF5F7'}}><div style={{fontFamily:FONT,fontSize:27,fontWeight:700,color:pink}}>{n}</div><div style={{fontSize:11.5,color:BASE.taupe,lineHeight:1.35}}>{l}</div></div>)}</div>{progress&&progress.movement&&progress.movement.consistency&&progress.movement.consistency.msg&&<div style={{marginTop:15,paddingTop:14,borderTop:`1px solid ${BASE.border}`,fontFamily:FONT,fontStyle:'italic',fontSize:16,color:BASE.creamDim,lineHeight:1.5}}>{progress.movement.consistency.msg}</div>}</div>
+
     </>}
 
     {reverieSection==='saved' && <><div style={{fontFamily:FONT,fontSize:28,fontWeight:600}}>Saved</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.5,margin:'5px 0 17px'}}>Everything you wanted to come back to, in one place.</div><ReverieSearchBox value={reverieSearch} onChange={setReverieSearch} placeholder="Search your saves"/>{filteredSaved.length?<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{filteredSaved.map(x=><div key={x.id} style={{borderRadius:18,overflow:'hidden',background:'#fff',border:`1px solid ${BASE.border}`}}><div onClick={x.onOpen} role={x.onOpen?'button':undefined} tabIndex={x.onOpen?0:undefined} style={{minHeight:150,background:x.image?`linear-gradient(rgba(244,230,242,.25),rgba(233,228,244,.82)), url(${x.image}) center/cover`:'linear-gradient(145deg,#F4E6F2,#E9E4F4)',padding:14,display:'flex',flexDirection:'column',justifyContent:'flex-end',cursor:x.onOpen?'pointer':'default'}}><div style={{fontFamily:FONT,fontSize:18,fontWeight:600,textTransform:'capitalize'}}>{x.title}</div><div style={{fontSize:10,color:BASE.taupe,marginTop:4,textTransform:'uppercase',letterSpacing:1}}>{x.source}</div></div><button type="button" onClick={()=>openComposer({id:'saved-'+x.id,title:x.title,note:'',date:today,photo:null,photoPosition:{x:50,y:50},originalImage:x.image||null,source:String(x.source||'personal').toLowerCase(),contentId:x.rawId,share:false})} style={{width:'100%',border:'none',borderTop:`1px solid ${BASE.border}`,background:'#fff',padding:'10px 7px',color:pink,fontSize:10.5,fontWeight:800,cursor:'pointer'}}>＋ Add photo to My Reverie</button></div>)}</div>:<div style={{padding:'35px 20px',borderRadius:20,background:'#fff',border:`1px solid ${BASE.border}`,textAlign:'center'}}><div style={{fontFamily:FONT,fontSize:22,fontWeight:600}}>Nothing saved here yet.</div><div style={{fontSize:12.5,color:BASE.taupe,lineHeight:1.55,marginTop:7}}>Save something anywhere in True Reverie and this becomes the place to find it again.</div></div>}</>}
