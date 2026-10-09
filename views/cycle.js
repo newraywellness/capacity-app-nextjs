@@ -3,12 +3,6 @@ import { CYCLE_DEEP, CYCLE_QA, CYCLE_CONDITIONS, CYCLE_POSTPARTUM, CYCLE_BC, CYC
 import { db } from '../lib/supabase'
 import { BASE } from '../lib/theme'
 
-const CAPACITY_META = {
-  red: { label: 'Red', range: '0–35%', color: '#D65C4E' },
-  yellow: { label: 'Yellow', range: '36–69%', color: '#E8B84B' },
-  green: { label: 'Green', range: '70–100%', color: '#7FA054' },
-}
-
 const BC_DOT = '#325B8C'
 const SPOTTING = { 'Brown spotting': '#8A5A44', 'Red spotting': '#C44755' }
 const localDateISO = (date = new Date()) => {
@@ -39,7 +33,7 @@ export function renderCycle(ctx) {
   const {
     bodyView, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth,
     supabaseCycleRows,
-    cycleNow, editCycle, effCycleLength, history, lastPeriod, periodDismissed,
+    cycleNow, editCycle, effCycleLength, lastPeriod, periodDismissed,
     saveCycleLog, saveCycleSettings, setCycArticle, setCycLib, setCycLogDate,
     setCycleMonth, setEditCycle, setLastPeriod, setPeriodDismissed, setTmpLen,
     setTmpStart, setUseAvgCycle, setupData, setPeriodStartDate, startPeriodToday, tab, tmpLen, tmpStart, useAvgCycle, user,
@@ -153,15 +147,9 @@ export function renderCycle(ctx) {
         <Group ic="😊" label="Feelings" k="feelings" multi col="#C9558E" opts={['Calm', 'Happy', 'Motivated', 'Sensitive', 'Anxious', 'Irritable', 'Low']} />
         <Group ic="😖" label="Pain" k="pain" multi col="#D65C4E" opts={['Cramps', 'Headache', 'Back', 'Breast tenderness', 'Bloating', 'Nausea']} />
         <Group ic="💕" label="Sex Life" k="sex" multi col="#E3799F" opts={['Sex', 'Protected', 'Unprotected', 'High libido', 'Low libido']} />
-        <Group ic="⚡" label="Energy Capacity" k="energyCapacity" hint="your whole-day capacity" opts={[
-          { value: 'red', label: 'Red · 0–35%', color: CAPACITY_META.red.color },
-          { value: 'yellow', label: 'Yellow · 36–69%', color: CAPACITY_META.yellow.color },
-          { value: 'green', label: 'Green · 70–100%', color: CAPACITY_META.green.color },
-        ]} />
         <Group ic="💊" label="Birth Control" k="bc" col="#5E7FB0" opts={['Taken', 'Late', 'Missed', 'Changed']} />
         <Group ic="💧" label="Discharge" k="discharge" col="#7FA054" opts={['Dry', 'Sticky', 'Creamy', 'Watery', 'Egg white']} />
 
-        <div style={{ fontSize: 11.5, color: BASE.taupe, fontStyle: 'italic', lineHeight: 1.55, marginBottom: 20 }}>Energy Capacity is your quick whole-day snapshot. The calendar keeps it visible beside the cycle details you choose to track.</div>
         <div style={{ height: 90, paddingBottom: 'env(safe-area-inset-bottom)' }} />
       </div>
     )
@@ -227,9 +215,6 @@ export function renderCycle(ctx) {
       const daysSinceStart = Math.floor((today - start) / 86400000)
       return daysSinceStart >= 0 && daysSinceStart <= 10
     })()
-    const legacyCapByDate = {}
-    ;(history || []).forEach((h) => { if (h.dateISO && h.color) legacyCapByDate[h.dateISO] = h.color })
-    const capacityForDate = (iso) => ((cycleLogs || {})[iso] || {}).energyCapacity || legacyCapByDate[iso] || null
 
     if (!setup) {
       return <div className="fade-in" style={{ padding: '10px 18px 0' }}><div style={{ borderRadius: 22, padding: '26px 22px', background: 'linear-gradient(135deg,#9B6BC3,#5E7FB0)', color: '#fff', marginBottom: 18 }}><div style={{ fontSize: 30 }}>🌙</div><div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, marginTop: 6 }}>Understand your rhythm. Support your body.</div><div style={{ fontSize: 13, marginTop: 6, fontStyle: 'italic' }}>Your cycle is information — not a limitation.</div></div><div style={{ textAlign: 'center', padding: '26px 20px', borderRadius: 18, background: BASE.surface, border: '1px dashed ' + BASE.border }}><div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: BASE.cream, marginBottom: 8 }}>Set up your cycle</div><button onClick={() => { setTmpLen('28'); setTmpStart(''); setEditCycle(true) }} style={{ padding: '12px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#9B6BC3,#5E7FB0)', color: '#fff', fontWeight: 700 }}>Set up my cycle</button></div></div>
@@ -263,8 +248,6 @@ export function renderCycle(ctx) {
             const isToday = cycleMonth === 0 && iso === todayISOstr
             const isFuture = iso > todayISOstr
             const lg = (cycleLogs || {})[iso] || {}
-            const capKey = capacityForDate(iso)
-            const capacity = CAPACITY_META[capKey] || null
             const hasSex = Array.isArray(lg.sex) && lg.sex.length > 0
             const periodDropSize = lg.period === 'Heavy' ? 13 : lg.period === 'Medium' ? 9 : lg.period === 'Light' ? 5.5 : 0
             const bcTaken = lg.bc === 'Taken'
@@ -272,7 +255,6 @@ export function renderCycle(ctx) {
             return <div key={iso} onClick={() => { if (isFuture) return; setCycLogDate(iso); setTmpLen(String(cycleNow.length)); setTmpStart(lastPeriod || ''); setEditCycle(true) }} style={{ aspectRatio: '1', borderRadius: 9, background: displayPhase ? displayPhase.soft : 'transparent', border: '1px solid transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
               {isToday && <span aria-hidden="true" style={{ position:'absolute', inset:0, borderRadius:9, boxShadow:'inset 0 0 0 2px '+displayPhase.color, pointerEvents:'none', zIndex:3 }} />}
               <div style={{ position: 'absolute', top: 2, left: 3, right: 3, height: 14, display: 'flex', alignItems: 'center', gap: 2, overflow: 'visible' }}>
-                {capacity && <span style={{ width: 5, height: 5, borderRadius: '50%', background: capacity.color, flexShrink: 0 }} />}
                 {hasSex && <span style={{ fontSize: 6.5, color: '#E3799F', lineHeight: 1 }}>♥</span>}
                 {periodDropSize > 0 && <span title={`${lg.period} period flow`} aria-label={`${lg.period} period flow`} style={{ fontSize: periodDropSize, lineHeight: 1, display: 'inline-block', flexShrink: 0 }}>🩸</span>}
                 {spottingColor && <span style={{ width: 5, height: 5, borderRadius: '50%', background: spottingColor }} />}
@@ -289,7 +271,6 @@ export function renderCycle(ctx) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 10 }}>{CYCLE_PHASE_ORDER.map((k)=>{const ph=CYCLE_PHASES[k];return <div key={k} style={{ display:'flex',alignItems:'center',gap:5 }}><span style={{ width:11,height:11,borderRadius:3.5,background:ph.soft,border:'1.5px solid '+ph.color }}/><span style={{ fontSize:10.5,color:BASE.taupe }}>{ph.name.replace(' Phase','')}</span></div>})}</div>
         <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: BASE.taupe, textAlign: 'center', marginBottom: 6 }}>Calendar markers</div>
         <div style={{ display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginBottom:8 }}>
-          {Object.entries(CAPACITY_META).map(([k,v])=><div key={k} style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:6,height:6,borderRadius:'50%',background:v.color}}/><span style={{fontSize:9.5,color:BASE.taupe}}>{v.label} {v.range}</span></div>)}
           <span style={{fontSize:9.5,color:BASE.taupe}}>♥ Sex</span><span style={{fontSize:9.5,color:BASE.taupe}}>🩸 Period</span><span style={{fontSize:9.5,color:BASE.taupe}}>● Spotting</span><span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:9.5,color:BASE.taupe}}><span style={{width:6,height:6,borderRadius:'50%',background:BC_DOT,flexShrink:0}}/>Birth control</span>
         </div>
         <div style={{ fontSize: 10.5, color: BASE.taupe, textAlign: 'center', lineHeight: 1.5, marginBottom: 12 }}>The fertile window is shown as a full predicted week. The small lower-right dot marks estimated ovulation day.</div>
