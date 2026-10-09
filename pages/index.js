@@ -21,6 +21,13 @@ import { renderCommunity } from '../views/community.js'
 import { renderMore } from '../views/more.js'
 import { renderRebuild } from '../views/rebuild.js'
 
+const cycleLocalDateISO = (date = new Date()) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export default function App() {
   // PROTOTYPE-ONLY AUTH BYPASS — remove when rebuilding production auth.
   // This is not a production auth change: Supabase, checkAuth, login/signup/
@@ -200,7 +207,7 @@ export default function App() {
   const [useAvgCycle, setUseAvgCycleRaw] = useState(false)
   const [greetingOn, setGreetingOnRaw] = useState(true) // default ON unless an existing preference says otherwise
   const [greetingStyle, setGreetingStyleRaw] = useState("name_formal")
-  const [cycLogDate, setCycLogDate] = useState(new Date().toISOString().slice(0, 10))
+  const [cycLogDate, setCycLogDate] = useState(() => cycleLocalDateISO())
   // Which slice of the suggestion pool is showing. Scoped to the day so
   // Surprise Me keeps moving forward rather than repeating within a day.
   const [resetSeed, setResetSeed] = useState({ d: "", day: 0, night: 0 })
