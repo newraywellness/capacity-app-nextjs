@@ -195,17 +195,20 @@ function CommunityApp({ctx}) {
         .eq('post_id',p.dbId)
         .eq('action',action))
     } else {
+      // This table's Phase 7B RLS intentionally allows INSERT + DELETE for
+      // the signed-in user's own actions. Do not use UPSERT here: Postgres
+      // treats ON CONFLICT DO UPDATE as an UPDATE path, which requires an
+      // UPDATE RLS policy that this table does not (and should not need to)
+      // have. A plain INSERT matches the schema/policies exactly.
       ;({ error } = await db
         .from('tr_community_post_actions')
-        .upsert(
-          {user_id:user.id,post_id:p.dbId,action},
-          {onConflict:'user_id,post_id,action'}
-        ))
+        .insert({user_id:user.id,post_id:p.dbId,action}))
     }
 
     if(error){
       setter(list)
       console.error('Could not persist Community action:',error)
+      alert(`Could not ${action === 'like' ? 'like' : 'save'} this post. ${error.message || 'Please try again.'}`)
       return
     }
 
