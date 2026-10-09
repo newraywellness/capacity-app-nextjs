@@ -31,12 +31,12 @@ function CommunityApp({ctx}) {
   const [screen,setScreen] = useState({type:'feed'})
   const [liked,setLiked] = useState([])
   const [saved,setSaved] = useState([])
-  const [following,setFollowing] = useState(['maya','jess'])
+  const [following,setFollowing] = useState([])
   const [realFollowing,setRealFollowing] = useState([])
   const [socialCounts,setSocialCounts] = useState({})
   const [profileTab,setProfileTab] = useState('posts')
   const [communityProfiles,setCommunityProfiles] = useState({})
-  const [posts,setPosts] = useState(SEED_POSTS)
+  const [posts,setPosts] = useState([])
   const [communityReady,setCommunityReady] = useState(false)
   const [publishing,setPublishing] = useState(false)
   const [caption,setCaption] = useState('')
@@ -113,7 +113,11 @@ function CommunityApp({ctx}) {
             mine: r.user_id === user.id,
             real: true
           }))
-          setPosts([...mapped, ...SEED_POSTS])
+          // Only real Supabase-backed posts belong in the live Community feed.
+          // Legacy seed posts used string IDs (p1, p2, ...) and therefore could
+          // only fake Like/Save in local React state; they could never persist
+          // to tr_community_post_actions, whose post_id references real posts.
+          setPosts(mapped)
           if (myActionsError) console.error('Could not reload your Community likes/saves:', myActionsError)
           if (likeActionsError) console.error('Could not reload Community like counts:', likeActionsError)
           const mine = myActions || []
