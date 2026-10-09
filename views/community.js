@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BASE } from '../lib/theme.js'
+import { db } from '../lib/supabase'
 
 const PEOPLE = {
   maya:{name:'Maya',handle:'@maya.lives',initial:'M',bio:'Finding little ways to make ordinary life feel like mine again.',gradient:'linear-gradient(135deg,#DDA6C4,#8E6DB2)',reverie:['slow mornings','getting dressed','easy dinners','outside more']},
@@ -25,13 +26,15 @@ const Avatar = ({person,size=38}) => <div style={{width:size,height:size,borderR
 const IconButton = ({children,onClick,active}) => <button onClick={onClick} style={{border:'none',background:'transparent',padding:'5px 4px',fontSize:20,color:active?'#C9558E':BASE.creamDim,cursor:'pointer'}}>{children}</button>
 
 function CommunityApp({ctx}) {
-  const { firstName, setupData } = ctx
+  const { firstName, setupData, user } = ctx
   const [feed,setFeed] = useState('foryou')
   const [screen,setScreen] = useState({type:'feed'})
   const [liked,setLiked] = useState([])
   const [saved,setSaved] = useState([])
   const [following,setFollowing] = useState(['maya','jess'])
   const [posts,setPosts] = useState(SEED_POSTS)
+  const [communityReady,setCommunityReady] = useState(false)
+  const [publishing,setPublishing] = useState(false)
   const [caption,setCaption] = useState('')
   const [attachment,setAttachment] = useState(null)
   const [comment,setComment] = useState('')
@@ -44,6 +47,67 @@ function CommunityApp({ctx}) {
   const profilePhotoInputRef = useRef(null)
   const [myProfile,setMyProfile] = useState({name:firstName||'Vanessa',handle:'@yourreverie',bio:'Building a life that feels like mine.',photo:null,photoPosition:{x:50,y:50},reverie:['little joys','feeling like me','home','getting outside']})
   const [profileDraft,setProfileDraft] = useState(null)
+
+
+
+  // Phase 7A: real Community foundation. Load the signed-in user's public
+  // community profile and real posts from Supabase. Seed cards stay below real
+  // posts for now so the prototype feed is not visually empty during rollout.
+  useEffect(() => {
+    let cancelled = false
+    const loadCommunity = async () => {
+      if (!user?.id) return
+      try {
+        const [{ data: profile }, { data: realPosts, error: postsError }] = await Promise.all([
+          db.from('tr_community_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+          db.from('tr_community_posts').select('*').eq('status','published').order('created_at',{ascending:false}).limit(50)
+        ])
+        if (cancelled) return
+        if (profile) setMyProfile({
+          name: profile.display_name || firstName || 'You',
+          handle: profile.handle || '@yourreverie',
+          bio: profile.bio || 'Building a life that feels like mine.',
+          photo: profile.avatar_url || null,
+          photoPosition: profile.avatar_position || {x:50,y:50},
+          reverie: Array.isArray(profile.reverie) ? profile.reverie : []
+        })
+        if (!postsError && Array.isArray(realPosts)) {
+          const mapped = realPosts.map(r => ({
+            id: `real-${r.id}`,
+            dbId: r.id,
+            user: r.user_id === user.id ? 'me' : `user-${r.user_id}`,
+            person: {
+              name: r.author_name || 'True Reverie',
+              handle: r.author_handle || '@truereverie',
+              photo: r.author_avatar_url || null,
+              photoPosition: r.author_avatar_position || {x:50,y:50},
+              initial: (r.author_name || 'T')[0].toUpperCase(),
+              gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)',
+              bio:'', reverie:[]
+            },
+            source: r.source || null,
+            caption: r.caption || '',
+            likes: 0,
+            comments: [],
+            tags: Array.isArray(r.tags) ? r.tags : ['personal'],
+            image: r.media_url ? `url(${r.media_url}) ${r.media_position?.x??50}% ${r.media_position?.y??50}%/cover no-repeat` : 'linear-gradient(145deg,#DDB9CB,#A989B7,#7C6B91)',
+            mediaUrl: r.media_url || null,
+            mediaType: r.media_type || null,
+            mediaPosition: r.media_position || {x:50,y:50},
+            mine: r.user_id === user.id,
+            real: true
+          }))
+          setPosts([...mapped, ...SEED_POSTS])
+        }
+      } catch (e) {
+        console.error('Could not load Community:', e)
+      } finally {
+        if (!cancelled) setCommunityReady(true)
+      }
+    }
+    loadCommunity()
+    return () => { cancelled = true }
+  }, [user?.id])
 
   const interests = useMemo(()=>{
     const raw=[...(setupData?.interests||[]),...(setupData?.goals||[]),...(setupData?.desires||[])].join(' ').toLowerCase()
@@ -69,12 +133,56 @@ function CommunityApp({ctx}) {
     reader.readAsDataURL(file)
     e.target.value=''
   }
-  const publish=()=>{if(!caption.trim()&&!media)return;const id='mine-'+Date.now();setPosts([{id,user:'me',source:attachment?{icon:attachment[0],label:attachment[1],type:attachment[1]}:null,caption:caption.trim(),likes:0,comments:[],tags:['personal'],image:media?.type?.startsWith('image/')?`url(${media.url}) ${media.position?.x??50}% ${media.position?.y??50}%/cover no-repeat`:'linear-gradient(145deg,#DDB9CB,#A989B7,#7C6B91)',mediaUrl:media?.url||null,mediaType:media?.type||null,mediaPosition:media?.position||{x:50,y:50},mine:true},...posts]);setCaption('');setAttachment(null);setMedia(null);setScreen({type:'feed'})}
+  const publish=async()=>{
+    if((!caption.trim()&&!media)||!user?.id||publishing)return
+    setPublishing(true)
+    try{
+      let mediaUrl=null
+      if(media?.url){
+        const blob=await (await fetch(media.url)).blob()
+        const ext=(media.name?.split('.').pop()||((media.type||'').startsWith('video/')?'mp4':'jpg')).toLowerCase()
+        const path=`${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const up=await db.storage.from('tr-community-media').upload(path,blob,{contentType:media.type||blob.type||undefined,upsert:false})
+        if(up.error) throw up.error
+        mediaUrl=db.storage.from('tr-community-media').getPublicUrl(path).data.publicUrl
+      }
+      const source=attachment?{icon:attachment[0],label:attachment[1],type:attachment[1]}:null
+      const payload={
+        user_id:user.id, caption:caption.trim(), media_url:mediaUrl, media_type:media?.type||null,
+        media_position:media?.position||{x:50,y:50}, source, tags:['personal'], status:'published',
+        author_name:myProfile.name||firstName||'You', author_handle:myProfile.handle||'@yourreverie',
+        author_avatar_url:myProfile.photo||null, author_avatar_position:myProfile.photoPosition||{x:50,y:50}
+      }
+      const {data,error}=await db.from('tr_community_posts').insert(payload).select('*').single()
+      if(error) throw error
+      const p={id:`real-${data.id}`,dbId:data.id,user:'me',person:{...myPerson},source,caption:data.caption||'',likes:0,comments:[],tags:['personal'],image:mediaUrl?`url(${mediaUrl}) ${media?.position?.x??50}% ${media?.position?.y??50}%/cover no-repeat`:'linear-gradient(145deg,#DDB9CB,#A989B7,#7C6B91)',mediaUrl,mediaType:media?.type||null,mediaPosition:media?.position||{x:50,y:50},mine:true,real:true}
+      setPosts([p,...posts]);setCaption('');setAttachment(null);setMedia(null);setScreen({type:'feed'})
+    }catch(e){console.error('Could not publish Community post:',e);alert('That post did not publish. Please try again.')}
+    finally{setPublishing(false)}
+  }
   const myPerson={...myProfile,initial:(myProfile.name||'Y')[0].toUpperCase(),gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)'}
-  const personFor=(p)=>p.mine?myPerson:PEOPLE[p.user]
+  const personFor=(p)=>p.person || (p.mine?myPerson:PEOPLE[p.user]) || {name:'True Reverie',handle:'@truereverie',initial:'T',gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)',bio:'',reverie:[]}
   const openMyProfile=()=>setScreen({type:'profile',user:'me'})
   const startEditProfile=()=>{setProfileDraft({...myProfile,reverie:[...(myProfile.reverie||[])]});setScreen({type:'editProfile'})}
   const chooseProfilePhoto=(e)=>{const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>setProfileDraft(d=>({...d,photo:reader.result,photoPosition:{x:50,y:50}}));reader.readAsDataURL(file);e.target.value=''}
+
+  const saveCommunityProfile=async()=>{
+    if(!user?.id||!profileDraft)return
+    try{
+      let photo=profileDraft.photo||null
+      if(photo?.startsWith('data:')){
+        const blob=await (await fetch(photo)).blob()
+        const path=`${user.id}/avatar-${Date.now()}.jpg`
+        const up=await db.storage.from('tr-community-media').upload(path,blob,{contentType:blob.type||'image/jpeg',upsert:false})
+        if(up.error) throw up.error
+        photo=db.storage.from('tr-community-media').getPublicUrl(path).data.publicUrl
+      }
+      const next={...profileDraft,photo,handle:profileDraft.handle?.startsWith('@')?profileDraft.handle:`@${profileDraft.handle||'yourreverie'}`}
+      const {error}=await db.from('tr_community_profiles').upsert({user_id:user.id,display_name:next.name,handle:next.handle,bio:next.bio,avatar_url:next.photo,avatar_position:next.photoPosition||{x:50,y:50},reverie:next.reverie||[],updated_at:new Date().toISOString()},{onConflict:'user_id'})
+      if(error) throw error
+      setMyProfile(next);setScreen({type:'profile',user:'me'})
+    }catch(e){console.error('Could not save Community profile:',e);alert('Your profile did not save. Please try again.')}
+  }
 
   const Back=({label='Community'})=><div onClick={()=>setScreen({type:'feed'})} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:'pointer',marginBottom:17}}>‹ {label}</div>
   const Source=({source})=>source?<div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 9px',borderRadius:999,background:'rgba(201,123,168,.10)',color:'#A84E7D',fontSize:10.5,fontWeight:800,marginTop:9}}><span>{source.icon}</span>{source.label}</div>:null
@@ -125,7 +233,7 @@ function CommunityApp({ctx}) {
     {[['Name','name'],['Handle','handle']].map(([label,key])=><label key={key} style={{display:'block',marginTop:18}}><div style={{fontSize:10,fontWeight:800,letterSpacing:1.3,textTransform:'uppercase',color:BASE.taupe,marginBottom:7}}>{label}</div><input value={profileDraft[key]} onChange={e=>setProfileDraft({...profileDraft,[key]:e.target.value})} style={{width:'100%',boxSizing:'border-box',padding:'12px 13px',borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,outline:'none'}}/></label>)}
     <label style={{display:'block',marginTop:18}}><div style={{fontSize:10,fontWeight:800,letterSpacing:1.3,textTransform:'uppercase',color:BASE.taupe,marginBottom:7}}>A little about you</div><textarea value={profileDraft.bio} onChange={e=>setProfileDraft({...profileDraft,bio:e.target.value})} style={{width:'100%',minHeight:88,boxSizing:'border-box',padding:13,borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,outline:'none',resize:'none',fontFamily:'inherit'}}/></label>
     <label style={{display:'block',marginTop:18}}><div style={{fontSize:10,fontWeight:800,letterSpacing:1.3,textTransform:'uppercase',color:BASE.taupe,marginBottom:7}}>My Reverie</div><input value={(profileDraft.reverie||[]).join(', ')} onChange={e=>setProfileDraft({...profileDraft,reverie:e.target.value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,6)})} placeholder="slow mornings, strength, easy dinners" style={{width:'100%',boxSizing:'border-box',padding:'12px 13px',borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,outline:'none'}}/><div style={{fontSize:10.5,color:BASE.taupe,marginTop:6}}>Separate a few things you’re loving with commas.</div></label>
-    <button onClick={()=>{setMyProfile({...profileDraft,handle:profileDraft.handle?.startsWith('@')?profileDraft.handle:`@${profileDraft.handle||'yourreverie'}`});setScreen({type:'profile',user:'me'})}} style={{width:'100%',padding:14,borderRadius:999,border:'none',background:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:'#fff',fontWeight:800,marginTop:25}}>Save profile</button><div style={{height:70}}/></div>
+    <button onClick={saveCommunityProfile} style={{width:'100%',padding:14,borderRadius:999,border:'none',background:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:'#fff',fontWeight:800,marginTop:25}}>Save profile</button><div style={{height:70}}/></div>
 
   if(screen.type==='profile'){const key=screen.user;const isMe=key==='me';const person=isMe?myPerson:PEOPLE[key];const mine=posts.filter(p=>isMe?p.mine:p.user===key);const follows=!isMe&&following.includes(key);return <div className="fade-in" style={{padding:'10px 18px 0'}}><Back/><div style={{textAlign:'center',padding:'8px 15px 18px'}}><div style={{display:'flex',justifyContent:'center'}}><Avatar person={person} size={76}/></div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:27,fontWeight:700,color:BASE.cream,marginTop:11}}>{person.name}</div><div style={{fontSize:11,color:BASE.taupe,marginTop:2}}>{person.handle}</div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.5,margin:'10px auto 14px',maxWidth:300}}>{person.bio}</div><button onClick={isMe?startEditProfile:()=>toggle(setFollowing,following,key)} style={{padding:'9px 25px',borderRadius:999,border:(isMe||follows)?`1px solid ${BASE.border}`:'none',background:(isMe||follows)?BASE.surface:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:(isMe||follows)?BASE.creamDim:'#fff',fontWeight:800,fontSize:11}}>{isMe?'Edit Profile':follows?'Following':'Follow'}</button></div>
     <div style={{margin:'4px 0 23px'}}><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Her Reverie</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:12.5,color:BASE.taupe,marginTop:2}}>Little things making life feel more like hers.</div><div style={{display:'flex',gap:7,flexWrap:'wrap',marginTop:11}}>{(person.reverie||[]).map(x=><span key={x} style={{padding:'7px 10px',borderRadius:999,background:'rgba(201,123,168,.10)',border:`1px solid ${BASE.border}`,fontSize:10.5,color:'#A84E7D',fontWeight:700}}>{x}</span>)}</div></div>
