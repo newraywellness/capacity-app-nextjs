@@ -390,6 +390,21 @@ export default function App() {
         const u = s.data.session.user
         setUser(u)
         const p = await db.from("profiles").select("*").eq("id", u.id).single()
+
+        // Phase 6: Cycle tracking now belongs to the signed-in account.
+        // One private row stores settings + the existing flexible per-day log object,
+        // so the Cycle UI does not need to change as tracking options evolve.
+        try {
+          const ct = await db.from("tr_cycle_tracking").select("cycle_length,last_period,use_avg_cycle,logs").eq("user_id", u.id).maybeSingle()
+          if (ct.data) {
+            const c = ct.data
+            if (c.cycle_length) { const L = String(c.cycle_length); setCycleLength(L); setTmpLen(L); try { localStorage.setItem("cap_cycle_length", L) } catch (e) {} }
+            if (c.last_period) { setLastPeriod(c.last_period); setTmpStart(c.last_period); try { localStorage.setItem("cap_last_period", c.last_period) } catch (e) {} }
+            if (typeof c.use_avg_cycle === "boolean") { setUseAvgCycleRaw(c.use_avg_cycle); try { localStorage.setItem("nr_use_avg_cycle", c.use_avg_cycle ? "1" : "0") } catch (e) {} }
+            if (c.logs && typeof c.logs === "object" && !Array.isArray(c.logs)) { setCycleLogs(c.logs); try { localStorage.setItem("nr_cycle_logs", JSON.stringify(c.logs)) } catch (e) {} }
+          }
+        } catch (e) {}
+
         if (p.data) {
           setProfile(p.data)
           if (p.data.setup) {
@@ -701,7 +716,7 @@ export default function App() {
     else next[date] = entry
     setCycleLogs(next)
     try { localStorage.setItem("nr_cycle_logs", JSON.stringify(next)) } catch (e) {}
-    try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), cycleLogs: next } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    try { if (user && user.id !== "prototype-user") db.from("tr_cycle_tracking").upsert({ user_id: user.id, logs: next, updated_at: new Date().toISOString() }, { onConflict: "user_id" }).then(() => {}) } catch (e) {}
   }
 
   const isSavedBloom = (id) => hasInteraction("saved", id) || savedBloom.indexOf(id) >= 0
@@ -857,7 +872,7 @@ export default function App() {
   const setUseAvgCycle = (v) => {
     setUseAvgCycleRaw(v)
     try { localStorage.setItem("nr_use_avg_cycle", v ? "1" : "0") } catch (e) {}
-    try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), useAvgCycle: v } }).eq("id", user.id).then(() => {}) } catch (e) {}
+    try { if (user && user.id !== "prototype-user") db.from("tr_cycle_tracking").upsert({ user_id: user.id, use_avg_cycle: v, updated_at: new Date().toISOString() }, { onConflict: "user_id" }).then(() => {}) } catch (e) {}
   }
 
   const setGreetingOn = (v) => {
@@ -879,7 +894,7 @@ export default function App() {
       window.localStorage.setItem("cap_cycle_length", L)
       if (start) window.localStorage.setItem("cap_last_period", start)
     } catch (e) {}
-    if (user && db && user.id !== "prototype-user") { try { db.from("profiles").update({ setup: { ...(setupData || {}), cycleLength: L, lastPeriod: start || lastPeriod } }).eq("id", user.id).then(() => {}) } catch (e) {} }
+    if (user && db && user.id !== "prototype-user") { try { db.from("tr_cycle_tracking").upsert({ user_id: user.id, cycle_length: Number(L), last_period: start || lastPeriod || null, updated_at: new Date().toISOString() }, { onConflict: "user_id" }).then(() => {}) } catch (e) {} }
   }
 
   const saveCycle = () => {
@@ -890,7 +905,7 @@ export default function App() {
       window.localStorage.setItem("cap_cycle_length", L)
       window.localStorage.setItem("cap_last_period", tmpStart)
     } catch (e) {}
-    if (user && db && user.id !== "prototype-user") { try { db.from("profiles").update({ setup: { ...(setupData || {}), cycleLength: L, lastPeriod: tmpStart } }).eq("id", user.id).then(() => {}) } catch (e) {} }
+    if (user && db && user.id !== "prototype-user") { try { db.from("tr_cycle_tracking").upsert({ user_id: user.id, cycle_length: Number(L), last_period: tmpStart || null, updated_at: new Date().toISOString() }, { onConflict: "user_id" }).then(() => {}) } catch (e) {} }
     setEditCycle(false)
   }
 
