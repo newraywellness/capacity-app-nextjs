@@ -1,5 +1,5 @@
-import { MOVE_IDEAS, MOODS, TIMES, CATEGORIES, CAPACITY_ZONES, M_BY_ID } from '../data/move.js'
-import { BASE, colorFromPct, dayIndex } from '../lib/theme.js'
+import { MOVE_IDEAS, MOODS, TIMES, CATEGORIES, M_BY_ID } from '../data/move.js'
+import { BASE, dayIndex } from '../lib/theme.js'
 
 const MOVE_GRADIENTS = {
   Pilates: "linear-gradient(145deg,#EEDFF2,#D9C7E5)",
@@ -25,15 +25,13 @@ const hasAny = (arr, value) => !value || (arr || []).includes(value)
 
 export function renderTrain(ctx) {
   const {
-    bodyView, checkedIn, doneFeed = [], isSavedBloom, moveCategory, moveMood, moveSearch = "", moveTime, supabaseMoveRows = [],
-    pct, savedBloom, setDoneFeed, toggleDidThis, hasInteraction, setMoveCategory, setMoveMood, setMoveSearch, setMoveTime,
+    bodyView, doneFeed = [], isSavedBloom, moveCategory, moveMood, moveSearch = "", moveTime, supabaseMoveRows = [],
+    savedBloom, setDoneFeed, toggleDidThis, hasInteraction, setMoveCategory, setMoveMood, setMoveSearch, setMoveTime,
     tab, toggleSaveBloom
   } = ctx
 
   if (!(tab === "body" && bodyView === "gym")) return null
 
-  const capKey = !checkedIn ? "yellow" : colorFromPct(pct)
-  const zone = CAPACITY_ZONES[capKey]
   const savedIds = new Set((savedBloom || []).filter(id => String(id).startsWith("move:")).map(id => String(id).slice(5)))
   const savedOnly = moveCategory === "__saved__"
   const activeCategory = savedOnly ? null : moveCategory
@@ -66,7 +64,6 @@ export function renderTrain(ctx) {
       time: Array.isArray(c.time) ? c.time : (c.time ? [c.time] : []),
       category: Array.isArray(c.category) ? c.category : (row.category ? [row.category] : []),
       walkthrough: Array.isArray(c.walkthrough) ? c.walkthrough : [],
-      capacity: Array.isArray(c.capacity) ? c.capacity : ["red","yellow","green"],
       imagePosition: c.imagePosition, imageZoom: c.imageZoom,
       extraSwipePages: Array.isArray(row.extra_pages) ? row.extra_pages : []
     }
@@ -90,14 +87,6 @@ export function renderTrain(ctx) {
       hasAny(idea.category, activeCategory) &&
       (!q || searchable.includes(q))
     )
-  })
-
-  // Capacity influences ranking quietly; it never hides content.
-  feed = [...feed].sort((a, b) => {
-    const aa = (a.capacity || []).includes(capKey) ? 1 : 0
-    const bb = (b.capacity || []).includes(capKey) ? 1 : 0
-    if (aa !== bb) return bb - aa
-    return allMoveIdeas.indexOf(a) - allMoveIdeas.indexOf(b)
   })
 
   // Default browse should feel mixed, not grouped.
