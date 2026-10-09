@@ -284,7 +284,7 @@ function CommunityApp({ctx}) {
     <div style={{fontSize:10,fontWeight:800,letterSpacing:1.5,textTransform:'uppercase',color:BASE.taupe,margin:'20px 0 10px'}}>Add what you did · optional</div><div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:5}}>{ATTACHMENTS.map(a=><button key={a[1]} onClick={()=>setAttachment(attachment?.[1]===a[1]?null:a)} style={{whiteSpace:'nowrap',padding:'9px 12px',borderRadius:999,border:`1px solid ${attachment?.[1]===a[1]?'#C97BA8':BASE.border}`,background:attachment?.[1]===a[1]?'rgba(201,123,168,.12)':BASE.surface,color:attachment?.[1]===a[1]?'#A84E7D':BASE.creamDim,fontSize:11,fontWeight:700}}>{a[0]} {a[1]}</button>)}</div>
     <button onClick={publish} style={{width:'100%',padding:14,borderRadius:999,border:'none',background:(caption.trim()||media)?'linear-gradient(135deg,#D86FA6,#A87BD1)':'rgba(180,160,175,.35)',color:'#fff',fontWeight:800,marginTop:24}}>Post</button><div style={{height:60}}/></div>
 
-  const renderCommentsSheet = () => {
+  function renderCommentsSheet() {
     if (!commentPost || typeof document === 'undefined') return null
     const p = posts.find(x => x.id === commentPost)
     if (!p) return null
