@@ -32,6 +32,10 @@ function CommunityApp({ctx}) {
   const [liked,setLiked] = useState([])
   const [saved,setSaved] = useState([])
   const [following,setFollowing] = useState(['maya','jess'])
+  const [realFollowing,setRealFollowing] = useState([])
+  const [socialCounts,setSocialCounts] = useState({})
+  const [profileTab,setProfileTab] = useState('posts')
+  const [communityProfiles,setCommunityProfiles] = useState({})
   const [posts,setPosts] = useState(SEED_POSTS)
   const [communityReady,setCommunityReady] = useState(false)
   const [publishing,setPublishing] = useState(false)
@@ -58,11 +62,19 @@ function CommunityApp({ctx}) {
     const loadCommunity = async () => {
       if (!user?.id) return
       try {
-        const [{ data: profile }, { data: realPosts, error: postsError }] = await Promise.all([
+        const [{ data: profile }, { data: realPosts, error: postsError }, { data: actions }, { data: follows }, { data: profiles }] = await Promise.all([
           db.from('tr_community_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-          db.from('tr_community_posts').select('*').eq('status','published').order('created_at',{ascending:false}).limit(50)
+          db.from('tr_community_posts').select('*').eq('status','published').order('created_at',{ascending:false}).limit(50),
+          db.from('tr_community_post_actions').select('post_id,action,user_id'),
+          db.from('tr_community_follows').select('follower_id,following_id'),
+          db.from('tr_community_profiles').select('*')
         ])
         if (cancelled) return
+        if (Array.isArray(profiles)) {
+          const byUser = {}
+          profiles.forEach(pr => { byUser[pr.user_id] = {name:pr.display_name||'True Reverie',handle:pr.handle||'@truereverie',bio:pr.bio||'',photo:pr.avatar_url||null,photoPosition:pr.avatar_position||{x:50,y:50},reverie:Array.isArray(pr.reverie)?pr.reverie:[],initial:(pr.display_name||'T')[0].toUpperCase(),gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)'} })
+          setCommunityProfiles(byUser)
+        }
         if (profile) setMyProfile({
           name: profile.display_name || firstName || 'You',
           handle: profile.handle || '@yourreverie',
@@ -76,18 +88,21 @@ function CommunityApp({ctx}) {
             id: `real-${r.id}`,
             dbId: r.id,
             user: r.user_id === user.id ? 'me' : `user-${r.user_id}`,
-            person: {
-              name: r.author_name || 'True Reverie',
-              handle: r.author_handle || '@truereverie',
-              photo: r.author_avatar_url || null,
-              photoPosition: r.author_avatar_position || {x:50,y:50},
-              initial: (r.author_name || 'T')[0].toUpperCase(),
-              gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)',
-              bio:'', reverie:[]
-            },
+            person: (() => {
+              const pr=(profiles||[]).find(x=>x.user_id===r.user_id)
+              return {
+                name: pr?.display_name || r.author_name || 'True Reverie',
+                handle: pr?.handle || r.author_handle || '@truereverie',
+                photo: pr?.avatar_url || r.author_avatar_url || null,
+                photoPosition: pr?.avatar_position || r.author_avatar_position || {x:50,y:50},
+                initial: (pr?.display_name || r.author_name || 'T')[0].toUpperCase(),
+                gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)',
+                bio:pr?.bio||'', reverie:Array.isArray(pr?.reverie)?pr.reverie:[]
+              }
+            })(),
             source: r.source || null,
             caption: r.caption || '',
-            likes: 0,
+            likes: (actions || []).filter(a => a.post_id === r.id && a.action === 'like').length,
             comments: [],
             tags: Array.isArray(r.tags) ? r.tags : ['personal'],
             image: r.media_url ? `url(${r.media_url}) ${r.media_position?.x??50}% ${r.media_position?.y??50}%/cover no-repeat` : 'linear-gradient(145deg,#DDB9CB,#A989B7,#7C6B91)',
@@ -98,6 +113,22 @@ function CommunityApp({ctx}) {
             real: true
           }))
           setPosts([...mapped, ...SEED_POSTS])
+          setLiked((actions || []).filter(a => a.user_id === user.id && a.action === 'like').map(a => `real-${a.post_id}`))
+          setSaved((actions || []).filter(a => a.user_id === user.id && a.action === 'save').map(a => `real-${a.post_id}`))
+          setRealFollowing((follows || []).filter(f => f.follower_id === user.id).map(f => f.following_id))
+          const counts = {}
+          mapped.forEach(p => {
+            const uid = p.user.replace(/^user-/, '')
+            counts[uid] = counts[uid] || { followers:0, following:0, likes:0 }
+            counts[uid].likes += p.likes || 0
+          })
+          ;(follows || []).forEach(f => {
+            counts[f.following_id] = counts[f.following_id] || { followers:0, following:0, likes:0 }
+            counts[f.follower_id] = counts[f.follower_id] || { followers:0, following:0, likes:0 }
+            counts[f.following_id].followers += 1
+            counts[f.follower_id].following += 1
+          })
+          setSocialCounts(counts)
         }
       } catch (e) {
         console.error('Could not load Community:', e)
@@ -122,7 +153,42 @@ function CommunityApp({ctx}) {
   },[posts,feed,following,liked,interests])
 
   const toggle=(setter,list,id)=>setter(list.includes(id)?list.filter(x=>x!==id):[...list,id])
-  const openProfile=(key)=>setScreen({type:'profile',user:key})
+  const openProfile=(key, person=null)=>{ setProfileTab('posts'); setScreen({type:'profile',user:key,person}) }
+  const togglePostAction=async(p,action)=>{
+    if(!p.real || !p.dbId || !user?.id){
+      if(action==='like') toggle(setLiked,liked,p.id); else toggle(setSaved,saved,p.id)
+      return
+    }
+    const list=action==='like'?liked:saved
+    const setter=action==='like'?setLiked:setSaved
+    const active=list.includes(p.id)
+    setter(active?list.filter(x=>x!==p.id):[...list,p.id])
+    const q=db.from('tr_community_post_actions')
+    const {error}=active
+      ? await q.delete().eq('user_id',user.id).eq('post_id',p.dbId).eq('action',action)
+      : await q.insert({user_id:user.id,post_id:p.dbId,action})
+    if(error){ setter(list); console.error('Could not save Community action:',error) }
+    if(action==='like'){
+      const ownerId=p.mine?user.id:p.user.replace(/^user-/,'')
+      setSocialCounts(c=>({...c,[ownerId]:{followers:c[ownerId]?.followers||0,following:c[ownerId]?.following||0,likes:Math.max(0,(c[ownerId]?.likes||0)+(active?-1:1))}}))
+      setPosts(ps=>ps.map(x=>x.id===p.id?{...x,likes:Math.max(0,(x.likes||0)+(active?-1:1))}:x))
+    }
+  }
+  const toggleRealFollow=async(targetId)=>{
+    if(!user?.id||!targetId||targetId===user.id)return
+    const active=realFollowing.includes(targetId)
+    setRealFollowing(active?realFollowing.filter(x=>x!==targetId):[...realFollowing,targetId])
+    const q=db.from('tr_community_follows')
+    const {error}=active
+      ? await q.delete().eq('follower_id',user.id).eq('following_id',targetId)
+      : await q.insert({follower_id:user.id,following_id:targetId})
+    if(error){setRealFollowing(realFollowing);console.error('Could not save follow:',error);return}
+    setSocialCounts(c=>({
+      ...c,
+      [targetId]:{followers:Math.max(0,(c[targetId]?.followers||0)+(active?-1:1)),following:c[targetId]?.following||0,likes:c[targetId]?.likes||0},
+      [user.id]:{followers:c[user.id]?.followers||0,following:Math.max(0,(c[user.id]?.following||0)+(active?-1:1)),likes:c[user.id]?.likes||0}
+    }))
+  }
   const openComments=(id)=>{ setComment(''); setCommentPost(id) }
   const addComment=(id)=>{if(!comment.trim())return;setPosts(posts.map(p=>p.id===id?{...p,comments:[...p.comments,{name:firstName||'You',text:comment.trim()}]}:p));setComment('')}
   const chooseMedia=(e)=>{
@@ -162,7 +228,7 @@ function CommunityApp({ctx}) {
   }
   const myPerson={...myProfile,initial:(myProfile.name||'Y')[0].toUpperCase(),gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)'}
   const personFor=(p)=>p.person || (p.mine?myPerson:PEOPLE[p.user]) || {name:'True Reverie',handle:'@truereverie',initial:'T',gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)',bio:'',reverie:[]}
-  const openMyProfile=()=>setScreen({type:'profile',user:'me'})
+  const openMyProfile=()=>{setProfileTab('posts');setScreen({type:'profile',user:'me'})}
   const startEditProfile=()=>{setProfileDraft({...myProfile,reverie:[...(myProfile.reverie||[])]});setScreen({type:'editProfile'})}
   const chooseProfilePhoto=(e)=>{const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>setProfileDraft(d=>({...d,photo:reader.result,photoPosition:{x:50,y:50}}));reader.readAsDataURL(file);e.target.value=''}
 
@@ -188,9 +254,9 @@ function CommunityApp({ctx}) {
   const Source=({source})=>source?<div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 9px',borderRadius:999,background:'rgba(201,123,168,.10)',color:'#A84E7D',fontSize:10.5,fontWeight:800,marginTop:9}}><span>{source.icon}</span>{source.label}</div>:null
 
   const PostCard=({p,detail=false})=>{const person=personFor(p);const isLike=liked.includes(p.id);return <div style={{background:BASE.surface,border:`1px solid ${BASE.border}`,borderRadius:22,overflow:'hidden',marginBottom:18,boxShadow:'0 8px 24px rgba(66,40,62,.055)'}}>
-    <div style={{padding:'14px 15px 12px',display:'flex',alignItems:'center',gap:10}}><div onClick={()=>p.mine?openMyProfile():openProfile(p.user)} style={{cursor:'pointer'}}><Avatar person={person}/></div><div style={{flex:1}}><div style={{fontSize:12.5,fontWeight:800,color:BASE.cream}}>{person.name}</div><div style={{fontSize:10.5,color:BASE.taupe}}>{person.handle}</div></div><IconButton onClick={()=>setMenuPost(p)}>•••</IconButton></div>
+    <div style={{padding:'14px 15px 12px',display:'flex',alignItems:'center',gap:10}}><div onClick={()=>p.mine?openMyProfile():openProfile(p.user,p.person||null)} style={{cursor:'pointer'}}><Avatar person={person}/></div><div style={{flex:1}}><div style={{fontSize:12.5,fontWeight:800,color:BASE.cream}}>{person.name}</div><div style={{fontSize:10.5,color:BASE.taupe}}>{person.handle}</div></div><IconButton onClick={()=>setMenuPost(p)}>•••</IconButton></div>
     <div style={{height:detail?310:'auto',aspectRatio:detail?'auto':'3 / 2',background:p.mediaUrl&&p.mediaType?.startsWith('image/')?`url(${p.mediaUrl}) ${p.mediaPosition?.x??50}% ${p.mediaPosition?.y??50}%/cover no-repeat`:p.image,position:'relative',overflow:'hidden'}}>{p.mediaType?.startsWith('video/')&&p.mediaUrl?<video src={p.mediaUrl} controls playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<><div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(255,255,255,.04),rgba(45,25,42,.08))'}}/>{!p.mediaUrl&&<div style={{position:'absolute',left:16,bottom:14,color:'rgba(255,255,255,.86)',fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:13}}>photo placeholder</div>}</>}</div>
-    <div style={{padding:'12px 15px 15px'}}><div style={{display:'flex',alignItems:'center',gap:6}}><IconButton active={isLike} onClick={()=>toggle(setLiked,liked,p.id)}>{isLike?'♥':'♡'}</IconButton><span style={{fontSize:11.5,color:BASE.taupe}}>{p.likes+(isLike?1:0)}</span><IconButton onClick={()=>openComments(p.id)}>💬</IconButton><span style={{fontSize:11.5,color:BASE.taupe}}>{p.comments.length}</span><div style={{flex:1}}/><IconButton active={saved.includes(p.id)} onClick={()=>toggle(setSaved,saved,p.id)}>{saved.includes(p.id)?'♥':'♡'}</IconButton></div>
+    <div style={{padding:'12px 15px 15px'}}><div style={{display:'flex',alignItems:'center',gap:6}}><IconButton active={isLike} onClick={()=>togglePostAction(p,'like')}>{isLike?'♥':'♡'}</IconButton><span style={{fontSize:11.5,color:BASE.taupe}}>{p.likes||0}</span><IconButton onClick={()=>openComments(p.id)}>💬</IconButton><span style={{fontSize:11.5,color:BASE.taupe}}>{p.comments.length}</span><div style={{flex:1}}/><IconButton active={saved.includes(p.id)} onClick={()=>togglePostAction(p,'save')}>{saved.includes(p.id)?'🔖':'♧'}</IconButton></div>
       <Source source={p.source}/><div style={{fontSize:13,color:BASE.creamDim,lineHeight:1.55,marginTop:10}}>{p.caption}</div>{!detail&&p.comments.length>0&&<div onClick={()=>openComments(p.id)} style={{fontSize:11.5,color:BASE.taupe,marginTop:10,cursor:'pointer'}}>View {p.comments.length===1?'comment':`all ${p.comments.length} comments`}</div>}</div>
   </div>}
 
@@ -235,10 +301,25 @@ function CommunityApp({ctx}) {
     <label style={{display:'block',marginTop:18}}><div style={{fontSize:10,fontWeight:800,letterSpacing:1.3,textTransform:'uppercase',color:BASE.taupe,marginBottom:7}}>My Reverie</div><input value={(profileDraft.reverie||[]).join(', ')} onChange={e=>setProfileDraft({...profileDraft,reverie:e.target.value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,6)})} placeholder="slow mornings, strength, easy dinners" style={{width:'100%',boxSizing:'border-box',padding:'12px 13px',borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,outline:'none'}}/><div style={{fontSize:10.5,color:BASE.taupe,marginTop:6}}>Separate a few things you’re loving with commas.</div></label>
     <button onClick={saveCommunityProfile} style={{width:'100%',padding:14,borderRadius:999,border:'none',background:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:'#fff',fontWeight:800,marginTop:25}}>Save profile</button><div style={{height:70}}/></div>
 
-  if(screen.type==='profile'){const key=screen.user;const isMe=key==='me';const person=isMe?myPerson:PEOPLE[key];const mine=posts.filter(p=>isMe?p.mine:p.user===key);const follows=!isMe&&following.includes(key);return <div className="fade-in" style={{padding:'10px 18px 0'}}><Back/><div style={{textAlign:'center',padding:'8px 15px 18px'}}><div style={{display:'flex',justifyContent:'center'}}><Avatar person={person} size={76}/></div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:27,fontWeight:700,color:BASE.cream,marginTop:11}}>{person.name}</div><div style={{fontSize:11,color:BASE.taupe,marginTop:2}}>{person.handle}</div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.5,margin:'10px auto 14px',maxWidth:300}}>{person.bio}</div><button onClick={isMe?startEditProfile:()=>toggle(setFollowing,following,key)} style={{padding:'9px 25px',borderRadius:999,border:(isMe||follows)?`1px solid ${BASE.border}`:'none',background:(isMe||follows)?BASE.surface:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:(isMe||follows)?BASE.creamDim:'#fff',fontWeight:800,fontSize:11}}>{isMe?'Edit Profile':follows?'Following':'Follow'}</button></div>
-    <div style={{margin:'4px 0 23px'}}><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Her Reverie</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:12.5,color:BASE.taupe,marginTop:2}}>Little things making life feel more like hers.</div><div style={{display:'flex',gap:7,flexWrap:'wrap',marginTop:11}}>{(person.reverie||[]).map(x=><span key={x} style={{padding:'7px 10px',borderRadius:999,background:'rgba(201,123,168,.10)',border:`1px solid ${BASE.border}`,fontSize:10.5,color:'#A84E7D',fontWeight:700}}>{x}</span>)}</div></div>
-    <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Lately</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:12.5,color:BASE.taupe,marginTop:2,marginBottom:12}}>A little scrapbook of what she’s been living.</div>
-    {mine.length?mine.map((p,i)=><div key={p.id} style={{marginBottom:20}}><div style={{height:i%2===0?300:245,borderRadius:20,background:p.mediaUrl&&p.mediaType?.startsWith('image/')?`url(${p.mediaUrl}) ${p.mediaPosition?.x??50}% ${p.mediaPosition?.y??50}%/cover no-repeat`:p.image,overflow:'hidden',position:'relative',boxShadow:'0 8px 24px rgba(66,40,62,.06)'}}>{p.mediaType?.startsWith('video/')&&p.mediaUrl?<video src={p.mediaUrl} controls playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:null}</div><Source source={p.source}/><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.55,marginTop:9}}>{p.caption}</div><div style={{fontSize:10.5,color:BASE.taupe,marginTop:7}}>{p.likes+(liked.includes(p.id)?1:0)} loved this · {p.comments.length} {p.comments.length===1?'comment':'comments'}</div></div>):<div style={{padding:'35px 18px',borderRadius:20,border:`1px dashed ${BASE.border}`,textAlign:'center',color:BASE.taupe,fontSize:12}}>{isMe?'Things you share with Community will collect here like a little scrapbook.':'Nothing shared here yet.'}</div>}<div style={{height:70}}/></div>}
+  if(screen.type==='profile'){
+    const key=screen.user
+    const isMe=key==='me'
+    const realUserId=isMe?user?.id:(key?.startsWith('user-')?key.slice(5):null)
+    const person=isMe?myPerson:((realUserId&&communityProfiles[realUserId])||screen.person||PEOPLE[key]||personFor(posts.find(p=>p.user===key)||{}))
+    const counts=realUserId?(socialCounts[realUserId]||{followers:0,following:0,likes:0}):{followers:0,following:0,likes:0}
+    const mine=posts.filter(p=>isMe?p.mine:p.user===key)
+    const likedPosts=isMe?posts.filter(p=>liked.includes(p.id)):[]
+    const savedPosts=isMe?posts.filter(p=>saved.includes(p.id)):[]
+    const visiblePosts=profileTab==='liked'?likedPosts:profileTab==='saved'?savedPosts:mine
+    const follows=realUserId?realFollowing.includes(realUserId):(!isMe&&following.includes(key))
+    const followClick=()=>realUserId?toggleRealFollow(realUserId):toggle(setFollowing,following,key)
+    return <div className="fade-in" style={{padding:'10px 18px 0'}}><Back/><div style={{textAlign:'center',padding:'8px 15px 12px'}}><div style={{display:'flex',justifyContent:'center'}}><Avatar person={person} size={76}/></div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:27,fontWeight:700,color:BASE.cream,marginTop:11}}>{person.name}</div><div style={{fontSize:11,color:BASE.taupe,marginTop:2}}>{person.handle}</div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.5,margin:'10px auto 14px',maxWidth:300}}>{person.bio}</div><button onClick={isMe?startEditProfile:followClick} style={{padding:'9px 25px',borderRadius:999,border:(isMe||follows)?`1px solid ${BASE.border}`:'none',background:(isMe||follows)?BASE.surface:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:(isMe||follows)?BASE.creamDim:'#fff',fontWeight:800,fontSize:11}}>{isMe?'Edit Profile':follows?'Following':'Follow'}</button></div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,padding:'8px 10px 14px',textAlign:'center'}}>{[[counts.following,'Following'],[counts.followers,'Followers'],[counts.likes,'Likes']].map(([n,l])=><div key={l}><div style={{fontSize:17,fontWeight:800,color:BASE.cream}}>{n}</div><div style={{fontSize:10.5,color:BASE.taupe,marginTop:2}}>{l}</div></div>)}</div>
+    <div style={{display:'grid',gridTemplateColumns:isMe?'repeat(3,1fr)':'1fr',borderTop:`1px solid ${BASE.border}`,borderBottom:`1px solid ${BASE.border}`,margin:'0 0 22px'}}>{[['posts','▦','Posts'],...(isMe?[["liked","♡","Liked"],["saved","🔖","Saved"]]:[])].map(([k,ic,l])=><button key={k} onClick={()=>setProfileTab(k)} style={{padding:'11px 4px 9px',border:'none',borderBottom:profileTab===k?'2px solid #C9558E':'2px solid transparent',background:'transparent',color:profileTab===k?'#A84E7D':BASE.taupe,fontSize:17,cursor:'pointer'}}><div>{ic}</div><div style={{fontSize:9.5,fontWeight:800,marginTop:3}}>{l}</div></button>)}</div>
+    {profileTab==='posts'&&<><div style={{margin:'4px 0 23px'}}><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Her Reverie</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:12.5,color:BASE.taupe,marginTop:2}}>Little things making life feel more like hers.</div><div style={{display:'flex',gap:7,flexWrap:'wrap',marginTop:11}}>{(person.reverie||[]).map(x=><span key={x} style={{padding:'7px 10px',borderRadius:999,background:'rgba(201,123,168,.10)',border:`1px solid ${BASE.border}`,fontSize:10.5,color:'#A84E7D',fontWeight:700}}>{x}</span>)}</div></div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Lately</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:12.5,color:BASE.taupe,marginTop:2,marginBottom:12}}>A little scrapbook of what she’s been living.</div></>}
+    {profileTab!=='posts'&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream,marginBottom:12}}>{profileTab==='liked'?'Posts you liked':'Posts you saved'}</div>}
+    {visiblePosts.length?visiblePosts.map((p,i)=><div key={p.id} style={{marginBottom:20}}><div style={{height:i%2===0?300:245,borderRadius:20,background:p.mediaUrl&&p.mediaType?.startsWith('image/')?`url(${p.mediaUrl}) ${p.mediaPosition?.x??50}% ${p.mediaPosition?.y??50}%/cover no-repeat`:p.image,overflow:'hidden',position:'relative',boxShadow:'0 8px 24px rgba(66,40,62,.06)'}}>{p.mediaType?.startsWith('video/')&&p.mediaUrl?<video src={p.mediaUrl} controls playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:null}</div><Source source={p.source}/><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.55,marginTop:9}}>{p.caption}</div><div style={{fontSize:10.5,color:BASE.taupe,marginTop:7}}>{p.likes||0} loved this · {p.comments.length} {p.comments.length===1?'comment':'comments'}</div></div>):<div style={{padding:'35px 18px',borderRadius:20,border:`1px dashed ${BASE.border}`,textAlign:'center',color:BASE.taupe,fontSize:12}}>{profileTab==='liked'?'Posts you like will collect here privately.':profileTab==='saved'?'Posts you save will collect here privately.':isMe?'Things you share with Community will collect here like a little scrapbook.':'Nothing shared here yet.'}</div>}<div style={{height:70}}/></div>}
+
 
   return <div className="fade-in" style={{padding:'10px 18px 0'}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',paddingRight:44}}><div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:31,fontWeight:600,color:BASE.cream,lineHeight:1.1}}>Community</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:15.5,color:BASE.taupe,marginTop:6}}>Real women, actually living it.</div></div></div>
     <div style={{display:'flex',gap:7,marginTop:18,marginBottom:18}}>{[['foryou','For You'],['following','Following']].map(([k,l])=><button key={k} onClick={()=>setFeed(k)} style={{flex:1,padding:'10px 8px',borderRadius:14,border:`1px solid ${feed===k?'#C97BA8':BASE.border}`,background:feed===k?'rgba(201,123,168,.12)':BASE.surface,color:feed===k?'#A84E7D':BASE.taupe,fontWeight:800,fontSize:11.5}}>{l}</button>)}</div>
