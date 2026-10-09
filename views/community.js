@@ -62,10 +62,11 @@ function CommunityApp({ctx}) {
     const loadCommunity = async () => {
       if (!user?.id) return
       try {
-        const [{ data: profile }, { data: realPosts, error: postsError }, { data: actions }, { data: follows }, { data: profiles }] = await Promise.all([
+        const [{ data: profile }, { data: realPosts, error: postsError }, { data: myActions, error: myActionsError }, { data: likeActions, error: likeActionsError }, { data: follows }, { data: profiles }] = await Promise.all([
           db.from('tr_community_profiles').select('*').eq('user_id', user.id).maybeSingle(),
           db.from('tr_community_posts').select('*').eq('status','published').order('created_at',{ascending:false}).limit(50),
-          db.from('tr_community_post_actions').select('post_id,action,user_id'),
+          db.from('tr_community_post_actions').select('post_id,action,user_id').eq('user_id', user.id),
+          db.from('tr_community_post_actions').select('post_id,action,user_id').eq('action','like'),
           db.from('tr_community_follows').select('follower_id,following_id'),
           db.from('tr_community_profiles').select('*')
         ])
@@ -102,7 +103,7 @@ function CommunityApp({ctx}) {
             })(),
             source: r.source || null,
             caption: r.caption || '',
-            likes: (actions || []).filter(a => a.post_id === r.id && a.action === 'like').length,
+            likes: (likeActions || []).filter(a => String(a.post_id) === String(r.id)).length,
             comments: [],
             tags: Array.isArray(r.tags) ? r.tags : ['personal'],
             image: r.media_url ? `url(${r.media_url}) ${r.media_position?.x??50}% ${r.media_position?.y??50}%/cover no-repeat` : 'linear-gradient(145deg,#DDB9CB,#A989B7,#7C6B91)',
@@ -113,8 +114,11 @@ function CommunityApp({ctx}) {
             real: true
           }))
           setPosts([...mapped, ...SEED_POSTS])
-          setLiked((actions || []).filter(a => a.user_id === user.id && a.action === 'like').map(a => `real-${a.post_id}`))
-          setSaved((actions || []).filter(a => a.user_id === user.id && a.action === 'save').map(a => `real-${a.post_id}`))
+          if (myActionsError) console.error('Could not reload your Community likes/saves:', myActionsError)
+          if (likeActionsError) console.error('Could not reload Community like counts:', likeActionsError)
+          const mine = myActions || []
+          setLiked(mine.filter(a => a.action === 'like').map(a => `real-${String(a.post_id)}`))
+          setSaved(mine.filter(a => a.action === 'save').map(a => `real-${String(a.post_id)}`))
           setRealFollowing((follows || []).filter(f => f.follower_id === user.id).map(f => f.following_id))
           const counts = {}
           mapped.forEach(p => {
@@ -156,6 +160,22 @@ function CommunityApp({ctx}) {
   const openProfile=(key, person=null)=>{ setProfileTab('posts'); setScreen({type:'profile',user:key,person}) }
   const profileTargetForPost=(p)=>p?.mine?{user:'me',person:null}:{user:p?.user,person:p?.person||null}
   const openPost=(p)=>{ if(!p)return; setScreen({type:'post',postId:p.id}) }
+  const reloadMyPostActions = async () => {
+    if (!user?.id) return null
+    const { data, error } = await db
+      .from('tr_community_post_actions')
+      .select('post_id,action')
+      .eq('user_id', user.id)
+    if (error) {
+      console.error('Could not reload Community likes/saves:', error)
+      return null
+    }
+    const rows = data || []
+    setLiked(rows.filter(a => a.action === 'like').map(a => `real-${String(a.post_id)}`))
+    setSaved(rows.filter(a => a.action === 'save').map(a => `real-${String(a.post_id)}`))
+    return rows
+  }
+
   const togglePostAction=async(p,action)=>{
     if(!p.real || !p.dbId || !user?.id){
       if(action==='like') toggle(setLiked,liked,p.id); else toggle(setSaved,saved,p.id)
@@ -165,11 +185,34 @@ function CommunityApp({ctx}) {
     const setter=action==='like'?setLiked:setSaved
     const active=list.includes(p.id)
     setter(active?list.filter(x=>x!==p.id):[...list,p.id])
-    const q=db.from('tr_community_post_actions')
-    const {error}=active
-      ? await q.delete().eq('user_id',user.id).eq('post_id',p.dbId).eq('action',action)
-      : await q.insert({user_id:user.id,post_id:p.dbId,action})
-    if(error){ setter(list); console.error('Could not save Community action:',error) }
+
+    let error = null
+    if (active) {
+      ;({ error } = await db
+        .from('tr_community_post_actions')
+        .delete()
+        .eq('user_id',user.id)
+        .eq('post_id',p.dbId)
+        .eq('action',action))
+    } else {
+      ;({ error } = await db
+        .from('tr_community_post_actions')
+        .upsert(
+          {user_id:user.id,post_id:p.dbId,action},
+          {onConflict:'user_id,post_id,action'}
+        ))
+    }
+
+    if(error){
+      setter(list)
+      console.error('Could not persist Community action:',error)
+      return
+    }
+
+    // Read the account-backed state straight back from Supabase. This prevents
+    // an optimistic heart/bookmark from pretending it saved when it did not.
+    await reloadMyPostActions()
+
     if(action==='like'){
       const ownerId=p.mine?user.id:p.user.replace(/^user-/,'')
       setSocialCounts(c=>({...c,[ownerId]:{followers:c[ownerId]?.followers||0,following:c[ownerId]?.following||0,likes:Math.max(0,(c[ownerId]?.likes||0)+(active?-1:1))}}))
