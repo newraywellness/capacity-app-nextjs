@@ -1,11 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Head from 'next/head'
-import { QUOTES, SHARE_LEVELS } from '../data/checkin.js'
 import { GOALS, INTERESTS } from '../data/onboarding.js'
 import { PHASE_ORDER, computeCycle } from '../data/cycle.js'
-import { STARTER_FOODS, gramsFor, mealAsFood, r1 } from '../data/nourish.js'
 import { WO_TYPES } from '../data/train.js'
-import { buildProgress } from '../data/progress.js'
 import { db } from '../lib/supabase.js'
 import { BASE, ENV, THEMES, colorFromPct, dayIndex } from '../lib/theme.js'
 import { Sky, Garden } from '../lib/atmosphere.js'
@@ -67,19 +64,15 @@ export default function App() {
   const [authView, setAuthView] = useState("welcome")
   const [firstName, setFirstName] = useState(PROTOTYPE_MODE ? "friend" : "")
   const [confirmPw, setConfirmPw] = useState("")
-  const [setupData, setSetupData] = useState(PROTOTYPE_MODE ? { goals: [], interest_categories: [], experience_preferences: [], desired_feelings: [], capacity_factors: [], name: "" } : null)
+  const [setupData, setSetupData] = useState(PROTOTYPE_MODE ? { goals: [], interest_categories: [], name: "" } : null)
   const [setupStep, setSetupStep] = useState(0)
   const [introStep, setIntroStep] = useState(0)
-  const [draftSetup, setDraftSetup] = useState({ goals: [], interest_categories: [], experience_preferences: [], desired_feelings: [], capacity_factors: [] })
+  const [draftSetup, setDraftSetup] = useState({ goals: [], interest_categories: [] })
   const [recovery, setRecovery] = useState(false)
   const [authMsg, setAuthMsg] = useState("")
   const [newPass, setNewPass] = useState("")
   // share-with-partner (couples capacity check-in)
-  const [shareLevel, setShareLevel] = useState("yellow")
-  const [shareTrue, setShareTrue] = useState([])
-  const [shareNeed, setShareNeed] = useState([])
-  const [shareContext, setShareContext] = useState("")
-  const [shareStatus, setShareStatus] = useState("")
+  const [setShareStatus] = useState("")
 
   const [woColor, setWoColor] = useState(null)
   const [woType, setWoType] = useState("full")
@@ -165,35 +158,9 @@ export default function App() {
   const [suppOpen, setSuppOpen] = useState(null)
   const [planView, setPlanView] = useState(null)
   const [nutrition, setNutrition] = useState(null)
-  const [foodDays, setFoodDays] = useState({})
-  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [savedFoods, setSavedFoods] = useState([])
-  const [myFoods, setMyFoods] = useState([])
-  const [saveFoodName, setSaveFoodName] = useState("")
-  const [myMeals, setMyMeals] = useState([])
-  const [recentFoods, setRecentFoods] = useState([])
-  const [addFoodFor, setAddFoodFor] = useState(null)
-  const [addTab, setAddTab] = useState("search")
-  const [foodQuery, setFoodQuery] = useState("")
-  const [foodPick, setFoodPick] = useState(null)
-  const [entryEdit, setEntryEdit] = useState(null)
-  const [quickAdd, setQuickAdd] = useState({ name: "", cal: "", p: "", c: "", f: "" })
-  const [saveMealName, setSaveMealName] = useState("")
-  const [mealEdit, setMealEdit] = useState(null)
-  const [calcInputs, setCalcInputs] = useState(null)
-  const [calcResult, setCalcResult] = useState(null)
   const [mealType, setMealType] = useState(null)
   const [mealFilter, setMealFilter] = useState(null)
-  const [mealOpen, setMealOpen] = useState(null)
-  const [weekPlan, setWeekPlan] = useState({})
-  const [groceryChecked, setGroceryChecked] = useState({})
-  const [groceryManual, setGroceryManual] = useState([])
-  const [groceryAdd, setGroceryAdd] = useState("")
   const [learnOpen, setLearnOpen] = useState(null)
-  const [macrosOpen, setMacrosOpen] = useState(false)
-  const [quickFilter, setQuickFilter] = useState(null)
-  const [weekPick, setWeekPick] = useState(null)
-  const [pulse, setPulse] = useState(null)
   const [bloomPillar, setBloomPillar] = useState(null)
   const [bloomArticle, setBloomArticle] = useState(null)
   const [savedBloom, setSavedBloom] = useState([])
@@ -243,7 +210,6 @@ export default function App() {
     try { const df = localStorage.getItem("nr_done_feed"); if (df) setDoneFeed(JSON.parse(df)) } catch (e) {}
     try { const lf = localStorage.getItem("nr_liked_feed"); if (lf) setLikedFeed(JSON.parse(lf)) } catch (e) {}
     try { const next = (parseInt(localStorage.getItem("nr_bloom_visit") || "0", 10) + 1) % 997; localStorage.setItem("nr_bloom_visit", String(next)); setFeedRotation(next) } catch (e) {}
-    try { setWoLog(JSON.parse(localStorage.getItem("nr_workout_log") || "[]")) } catch (e) {}
     try { const n = localStorage.getItem("nr_nutrition"); if (n) setNutrition(JSON.parse(n)) } catch (e) {}
     try { const sb = localStorage.getItem("nr_bloom_saved"); if (sb) setSavedBloom(JSON.parse(sb)) } catch (e) {}
     try { const cl = localStorage.getItem("nr_cycle_logs"); if (cl) setCycleLogs(JSON.parse(cl)) } catch (e) {}
@@ -254,15 +220,6 @@ export default function App() {
       const rs = JSON.parse(localStorage.getItem("nr_reset_seed") || "null")
       if (rs && rs.d === new Date().toISOString().slice(0, 10)) setResetSeed(rs)
     } catch (e) {}
-    try { const wk = localStorage.getItem("nr_week_plan"); if (wk) setWeekPlan(JSON.parse(wk)) } catch (e) {}
-    try { const gm = localStorage.getItem("nr_grocery_manual"); if (gm) setGroceryManual(JSON.parse(gm)) } catch (e) {}
-    try { const gc = localStorage.getItem("nr_grocery_checked"); if (gc) setGroceryChecked(JSON.parse(gc)) } catch (e) {}
-    try { const fd = localStorage.getItem("nr_food_days"); if (fd) setFoodDays(JSON.parse(fd)) } catch (e) {}
-    try { const sf = localStorage.getItem("nr_saved_foods"); if (sf) setSavedFoods(JSON.parse(sf)) } catch (e) {}
-    try { const mf = localStorage.getItem("nr_my_foods"); if (mf) setMyFoods(JSON.parse(mf)) } catch (e) {}
-    try { const mm = localStorage.getItem("nr_my_meals"); if (mm) setMyMeals(JSON.parse(mm)) } catch (e) {}
-    try { const mf = localStorage.getItem("nr_my_foods"); if (mf) setMyFoods(JSON.parse(mf)) } catch (e) {}
-    try { const rf = localStorage.getItem("nr_recent_foods"); if (rf) setRecentFoods(JSON.parse(rf)) } catch (e) {}
     try {
       // migrate the previous single-day log format, if present
       const legacy = JSON.parse(localStorage.getItem("nr_food_log") || "null")
@@ -331,20 +288,6 @@ export default function App() {
   // Cycle tracking is a normal full-page screen now, not a modal.
   // Do not lock document.body scrolling when editCycle is open.
 
-  useEffect(() => {
-    // Instant capacity restore from local cache (only if it's still today), before Supabase responds.
-    try {
-      const raw = localStorage.getItem("nr_today_cap")
-      if (raw) {
-        const cached = JSON.parse(raw)
-        const today = new Date().toISOString().slice(0, 10)
-        if (cached && cached.date === today && typeof cached.pct === "number") {
-          setPct(cached.pct)
-          setCheckedIn(true)
-        }
-      }
-    } catch (e) {}
-  }, [])
 
   useEffect(() => {
     if (restLeft <= 0) return
@@ -444,8 +387,6 @@ export default function App() {
             try { localStorage.setItem("nr_program", p.data.program); if (p.data.program_start) localStorage.setItem("nr_program_start", p.data.program_start) } catch (e) {}
           }
         }
-        await loadHistory(u.id)
-        await loadWorkouts(u.id)
         await loadContentInteractions(u.id)
         await loadRebuildProgress(u.id)
       }
@@ -563,58 +504,18 @@ export default function App() {
     return data
   }
 
-  const loadHistory = async (uid) => {
-    const { data } = await db.from("checkins").select("*").eq("user_id", uid).order("date", { ascending: true })
-    const rows = data || []
-    setHistory(rows.map((d) => ({
-      date: new Date(d.date + "T00:00:00"),
-      dateISO: d.date,
-      pct: d.pct,
-      color: d.color,
-      factors: Array.isArray(d.factors) ? d.factors : [],
-      supports: Array.isArray(d.supports) ? d.supports : [],
-      note: d.one_thing || "",
-    })))
-    const today = new Date().toISOString().slice(0, 10)
-    const todayRow = rows.find((d) => d.date === today)
-    if (todayRow) {
-      setCheckedIn(true)
-      setPct(todayRow.pct)
-      if (Array.isArray(todayRow.factors)) setFactors(todayRow.factors)
-      if (Array.isArray(todayRow.supports)) setSupports(todayRow.supports)
-      if (todayRow.one_thing) setOneThing(todayRow.one_thing)
-      try { localStorage.setItem("nr_today_cap", JSON.stringify({ date: today, pct: todayRow.pct })) } catch (e) {}
-    }
-  }
-
-  const loadWorkouts = async (uid) => {
-    try {
-      const { data } = await db.from("workouts").select("*").eq("user_id", uid).order("date", { ascending: true })
-      if (!data) return
-      const remote = data.map((w) => ({ date: w.date, type: w.workout_type, color: w.color, program: w.program, sets: w.sets_done }))
-      // Merge: remote is source of truth per date; keep any local-only dates too.
-      let local = []
-      try { local = JSON.parse(localStorage.getItem("nr_workout_log") || "[]") } catch (e) {}
-      const byDate = {}
-      local.forEach((w) => { byDate[w.date] = w })
-      remote.forEach((w) => { byDate[w.date] = w })
-      const merged = Object.values(byDate).sort((a, b) => (a.date < b.date ? -1 : 1))
-      setWoLog(merged)
-      try { localStorage.setItem("nr_workout_log", JSON.stringify(merged)) } catch (e) {}
-    } catch (e) {}
-  }
 
   const handleLogin = async () => {
+    setLoading(true)
     try {
       const res = await db.auth.signInWithPassword({ email, password })
-      if (res.error) { setAuthMsg(res.error.message || "Login failed — check your email and password."); return }
+      if (res.error) { setAuthMsg(res.error.message || "Login failed — check your email and password."); setLoading(false); return }
       if (res.data.user) {
-        setUser(res.data.user)
         setSetupData(null)
         setEmail(""); setPassword(""); setAuthMsg("")
         await checkAuth()
       }
-    } catch (err) { setAuthMsg("Login failed — please try again.") }
+    } catch (err) { setAuthMsg("Login failed — please try again."); setLoading(false) }
   }
 
   const handleSignUp = async () => {
@@ -648,14 +549,13 @@ export default function App() {
     // and strand the app on a login screen there's no real account to use.
     if (PROTOTYPE_MODE) return
     await db.auth.signOut()
-    setUser(null); setProfile(null); setCheckedIn(false); setHistory([])
-    setNutrition(null); setSavedBloom([]); setCycleLogs({}); setUseAvgCycleRaw(false); setGreetingOnRaw(true); setGreetingStyleRaw("name_formal"); setResetSeed({ d: "", day: 0, night: 0 }); setResetPage(null); setFlourishTime(null); setFlourishProject(null); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setFoodDays({}); setSavedFoods([]); setMyFoods([]); setMyMeals([]); setRecentFoods([]); setWeekPlan({}); setGroceryManual([]); setGroceryChecked({}); setPlanView(null); setNourishView("today")
-    setPct(50); setFactors([]); setSupports([]); setOneThing("")
-    setProgramId(null); setWoLog([]); setSetupData(null); setFirstName("")
+    setUser(null); setProfile(null)
+    setNutrition(null); setSavedBloom([]); setCycleLogs({}); setUseAvgCycleRaw(false); setGreetingOnRaw(true); setGreetingStyleRaw("name_formal"); setResetSeed({ d: "", day: 0, night: 0 }); setResetPage(null); setFlourishTime(null); setFlourishProject(null); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setPlanView(null); setNourishView("today")
+    setProgramId(null); setSetupData(null); setFirstName("")
     setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
     setTab("bloom"); setBodyView("gym")
     try {
-      ["nr_today_cap", "nr_program", "nr_program_start", "nr_workout_log", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_bloom_saved", "nr_cycle_logs", "nr_use_avg_cycle", "nr_greeting_on", "nr_greeting_style", "nr_reset_seed", "nr_food_days", "nr_saved_foods", "nr_my_foods", "nr_my_meals", "nr_my_foods", "nr_recent_foods", "nr_week_plan", "nr_grocery_manual", "nr_grocery_checked"].forEach((k) => localStorage.removeItem(k))
+      ["nr_program", "nr_program_start", "nr_name", "nr_setup", "cap_cycle_length", "cap_last_period", "nr_bloom_notes", "nr_nutrition", "nr_bloom_saved", "nr_cycle_logs", "nr_use_avg_cycle", "nr_greeting_on", "nr_greeting_style", "nr_reset_seed"].forEach((k) => localStorage.removeItem(k))
     } catch (e) {}
   }
 
@@ -771,70 +671,6 @@ export default function App() {
     try { localStorage.setItem("nr_nutrition", JSON.stringify(n)) } catch (e) {}
     try { if (user && user.id !== "prototype-user") db.from("profiles").update({ setup: { ...(setupData || {}), nutrition: n } }).eq("id", user.id).then(() => {}) } catch (e) {}
   }
-  // ---- Food log: persistent, per-date, per-meal ----
-  const persistDays = (days) => { setFoodDays(days); try { localStorage.setItem("nr_food_days", JSON.stringify(days)) } catch (e) {} }
-  const dayFor = (d) => foodDays[d] || { items: [], water: 0 }
-  const setDay = (d, patch) => persistDays({ ...foodDays, [d]: { ...dayFor(d), ...patch } })
-  const addEntries = (entries, d) => {
-    const date = d || logDate
-    const cur = dayFor(date)
-    setDay(date, { items: [...cur.items, ...entries] })
-  }
-  const updateEntry = (id, patch, d) => {
-    const date = d || logDate
-    const cur = dayFor(date)
-    setDay(date, { items: cur.items.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
-  }
-  const deleteEntry = (id, d) => {
-    const date = d || logDate
-    const cur = dayFor(date)
-    setDay(date, { items: cur.items.filter((x) => x.id !== id) })
-  }
-  const setWaterCount = (n) => { const v = Math.max(0, n); setDay(logDate, { water: v }) }
-  const newId = () => Date.now() + Math.floor(Math.random() * 1000)
-  // Build a log entry from a food + quantity/unit (real serving math), or from fixed nutrition.
-  // Nutrition for exactly 1 unit of a food, unrounded (rounding only happens on displayed totals).
-  const perUnitOf = (food, unit) => {
-    if (!food) return null
-    if (food.fixed) return { cal: food.fixed.cal, p: food.fixed.p, c: food.fixed.c, f: food.fixed.f }
-    const g = gramsFor(food, 1, unit)
-    if (g == null || !food.per100) return null
-    const k = g / 100
-    return { cal: food.per100.cal * k, p: food.per100.p * k, c: food.per100.c * k, f: food.per100.f * k }
-  }
-  // A logged entry always stores `per` (per 1 unit). Daily totals = per x qty, so quantity
-  // changes stay consistent whether nutrition came from the database or the user corrected it.
-  const entryPer = (e) => {
-    if (e.per) return e.per
-    const q = Number(e.qty) || 1
-    return { cal: (e.cal || 0) / q, p: (e.p || 0) / q, c: (e.c || 0) / q, f: (e.f || 0) / q }
-  }
-  const totalsFrom = (per, qty) => ({ cal: Math.round(per.cal * qty), p: r1(per.p * qty), c: r1(per.c * qty), f: r1(per.f * qty) })
-  const makeEntry = (food, qty, unit, meal) => {
-    const q = Number(qty) || 0
-    const per = perUnitOf(food, unit)
-    if (!per) return null
-    return { id: newId(), meal, name: food.name, foodId: food.id, qty: q, unit, per, ...totalsFrom(per, q), partial: !!food.partial }
-  }
-  const saveMyFoods = (arr) => { setMyFoods(arr); try { localStorage.setItem("nr_my_foods", JSON.stringify(arr)) } catch (e) {} }
-  // Look up a source food across the starter set and the user's own corrected foods.
-  const findFood = (id) => myFoods.find((x) => x.id === id) || STARTER_FOODS.find((x) => x.id === id) || null
-  const rememberRecent = (food, qty, unit) => {
-    const key = food.id + "|" + unit
-    const next = [{ food, qty, unit, key }, ...recentFoods.filter((r) => r.key !== key)].slice(0, 20)
-    setRecentFoods(next); try { localStorage.setItem("nr_recent_foods", JSON.stringify(next)) } catch (e) {}
-  }
-  const toggleFavorite = (food) => {
-    const on = savedFoods.some((x) => x.id === food.id)
-    const next = on ? savedFoods.filter((x) => x.id !== food.id) : [...savedFoods, food]
-    setSavedFoods(next); try { localStorage.setItem("nr_saved_foods", JSON.stringify(next)) } catch (e) {}
-  }
-  const saveMyMeals = (arr) => { setMyMeals(arr); try { localStorage.setItem("nr_my_meals", JSON.stringify(arr)) } catch (e) {} }
-  // Log a True Reverie recipe meal straight into a meal slot
-  const logMeal = (m, slot) => { const e = makeEntry(mealAsFood(m), 1, "serving", slot || "snack"); if (e) addEntries([e]) }
-  const saveWeekPlan = (wp) => { setWeekPlan(wp); try { localStorage.setItem("nr_week_plan", JSON.stringify(wp)) } catch (e) {} }
-  const saveGroceryManual = (arr) => { setGroceryManual(arr); try { localStorage.setItem("nr_grocery_manual", JSON.stringify(arr)) } catch (e) {} }
-  const saveGroceryChecked = (obj) => { setGroceryChecked(obj); try { localStorage.setItem("nr_grocery_checked", JSON.stringify(obj)) } catch (e) {} }
 
   const persistProgram = (pid) => {
     const iso = new Date().toISOString().slice(0, 10)
@@ -849,20 +685,6 @@ export default function App() {
     }
   }
 
-  const saveCheckin = async () => {
-    setSaving(true); setSaveErr("")
-    const color = colorFromPct(pct)
-    const today = new Date().toISOString().slice(0, 10)
-    const { error } = await db.from("checkins").upsert(
-      { user_id: user.id, date: today, pct, color, factors, supports, one_thing: oneThing },
-      { onConflict: "user_id,date" }
-    )
-    setSaving(false)
-    if (error) { setSaveErr(error.message); return }
-    setCheckedIn(true)
-    try { localStorage.setItem("nr_today_cap", JSON.stringify({ date: today, pct })) } catch (e) {}
-    await loadHistory(user.id)
-  }
 
   // Persists cycle setup without leaving the screen. Cycle Settings now sit
   // inline above tracking, so saving them must not navigate away.
@@ -916,43 +738,11 @@ export default function App() {
     setEditCycle(false)
   }
 
-  const buildShareMessage = () => {
-    const L = SHARE_LEVELS[shareLevel]
-    const lines = [`My capacity today: ${L.emoji} ${L.label}`]
-    if (shareTrue.length) lines.push(`What's true for me: ${shareTrue.join(", ")}`)
-    if (shareNeed.length) lines.push(`What I need: ${shareNeed.join(", ")}`)
-    if (shareContext.trim()) lines.push(shareContext.trim())
-    lines.push("— shared via True Reverie · The Capacity Method")
-    return lines.join("\n")
-  }
 
-  const flashStatus = (msg) => { setShareStatus(msg); setTimeout(() => setShareStatus(""), 2500) }
-
-  const handleShare = async () => {
-    const msg = buildShareMessage()
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ text: msg })
-        flashStatus("Shared")
-        return
-      }
-    } catch (e) { /* user canceled or unsupported — fall through to copy */ }
-    try {
-      await navigator.clipboard.writeText(msg)
-      flashStatus("Copied — paste it to your partner")
-    } catch (e) { flashStatus("Copy the message below to share") }
-  }
-
-  const handleCopyShare = async () => {
-    try {
-      await navigator.clipboard.writeText(buildShareMessage())
-      flashStatus("Copied to clipboard")
-    } catch (e) { flashStatus("Select the message below to copy") }
-  }
 
   const Fonts = () => (
     <Head>
-      <title>The Capacity Method · True Reverie</title>
+      <title>True Reverie</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -1111,12 +901,6 @@ export default function App() {
                 })}
               </>
             )}
-            {st.type === "capacityIntro" && (
-              <>
-                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.2, marginBottom: 18 }}>True Reverie adapts to the life you actually have.</h1>
-                <p style={{ fontSize: 15, color: envS.dark ? "rgba(255,246,236,0.88)" : "#5A4458", lineHeight: 1.65, marginBottom: 8 }}>Some days you have plenty to give. Some days you don't. Capacity helps True Reverie adjust what it suggests without treating a hard day like a failed one.</p>
-              </>
-            )}
             {st.type === "final" && (
               <>
                 <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: envS.dark ? "#FFF6EC" : "#3D2545", lineHeight: 1.2, marginBottom: 18 }}>Your Reverie is ready.</h1>
@@ -1136,11 +920,11 @@ export default function App() {
     )
   }
 
-  const themeKey = checkedIn ? colorFromPct(pct) : "none"
+  const themeKey = "none"
   const T = THEMES[themeKey]
-  const cur = colorFromPct(pct)
+  const cur = "yellow"
   const dateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
-  const envRoot = ENV(new Date().getHours(), checkedIn ? cur : null)
+  const envRoot = ENV(new Date().getHours(), null)
   // A period "start" is a logged period day whose previous day has none.
   // Two consecutive starts make one completed cycle; the current, unfinished
   // cycle is deliberately excluded from the average.
@@ -1195,56 +979,6 @@ export default function App() {
     </div>
   )
 
-  const Protocol = () => {
-    const RED = ["Drink water", "Eat something with protein", "Basic hygiene", "Take medications", "Rest when possible"]
-    return (
-      <div className="fade-in" style={{ marginTop: 26 }}>
-        <div style={{ textAlign: "center", padding: "0 6px 22px" }}>
-          <p style={{ fontFamily: "'Sacramento', cursive", fontSize: 30, lineHeight: 1.35, color: T.accent }}>{"\u201C"}{QUOTES[cur]}{"\u201D"}</p>
-          <p style={{ fontSize: 11, color: BASE.taupe, marginTop: 8, letterSpacing: 1 }}>— VANESSA, RN</p>
-        </div>
-        <div style={{ padding: 18, borderRadius: 16, background: T.tint, border: `1px solid rgba(${T.glow},0.3)` }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: T.accent, fontWeight: 700 }}>{T.label} · {T.word}</div>
-          {cur === "red" && (
-            <>
-              <p style={{ fontSize: 14, color: BASE.creamDim, margin: "12px 0 14px", lineHeight: 1.6 }}>Your only goal today is to stay safe, stable, and minimally supported. Everything else can wait.</p>
-              <div style={{ fontSize: 11, color: BASE.taupe, marginBottom: 8, fontWeight: 600 }}>BASELINE CARE</div>
-              {RED.map((item, i) => (
-                <div key={i} onClick={() => setBaseline(baseline.map((b, j) => (j === i ? !b : b)))} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", cursor: "pointer", borderBottom: i < 4 ? `0.5px solid ${BASE.border}` : "none" }}>
-                  <span style={{ width: 22, height: 22, borderRadius: "50%", border: `1.5px solid ${baseline[i] ? T.accent : BASE.taupe}`, background: baseline[i] ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#FFFFFF" }}>{baseline[i] ? "✓" : ""}</span>
-                  <span style={{ fontSize: 14, color: baseline[i] ? BASE.taupe : BASE.cream, textDecoration: baseline[i] ? "line-through" : "none" }}>{item}</span>
-                </div>
-              ))}
-            </>
-          )}
-          {cur === "yellow" && (
-            <>
-              <p style={{ fontSize: 14, color: BASE.creamDim, margin: "12px 0 14px", lineHeight: 1.6 }}>You can do things — you just can't do everything. Handle today while protecting tomorrow.</p>
-              {[["Essential", "Must happen: work, childcare, meals"], ["Important", "Pick one or two: errands, movement, prep"], ["Optional", "Let it wait: deep cleaning, catching up"]].map(([h, d], i) => (
-                <div key={i} style={{ padding: "10px 0", borderBottom: i < 2 ? `0.5px solid ${BASE.border}` : "none" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>{h}</div>
-                  <div style={{ fontSize: 13, color: BASE.creamDim, marginTop: 2 }}>{d}</div>
-                </div>
-              ))}
-            </>
-          )}
-          {cur === "green" && (
-            <>
-              <p style={{ fontSize: 14, color: BASE.creamDim, margin: "12px 0 14px", lineHeight: 1.6 }}>You're resourced. This is the time for the things Red and Yellow days can't hold.</p>
-              {["Plan and set goals", "Deep or creative work", "A bigger project or habit", "Connection and growth"].map((item, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, padding: "8px 0", fontSize: 14, color: BASE.cream }}><span style={{ color: T.accent }}>›</span>{item}</div>
-              ))}
-            </>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // ---- Progress: everything derives from real stored history/workouts. ----
-  // See data/progress.js for the computation itself.
-  const progress = buildProgress({ history, woLog, cycleLength, lastPeriod, effCycleLength, programId, programStart })
-  const stats = progress.stats // still read directly by More via ctx
 
 
   const setRebuildCurrent = (next) => setRebuildCurrentRaw((prev) => {
@@ -1259,7 +993,7 @@ export default function App() {
   })
 
   const renderContent = () => {
-    const ctx = { Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, addEntries, addFoodFor, addTab, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, calcInputs, calcResult, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, dayFor, deleteEntry, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, entryEdit, factors, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, findFood, firstName, flourishProject, flourishTime, foodDays, foodPick, foodQuery, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, groceryAdd, groceryChecked, groceryManual, guidedIdx, handleCopyShare, handleLogout, handleShare, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, logDate, logMeal, macrosOpen, makeEntry, mealEdit, mealFilter, mealOpen, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, myFoods, myMeals, newId, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, progress, pulse, quickAdd, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recentFoods, recovery, recoveryDone, recoveryOpen, rememberRecent, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCheckin, saveCycle, saveCycleLog, saveCycleSettings, saveFoodName, saveGroceryChecked, saveGroceryManual, saveMealName, saveMyFoods, saveMyMeals, saveNutrition, saveWeekPlan, savedBloom, savedFilter, savedFoods, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setAddFoodFor, setAddTab, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCalcInputs, setCalcResult, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDay, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setEntryEdit, setFactors, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setFoodPick, setFoodQuery, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGroceryAdd, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setLogDate, setMacrosOpen, setMealEdit, setMealFilter, setMealOpen, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setProgressView, setPulse, setQuickAdd, setQuickFilter, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSaveFoodName, setSaveMealName, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setShareContext, setShareLevel, setShareNeed, setShareTrue, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWaterCount, setWeekPick, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLog, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, shareContext, shareLevel, shareNeed, shareStatus, shareTrue, stats, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleFavorite, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateEntry, updateRebuildFLYA, useAvgCycle, user, weekPick, weekPlan, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    const ctx = { Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, factors, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, saveNutrition, savedBloom, savedFilter, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setFactors, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
     return renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
   }
 
@@ -1269,7 +1003,7 @@ export default function App() {
         {tab === "today" && <Sky mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "today" && <Garden mode={envRoot.mode} />}
         {tab === "body" && bodyView === "nourish" && <NourishAir mode={envRoot.mode} tint={envRoot.tint} />}
-        {tab === "body" && bodyView === "nourish" && <HerbGarden mode={envRoot.mode} subtle={!!planView || nourishView === "supps" || !!addFoodFor || !!foodPick || !!entryEdit} />}
+        {tab === "body" && bodyView === "nourish" && <HerbGarden mode={envRoot.mode} subtle={!!planView || nourishView === "supps"} />}
         {tab === "bloom" && <BloomAir mode="afternoon" tint={null} />}
         {tab === "bloom" && !bloomCard && !bloomArticle && !bloomPillar && <BloomAccents mode="afternoon" />}
         {tab === "bloom" && <BloomScene mode="afternoon" subtle={!!bloomCard || !!bloomArticle || !!bloomPillar || !!glowTopic} />}
