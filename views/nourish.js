@@ -42,9 +42,9 @@ const mealGradient = m => m.t === "breakfast"
 
 export function renderNourish(ctx) {
   const {
-    bodyView, learnOpen, mealFilter, mealType, nourishView, planView, supabaseNourishRows = [],
+    bodyView, learnOpen, mealFilter, mealType, nourishView, planView, savedFoods, supabaseNourishRows = [],
     setLearnOpen, setMealFilter, setMealType, setNourishView, setPlanView,
-    setSuppOpen, suppOpen, tab, isSavedBloom, toggleSaveBloom
+    setSuppOpen, suppOpen, tab, toggleFavorite
   } = ctx
 
   if (!(tab === "body" && bodyView === "nourish")) return null
@@ -68,7 +68,7 @@ export function renderNourish(ctx) {
       imagePosition: c.imagePosition, imageZoom: c.imageZoom, extraSwipePages: Array.isArray(row.extra_pages) ? row.extra_pages : []
     }
   })
-  const allMeals = [...studioMeals, ...MEALS]
+  const allMeals = studioMeals
 
   const Back = ({ onClick, label }) => (
     <div onClick={onClick} style={{ fontSize:13, fontWeight:700, color:BASE.taupe, cursor:"pointer", marginBottom:16 }}>‹ {label}</div>
@@ -79,9 +79,8 @@ export function renderNourish(ctx) {
 
   const MealFeedCard = ({ m }) => {
     const img = mealPhoto(m)
-    const saveKey = "nourish:" + m.id
-    const isFav = isSavedBloom ? isSavedBloom(saveKey) : false
-    const toggleMealSave = () => toggleSaveBloom && toggleSaveBloom(saveKey, { contentType:"nourish", title:m.n, image:img })
+    const favFood = mealAsFood(m)
+    const isFav = (savedFoods || []).some(x => x.id === favFood.id)
     return (
       <div style={{ borderRadius:25, overflow:"hidden", border:`1px solid ${BASE.border}`, background:BASE.surface, marginBottom:24 }}>
         <div style={{ display:"flex", overflowX:"auto", scrollSnapType:"x mandatory", WebkitOverflowScrolling:"touch", overscrollBehaviorX:"contain" }}>
@@ -106,7 +105,7 @@ export function renderNourish(ctx) {
               <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:11 }}>
                 {(m.tags||[]).slice(0,4).map(t=><span key={t} style={{ fontSize:9.5, fontWeight:700, padding:"4px 8px", borderRadius:999, background:"rgba(201,85,142,.09)", color:"#A75A7F" }}>{t}</span>)}
               </div>
-              <button onClick={toggleMealSave} style={{ width:"100%", padding:"12px 8px", borderRadius:13, border:`1px solid ${isFav?"#C9558E":BASE.border}`, background:isFav?"rgba(201,85,142,.10)":BASE.surface, color:isFav?"#C9558E":BASE.creamDim, fontSize:12.5, fontWeight:800, marginTop:14 }}>{isFav?"♥ Saved":"♡ Save"}</button>
+              <button onClick={()=>toggleFavorite(favFood)} style={{ width:"100%", padding:"12px 8px", borderRadius:13, border:`1px solid ${isFav?"#C9558E":BASE.border}`, background:isFav?"rgba(201,85,142,.10)":BASE.surface, color:isFav?"#C9558E":BASE.creamDim, fontSize:12.5, fontWeight:800, marginTop:14 }}>{isFav?"♥ Saved":"♡ Save"}</button>
             </div>
           </div>
 
@@ -136,7 +135,7 @@ export function renderNourish(ctx) {
               <div style={{ fontSize:9.5, fontWeight:800, letterSpacing:1.3, textTransform:"uppercase", color:"#C97BA8" }}>Nurse-informed note</div>
               <div style={{ fontFamily:"'Cormorant Garamond', serif", fontStyle:"italic", fontSize:15, color:BASE.creamDim, marginTop:5, lineHeight:1.5 }}>These numbers are context, not a score. Pick food because it supports you and sounds good.</div>
             </div>
-            <button onClick={toggleMealSave} style={{ width:"100%", padding:"13px 8px", borderRadius:13, border:`1px solid ${isFav?"#C9558E":BASE.border}`, background:isFav?"rgba(201,85,142,.10)":BASE.surface, color:isFav?"#C9558E":BASE.creamDim, fontSize:12.5, fontWeight:800, marginTop:18 }}>{isFav?"♥ Saved":"♡ Save"}</button>
+            <button onClick={()=>toggleFavorite(favFood)} style={{ width:"100%", padding:"13px 8px", borderRadius:13, border:`1px solid ${isFav?"#C9558E":BASE.border}`, background:isFav?"rgba(201,85,142,.10)":BASE.surface, color:isFav?"#C9558E":BASE.creamDim, fontSize:12.5, fontWeight:800, marginTop:18 }}>{isFav?"♥ Saved":"♡ Save"}</button>
           </div>
         </div>
       </div>
