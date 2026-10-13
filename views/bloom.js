@@ -31,6 +31,9 @@ function BloomInfiniteLoader({ hasMore, loadMore }) {
   return <div ref={ref} aria-hidden="true" style={{ height: 1 }} />
 }
 
+import { ContentShareActions } from './content-share-actions.js'
+import { contentSource } from '../lib/community-content.js'
+
 export function renderBloom(ctx) {
   const { bloomArticle, bloomCard, bloomFeedLimit, bloomPillar, bloomSearchOpen, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomFeedLimit, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, supabaseBloomRows, tab, toggleSaveBloom, toggleDidThis, hasInteraction } = ctx
 
@@ -224,6 +227,7 @@ export function renderBloom(ctx) {
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: BASE.taupe, marginTop: 5, lineHeight: 1.4 }}>{item.type === "movement" ? ((M_BY_ID(item.moveId) || {}).hook || "") : item.teaser}</div>
               <div style={{ marginTop: 11 }}>{item.tags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
               <ActionRow item={item} prefix={prefix} />
+            {prefix==='supabase'&&<ContentShareActions ctx={ctx} source={contentSource({id:String(item.id).replace(/^supabase-/,''),title:item.title},'bloom')}/>}
             </div>
           </div>
           <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", maxHeight: 700, overflowY: "auto" }}><DetailSide item={item} /></div>
@@ -1268,6 +1272,7 @@ export function renderBloom(ctx) {
         }
       })
       const forYouItems = FOR_YOU_ITEMS.map((item) => ({ ...item, _source: "foryou" }))
+      if(ctx.communityContentId){const item=supabaseItems.find(x=>x.id===`supabase-${ctx.communityContentId}`);return item?<div style={{padding:'18px'}}><FeedCard item={item} prefix="supabase"/></div>:null}
       const allBloomItems = supabaseItems
       const itemText = (item) => [item.title, item.teaser, item.type, ...(item.tags || [])].filter(Boolean).join(" ").toLowerCase()
 
