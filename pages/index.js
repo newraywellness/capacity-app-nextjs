@@ -1045,9 +1045,9 @@ export default function App() {
     setTab('community')
     if(typeof window!=='undefined')window.scrollTo({top:0,behavior:'auto'})
   }
-  const openReverieFromContent=(source)=>{
+  const openReverieFromContent=(source,snapshot=null)=>{
     setLinkedContent(null);setReverieSaveError('')
-    setReverieDraft({title:source.label||'',note:'',date:cycleLocalDateISO(),photo:null,photoPosition:{x:50,y:50},originalImage:null,source:source.type,contentId:sourceKey(source),share:false,editingId:null})
+    setReverieDraft({title:snapshot?.title||source.label||'',note:snapshot?.note||'',date:cycleLocalDateISO(),photo:snapshot?.photo||null,photoPosition:{x:50,y:50},originalImage:null,source:source.type,contentId:sourceKey(source),share:false,editingId:null})
     setReverieSection('home');setReverieComposerOpen(true);setTab('reverie')
   }
   const onCommunityPostDeleted=(postId)=>setReverieEntries(previous=>{
