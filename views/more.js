@@ -1,3 +1,4 @@
+import { PlusPanel } from './plus.js'
 import { BASE } from '../lib/theme.js'
 
 export function renderMore(ctx) {
@@ -104,44 +105,7 @@ export function renderMore(ctx) {
     )
   }
 
-  if (moreView === "plus") {
-    return (
-      <Shell>
-        <Back />
-        <DetailTitle
-          title="True Reverie+"
-          sub="Go deeper with the experiences, programs, and tools inside True Reverie."
-        />
-        <div
-          style={{
-            padding: 22,
-            borderRadius: 24,
-            background: "linear-gradient(135deg,rgba(233,132,180,0.18),rgba(168,123,209,0.18))",
-            border: "1px solid rgba(201,85,142,0.14)",
-          }}
-        >
-          <div style={{ fontSize: 10, letterSpacing: 2, fontWeight: 800, color: pink, marginBottom: 8 }}>
-            TRUE REVERIE+
-          </div>
-          <div
-            style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 25,
-              fontWeight: 600,
-              lineHeight: 1.15,
-              marginBottom: 9,
-            }}
-          >
-            More room to become her.
-          </div>
-          <p style={{ margin: 0, color: "#5A4458", fontSize: 14, lineHeight: 1.65 }}>
-            Your membership home is coming next. This will be where you can see what True Reverie+
-            unlocks, manage access, and restore a subscription.
-          </p>
-        </div>
-      </Shell>
-    )
-  }
+  if (moreView === "plus") return <Shell><Back/><PlusPanel ctx={ctx}/></Shell>
 
   if (moreView === "about") {
     return (
