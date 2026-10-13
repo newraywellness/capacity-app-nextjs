@@ -32,7 +32,7 @@ function BloomInfiniteLoader({ hasMore, loadMore }) {
 }
 
 export function renderBloom(ctx) {
-  const { bloomArticle, bloomCard, bloomFeedLimit, bloomPillar, bloomSearchOpen, checkedIn, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, pct, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomFeedLimit, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, supabaseBloomRows, tab, toggleSaveBloom, toggleDidThis, hasInteraction } = ctx
+  const { bloomArticle, bloomCard, bloomFeedLimit, bloomPillar, bloomSearchOpen, closeBloom, cur, doneFeed, flourishProject, flourishTime, feedMoodFilter, feedRotation, feedTimeFilter, glowItem, glowOpen, glowSheet, glowTopic, isSavedBloom, likedFeed, openBloomCard, resetPage, resetSeed, resetSongs, seasonalBrowseOpen, seasonalSeason, setBloomArticle, setBloomFeedLimit, setBloomPillar, setBloomSearchOpen, setDoneFeed, setReverieEntries, setFeedMoodFilter, setFeedTimeFilter, setFlourishProject, setFlourishTime, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setLikedFeed, setResetPage, setResetSongs, setSeasonalBrowseOpen, setSeasonalSeason, surpriseReset, supabaseBloomRows, tab, toggleSaveBloom, toggleDidThis, hasInteraction } = ctx
 
     const Heart = ({ id, overlay }) => {
       const saved = isSavedBloom(id)
@@ -695,7 +695,7 @@ export function renderBloom(ctx) {
 
     if (tab === "bloom" && bloomPillar === "reset" && resetPage) {
       const P = RESET_EXPLORE.find((x) => x.id === resetPage) || RESET_EXPLORE[0]
-      const capKey3 = !checkedIn ? "yellow" : pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green"
+      const capKey3 = "yellow"
       const sid = "reset:" + P.id
       const Label = ({ children }) => (
         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#9B6BC3", margin: "26px 0 12px" }}>{children}</div>
@@ -774,7 +774,7 @@ export function renderBloom(ctx) {
     }
 
     if (tab === "bloom" && bloomPillar === "reset") {
-      const capKey2 = !checkedIn ? "yellow" : pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green"
+      const capKey2 = "yellow"
       const COUNT = { red: 3, yellow: 4, green: 5 }[capKey2]
       const seedFor = (which) => {
         const d = new Date().toISOString().slice(0, 10)
@@ -1169,8 +1169,7 @@ export function renderBloom(ctx) {
     }
 
     if (tab === "bloom") {
-      const capKey = checkedIn ? (pct <= 35 ? "red" : pct <= 70 ? "yellow" : "green") : "yellow"
-      const invites = (BLOOM_INVITATIONS && BLOOM_INVITATIONS[capKey]) || []
+      const invites = (BLOOM_INVITATIONS && BLOOM_INVITATIONS.yellow) || []
       const inviteRaw = invites.length ? invites[dayIndex(invites.length)] : null
       const invite = inviteRaw && typeof inviteRaw === "object" ? inviteRaw : { emoji: "🤍", text: inviteRaw || "Be gentle with yourself today." }
       const trending = Array.isArray(BLOOM_TRENDING) ? BLOOM_TRENDING : []
@@ -1269,13 +1268,13 @@ export function renderBloom(ctx) {
         }
       })
       const forYouItems = FOR_YOU_ITEMS.map((item) => ({ ...item, _source: "foryou" }))
-      const allBloomItems = [...supabaseItems, ...forYouItems, ...seasonalItems, ...glowItems]
+      const allBloomItems = supabaseItems
       const itemText = (item) => [item.title, item.teaser, item.type, ...(item.tags || [])].filter(Boolean).join(" ").toLowerCase()
 
       let sourceItems = allBloomItems
       if (feedTimeFilter && feedTimeFilter !== "__open__") {
-        const timedIds = new Set(byTimeBucket(feedTimeFilter).map((x) => x.id))
-        sourceItems = sourceItems.filter((x) => x._source !== "foryou" || timedIds.has(x.id))
+        const wanted = String(feedTimeFilter).toLowerCase()
+        sourceItems = sourceItems.filter((x) => itemText(x).includes(wanted))
       }
       if (activeCategory) {
         sourceItems = sourceItems.filter((item) => {
