@@ -41,18 +41,9 @@ export default function App() {
   const [user, setUser] = useState(PROTOTYPE_MODE ? PROTOTYPE_USER : null)
   const [profile, setProfile] = useState(null)
   const [tab, setTab] = useState("bloom")
-  const [pct, setPct] = useState(50)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(PROTOTYPE_MODE ? false : true)
-  const [history, setHistory] = useState([])
-  const [checkedIn, setCheckedIn] = useState(false)
-  const [factors, setFactors] = useState([])
-  const [supports, setSupports] = useState([])
-  const [oneThing, setOneThing] = useState("")
-  const [baseline, setBaseline] = useState([false, false, false, false, false])
-  const [saving, setSaving] = useState(false)
-  const [saveErr, setSaveErr] = useState("")
   // cycle settings (stored on device for v1)
   const [cycleLength, setCycleLength] = useState("")
   const [lastPeriod, setLastPeriod] = useState("")
@@ -71,7 +62,6 @@ export default function App() {
   const [recovery, setRecovery] = useState(false)
   const [authMsg, setAuthMsg] = useState("")
   const [newPass, setNewPass] = useState("")
-  // share-with-partner (couples capacity check-in)
   const [setShareStatus] = useState("")
 
   const [woColor, setWoColor] = useState(null)
@@ -132,12 +122,7 @@ export default function App() {
   // Prototype membership flag. Production will replace this with real subscription entitlement.
   const [rebuildPlus] = useState(false)
 
-  // Which month "This Month" is showing. Independent from capMonth (the
-  // Capacity calendar's own range control) so paging one doesn't move the other.
   const [reviewMonth, setReviewMonth] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
-  const [capRange, setCapRange] = useState("week") // "This Week" is the section's default snapshot, not the calendar month
-  const [capMonth, setCapMonth] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
-  const [capDay, setCapDay] = useState(null)
   const [moreView, setMoreView] = useState("menu")
   const [glowLog, setGlowLog] = useState({})
   const [bloomNotes, setBloomNotes] = useState({})
@@ -219,14 +204,6 @@ export default function App() {
     try {
       const rs = JSON.parse(localStorage.getItem("nr_reset_seed") || "null")
       if (rs && rs.d === new Date().toISOString().slice(0, 10)) setResetSeed(rs)
-    } catch (e) {}
-    try {
-      // migrate the previous single-day log format, if present
-      const legacy = JSON.parse(localStorage.getItem("nr_food_log") || "null")
-      if (legacy && legacy.date) {
-        setFoodDays((prev) => prev[legacy.date] ? prev : { ...prev, [legacy.date]: { items: (legacy.items || []).map((i) => ({ ...i, meal: i.meal || "snack", name: i.name || i.n })), water: legacy.water || 0 } })
-        localStorage.removeItem("nr_food_log")
-      }
     } catch (e) {}
     try { setGlowLog(JSON.parse(localStorage.getItem("nr_glow_log") || "{}")) } catch (e) {}
     try { setBloomNotes(JSON.parse(localStorage.getItem("nr_bloom_notes") || "{}")) } catch (e) {}
@@ -1020,7 +997,7 @@ export default function App() {
   })
 
   const renderContent = () => {
-    const ctx = { Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, baseline, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, capDay, capMonth, capRange, checkedIn, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, factors, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, history, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, oneThing, openBloomCard, pct, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveNutrition, savedBloom, savedFilter, saving, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCapDay, setCapMonth, setCapRange, setCheckedIn, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setFactors, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setOneThing, setPct, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setSupports, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, supports, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    const ctx = { Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, openBloomCard, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveNutrition, savedBloom, savedFilter, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
     return renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
   }
 
