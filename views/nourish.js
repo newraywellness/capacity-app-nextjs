@@ -40,6 +40,9 @@ const mealGradient = m => m.t === "breakfast"
   ? "linear-gradient(145deg,#E7D7D0,#CBB3AE)"
   : "linear-gradient(145deg,#EEDCE6,#D9C5DA)"
 
+import { ContentShareActions } from './content-share-actions.js'
+import { contentSource } from '../lib/community-content.js'
+
 export function renderNourish(ctx) {
   const {
     bodyView, learnOpen, mealFilter, mealType, nourishView, planView, savedFoods, supabaseNourishRows = [],
@@ -138,9 +141,12 @@ export function renderNourish(ctx) {
             <button onClick={()=>toggleFavorite(favFood)} style={{ width:"100%", padding:"13px 8px", borderRadius:13, border:`1px solid ${isFav?"#C9558E":BASE.border}`, background:isFav?"rgba(201,85,142,.10)":BASE.surface, color:isFav?"#C9558E":BASE.creamDim, fontSize:12.5, fontWeight:800, marginTop:18 }}>{isFav?"♥ Saved":"♡ Save"}</button>
           </div>
         </div>
+        <div style={{padding:'0 18px 18px'}}><ContentShareActions ctx={ctx} source={contentSource({id:String(m.id).replace(/^studio-/,''),title:m.n},'nourish')}/></div>
       </div>
     )
   }
+
+  if(ctx.communityContentId){const meal=allMeals.find(x=>x.id===`studio-${ctx.communityContentId}`);return meal?<div style={{padding:'18px'}}><MealFeedCard m={meal}/></div>:<div style={{padding:24,color:BASE.taupe}}>This meal is no longer available.</div>}
 
   return (
     <div className="fade-in" style={{ padding:"10px 18px 0" }}>
