@@ -1,4 +1,4 @@
-import { MOVE_IDEAS, MOODS, TIMES, CATEGORIES, M_BY_ID } from '../data/move.js'
+import { MOODS, TIMES, CATEGORIES } from '../data/move.js'
 import { BASE, dayIndex } from '../lib/theme.js'
 
 const MOVE_GRADIENTS = {
@@ -64,11 +64,12 @@ export function renderTrain(ctx) {
       time: Array.isArray(c.time) ? c.time : (c.time ? [c.time] : []),
       category: Array.isArray(c.category) ? c.category : (row.category ? [row.category] : []),
       walkthrough: Array.isArray(c.walkthrough) ? c.walkthrough : [],
+      capacity: Array.isArray(c.capacity) ? c.capacity : ["red","yellow","green"],
       imagePosition: c.imagePosition, imageZoom: c.imageZoom,
       extraSwipePages: Array.isArray(row.extra_pages) ? row.extra_pages : []
     }
   })
-  const allMoveIdeas = [...studioIdeas, ...MOVE_IDEAS]
+  const allMoveIdeas = studioIdeas
 
   let feed = allMoveIdeas.filter(idea => {
     const searchable = [
