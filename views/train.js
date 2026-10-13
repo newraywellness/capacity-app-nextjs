@@ -23,6 +23,9 @@ const ideaGradient = (idea) => {
 const getPrimaryCategory = (idea) => (idea.category || [])[0] || "Move"
 const hasAny = (arr, value) => !value || (arr || []).includes(value)
 
+import { ContentShareActions } from './content-share-actions.js'
+import { contentSource } from '../lib/community-content.js'
+
 export function renderTrain(ctx) {
   const {
     bodyView, doneFeed = [], isSavedBloom, moveCategory, moveMood, moveSearch = "", moveTime, supabaseMoveRows = [],
@@ -224,11 +227,14 @@ export function renderTrain(ctx) {
             </div>
           )}
         </div>
+        <div style={{padding:'0 18px 18px'}}><ContentShareActions ctx={ctx} source={contentSource({id:String(idea.id).replace(/^studio-/,''),title:idea.title},'move')}/></div>
       </div>
     )
   }
 
   const anyFilter = !!(moveTime || moveMood || moveCategory || moveSearch)
+
+  if(ctx.communityContentId){const idea=allMoveIdeas.find(x=>x.id===`studio-${ctx.communityContentId}`);return idea?<div style={{padding:'18px'}}><MoveCard idea={idea}/></div>:null}
 
   return (
     <div className="fade-in" style={{ padding: "10px 18px 60px" }}>
