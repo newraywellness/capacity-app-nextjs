@@ -12,14 +12,21 @@ export function CommunityContentView({ctx,source,onClose,backLabel='Community'})
   const [local,setLocal]=useState({})
   useEffect(()=>{
     let cancelled=false;setTarget(null);setError('')
-    resolveContentSource(source).then(result=>{
+    const load=async()=>{
+      if(source.table==='tr_rebuild_experiences'&&source.rebuildId&&!ctx.rebuildPlus){
+        const parent=await resolveContentSource({...source,table:'tr_content',contentId:source.rebuildId,type:'rebuild'})
+        if(parent.row.is_premium)return parent
+      }
+      return resolveContentSource(source)
+    }
+    load().then(result=>{
       if(cancelled)return
       setTarget(result)
       const program=result.parent||result.row
       setLocal({rebuildActiveProgram:['rebuild','rebuild_experience'].includes(result.source.type)?`studio-${program.id}`:null,rebuildDynamicExpId:result.source.type==='rebuild_experience'?result.row.id:null,rebuildView:result.source.type==='rebuild_experience'?'dynamic-exp':'dynamic-intro',rebuildCapPick:null,rebuildStartWarning:null})
     }).catch(e=>{if(!cancelled)setError(e.message||'This content could not load.')})
     return ()=>{cancelled=true}
-  },[source.table,source.contentId,source.type,attempt])
+  },[source.table,source.contentId,source.type,source.rebuildId,ctx.rebuildPlus,attempt])
   useEffect(()=>{
     if(typeof document==='undefined')return
     const previous=document.body.style.overflow;document.body.style.overflow='hidden'
@@ -41,7 +48,7 @@ export function CommunityContentView({ctx,source,onClose,backLabel='Community'})
       setRebuildActiveProgram:value=>{if(value===null){onClose();return}setField('rebuildActiveProgram')(value)},
       setRebuildView:setField('rebuildView'),setRebuildDynamicExpId:setField('rebuildDynamicExpId'),setRebuildCapPick:setField('rebuildCapPick'),setRebuildStartWarning:setField('rebuildStartWarning'),
     }
-    if(locked)body=<div style={{padding:'24px 22px'}}><div style={{fontSize:11,fontWeight:800,color:'#A84E7D'}}>True Reverie +</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:28,color:BASE.cream,marginTop:10}}>{row.title}</div><p style={{fontSize:13,color:BASE.taupe,lineHeight:1.6}}>This experience is part of True Reverie +.</p></div>
+    if(locked)body=<div style={{padding:'24px 22px'}}><div style={{fontSize:11,fontWeight:800,color:'#A84E7D'}}>True Reverie +</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:28,color:BASE.cream,marginTop:10}}>{row.title}</div><p style={{fontSize:13,color:BASE.taupe,lineHeight:1.6}}>This experience is part of True Reverie +.</p><button onClick={()=>ctx.openPlus?.()} style={{padding:'12px 20px',borderRadius:999,border:'none',background:'#A84E7D',color:'#fff',fontWeight:800}}>Explore True Reverie+</button></div>
     else if(type==='bloom')body=renderBloom({...linked,tab:'bloom',supabaseBloomRows:[row]})
     else if(type==='move')body=renderTrain({...linked,tab:'body',bodyView:'gym',supabaseMoveRows:[row]})
     else if(type==='nourish')body=renderNourish({...linked,tab:'body',bodyView:'nourish',supabaseNourishRows:[row],savedFoods:ctx.isSavedBloom?.(sourceKey(target.source))?[{id:'nr:'+row.title}]:[],toggleFavorite:()=>ctx.toggleSaveBloom?.(sourceKey(target.source),{contentType:'nourish',title:row.title,image:row.image_url||null})})
