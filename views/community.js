@@ -38,6 +38,8 @@ function CommunityApp({ctx}) {
   const [communityProfiles,setCommunityProfiles] = useState({})
   const [posts,setPosts] = useState([])
   const [communityReady,setCommunityReady] = useState(false)
+  const [communityError,setCommunityError] = useState('')
+  const [loadAttempt,setLoadAttempt] = useState(0)
   const [publishing,setPublishing] = useState(false)
   const [caption,setCaption] = useState('')
   const [attachment,setAttachment] = useState(null)
@@ -54,15 +56,19 @@ function CommunityApp({ctx}) {
 
 
 
-  // Phase 7A: real Community foundation. Load the signed-in user's public
-  // community profile and real posts from Supabase. Seed cards stay below real
-  // posts for now so the prototype feed is not visually empty during rollout.
+  // Load real Community content and account-backed social state together.
   useEffect(() => {
     let cancelled = false
     const loadCommunity = async () => {
-      if (!user?.id) return
+      setCommunityReady(false)
+      setCommunityError('')
+      if (!user?.id) {
+        setCommunityError('Sign in to see Community.')
+        setCommunityReady(true)
+        return
+      }
       try {
-        const [{ data: profile }, { data: realPosts, error: postsError }, { data: myActions, error: myActionsError }, { data: likeActions, error: likeActionsError }, { data: follows }, { data: profiles }] = await Promise.all([
+        const [{ data: profile, error: profileError }, { data: realPosts, error: postsError }, { data: myActions, error: myActionsError }, { data: likeActions, error: likeActionsError }, { data: follows, error: followsError }, { data: profiles, error: profilesError }] = await Promise.all([
           db.from('tr_community_profiles').select('*').eq('user_id', user.id).maybeSingle(),
           db.from('tr_community_posts').select('*').eq('status','published').order('created_at',{ascending:false}).limit(50),
           db.from('tr_community_post_actions').select('post_id,action,user_id').eq('user_id', user.id),
@@ -71,6 +77,8 @@ function CommunityApp({ctx}) {
           db.from('tr_community_profiles').select('*')
         ])
         if (cancelled) return
+        const loadError = postsError || myActionsError || likeActionsError || followsError || profilesError || profileError
+        if (loadError) throw loadError
         if (Array.isArray(profiles)) {
           const byUser = {}
           profiles.forEach(pr => { byUser[pr.user_id] = {name:pr.display_name||'True Reverie',handle:pr.handle||'@truereverie',bio:pr.bio||'',photo:pr.avatar_url||null,photoPosition:pr.avatar_position||{x:50,y:50},reverie:Array.isArray(pr.reverie)?pr.reverie:[],initial:(pr.display_name||'T')[0].toUpperCase(),gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)'} })
@@ -126,7 +134,7 @@ function CommunityApp({ctx}) {
           setRealFollowing((follows || []).filter(f => f.follower_id === user.id).map(f => f.following_id))
           const counts = {}
           mapped.forEach(p => {
-            const uid = p.user.replace(/^user-/, '')
+            const uid = p.mine ? user.id : p.user.replace(/^user-/, '')
             counts[uid] = counts[uid] || { followers:0, following:0, likes:0 }
             counts[uid].likes += p.likes || 0
           })
@@ -139,31 +147,38 @@ function CommunityApp({ctx}) {
           setSocialCounts(counts)
         }
       } catch (e) {
+        if (cancelled) return
         console.error('Could not load Community:', e)
+        setCommunityError('Community could not load. Please try again.')
       } finally {
         if (!cancelled) setCommunityReady(true)
       }
     }
     loadCommunity()
     return () => { cancelled = true }
-  }, [user?.id])
+  }, [user?.id, loadAttempt])
 
   const interests = useMemo(()=>{
     const raw=[...(setupData?.interests||[]),...(setupData?.goals||[]),...(setupData?.desires||[])].join(' ').toLowerCase()
     return raw
   },[setupData])
   const ranked = useMemo(()=>{
-    if(feed==='following') return posts.filter(p=>following.includes(p.user))
+    const followsPost=p=>p.real ? realFollowing.includes(p.user.replace(/^user-/,'')) : following.includes(p.user)
+    if(feed==='following') return posts.filter(followsPost)
     return [...posts].sort((a,b)=>{
-      const score=p=>p.tags.reduce((n,t)=>n+(interests.includes(t)?2:0),0)+(liked.includes(p.id)?1:0)+(following.includes(p.user)?.5:0)
+      const score=p=>p.tags.reduce((n,t)=>n+(interests.includes(t)?2:0),0)+(liked.includes(p.id)?1:0)+(followsPost(p)?.5:0)
       return score(b)-score(a)
     })
-  },[posts,feed,following,liked,interests])
+  },[posts,feed,following,realFollowing,liked,interests])
 
   const toggle=(setter,list,id)=>setter(list.includes(id)?list.filter(x=>x!==id):[...list,id])
   const openProfile=(key, person=null)=>{ setProfileTab('posts'); setScreen({type:'profile',user:key,person}) }
-  const profileTargetForPost=(p)=>p?.mine?{user:'me',person:null}:{user:p?.user,person:p?.person||null}
-  const openPost=(p)=>{ if(!p)return; setScreen({type:'post',postId:p.id}) }
+  const openPost=(p)=>{ if(!p)return; setScreen({type:'post',postId:p.id,returnTo:{screen,profileTab}}) }
+  const backFromPost=()=>{
+    setCommentPost(null); setMenuPost(null)
+    setProfileTab(screen.returnTo?.profileTab || 'posts')
+    setScreen(screen.returnTo?.screen || {type:'feed'})
+  }
   const reloadMyPostActions = async () => {
     if (!user?.id) return null
     const { data, error } = await db
@@ -312,16 +327,30 @@ function CommunityApp({ctx}) {
       <Source source={p.source}/><div style={{fontSize:13,color:BASE.creamDim,lineHeight:1.55,marginTop:10}}>{p.caption}</div>{!detail&&p.comments.length>0&&<div onClick={()=>openComments(p.id)} style={{fontSize:11.5,color:BASE.taupe,marginTop:10,cursor:'pointer'}}>View {p.comments.length===1?'comment':`all ${p.comments.length} comments`}</div>}</div>
   </div>}
 
+  function renderPostMenu() {
+    return menuPost && typeof document !== 'undefined' && createPortal(<div onClick={()=>setMenuPost(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(44,31,43,.38)',display:'flex',alignItems:'flex-end',justifyContent:'center'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:440,borderRadius:'24px 24px 0 0',background:BASE.bg,padding:'18px 20px',paddingBottom:'calc(28px + env(safe-area-inset-bottom))',boxShadow:'0 -12px 40px rgba(45,25,42,.18)'}}><div style={{width:38,height:4,borderRadius:999,background:'rgba(120,91,112,.28)',margin:'0 auto 10px'}}/><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:BASE.creamDim,fontWeight:700,textAlign:'left'}}>Not interested in posts like this</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:BASE.creamDim,fontWeight:700,textAlign:'left'}}>Block this account</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:'#B9566B',fontWeight:700,textAlign:'left'}}>Report post</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800,marginTop:8}}>Cancel</button></div></div>, document.body)
+  }
+
+  if (!communityReady || communityError) return <div className="fade-in" role={communityError?'alert':'status'} aria-live="polite" style={{padding:'60px 24px',textAlign:'center',color:BASE.taupe}}>
+    <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:26,fontWeight:600,color:BASE.cream}}>Community</div>
+    <div style={{fontSize:13,lineHeight:1.6,marginTop:12}}>{communityError || 'Gathering little moments…'}</div>
+    {communityError&&user?.id&&<button type="button" onClick={()=>{setCommunityError('');setCommunityReady(false);setLoadAttempt(n=>n+1)}} style={{marginTop:18,padding:'11px 24px',borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:'#A84E7D',fontWeight:800}}>Try again</button>}
+  </div>
+
   if(screen.type==='post') {
     const p=posts.find(x=>String(x.id)===String(screen.postId))
     if(!p){ setScreen({type:'feed'}); return null }
-    const target=profileTargetForPost(p)
-    const poster=personFor(p)
+    const backLabel=screen.returnTo?.screen?.type==='profile'
+      ? (screen.returnTo.screen.user==='me'
+        ? (screen.returnTo.profileTab==='saved'?'Saved':screen.returnTo.profileTab==='liked'?'Liked':'My Profile')
+        : (screen.returnTo.screen.person?.name || 'Profile'))
+      : 'Community'
     return <div className="fade-in" style={{padding:'10px 18px 0'}}>
-      <div onClick={()=>openProfile(target.user,target.person)} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:'pointer',marginBottom:17}}>‹ {poster.name}</div>
+      <button type="button" onClick={backFromPost} style={{border:'none',background:'transparent',padding:0,fontFamily:'inherit',fontSize:13,fontWeight:700,color:BASE.taupe,cursor:'pointer',marginBottom:17}}>‹ {backLabel}</button>
       <PostCard p={p} detail/>
       <div style={{height:70}}/>
       {renderCommentsSheet()}
+      {renderPostMenu()}
     </div>
   }
 
@@ -332,7 +361,7 @@ function CommunityApp({ctx}) {
     </div>
     <textarea value={caption} onChange={e=>setCaption(e.target.value)} placeholder="What do you want to remember or share?" style={{width:'100%',minHeight:105,boxSizing:'border-box',marginTop:16,borderRadius:17,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,padding:14,fontFamily:'inherit',fontSize:13,resize:'none',outline:'none'}}/>
     <div style={{fontSize:10,fontWeight:800,letterSpacing:1.5,textTransform:'uppercase',color:BASE.taupe,margin:'20px 0 10px'}}>Add what you did · optional</div><div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:5}}>{ATTACHMENTS.map(a=><button key={a[1]} onClick={()=>setAttachment(attachment?.[1]===a[1]?null:a)} style={{whiteSpace:'nowrap',padding:'9px 12px',borderRadius:999,border:`1px solid ${attachment?.[1]===a[1]?'#C97BA8':BASE.border}`,background:attachment?.[1]===a[1]?'rgba(201,123,168,.12)':BASE.surface,color:attachment?.[1]===a[1]?'#A84E7D':BASE.creamDim,fontSize:11,fontWeight:700}}>{a[0]} {a[1]}</button>)}</div>
-    <button onClick={publish} style={{width:'100%',padding:14,borderRadius:999,border:'none',background:(caption.trim()||media)?'linear-gradient(135deg,#D86FA6,#A87BD1)':'rgba(180,160,175,.35)',color:'#fff',fontWeight:800,marginTop:24}}>Post</button><div style={{height:60}}/></div>
+    <button onClick={publish} disabled={publishing||(!caption.trim()&&!media)} aria-busy={publishing} style={{width:'100%',padding:14,borderRadius:999,border:'none',background:(caption.trim()||media)?'linear-gradient(135deg,#D86FA6,#A87BD1)':'rgba(180,160,175,.35)',color:'#fff',fontWeight:800,marginTop:24,opacity:publishing ? .7 : 1}}>{publishing?'Posting…':'Post'}</button><div style={{height:60}}/></div>
 
   function renderCommentsSheet() {
     if (!commentPost || typeof document === 'undefined') return null
@@ -390,9 +419,9 @@ function CommunityApp({ctx}) {
     <div style={{display:'flex',gap:7,marginTop:18,marginBottom:18}}>{[['foryou','For You'],['following','Following']].map(([k,l])=><button key={k} onClick={()=>setFeed(k)} style={{flex:1,padding:'10px 8px',borderRadius:14,border:`1px solid ${feed===k?'#C97BA8':BASE.border}`,background:feed===k?'rgba(201,123,168,.12)':BASE.surface,color:feed===k?'#A84E7D':BASE.taupe,fontWeight:800,fontSize:11.5}}>{l}</button>)}</div>
     {feed==='foryou'&&<div style={{fontSize:11,color:BASE.taupe,lineHeight:1.5,margin:'-5px 3px 11px'}}>Your feed gets better as True Reverie learns what you save, try, love, and come back to.</div>}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:17}}><button onClick={()=>setScreen({type:'create'})} style={{padding:'11px 10px',borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:'#A84E7D',fontSize:11.5,fontWeight:800,cursor:'pointer',boxShadow:'0 4px 14px rgba(66,40,62,.04)'}}>＋ Share something</button><button onClick={openMyProfile} style={{padding:'11px 10px',borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:'#A84E7D',fontSize:11.5,fontWeight:800,cursor:'pointer',boxShadow:'0 4px 14px rgba(66,40,62,.04)'}}>♡ My Profile</button></div>
-    {ranked.length?ranked.map(p=><PostCard key={p.id} p={p}/>):<div style={{textAlign:'center',padding:'55px 24px',color:BASE.taupe}}><div style={{fontSize:25}}>✨</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:19,fontWeight:700,color:BASE.cream,marginTop:8}}>Your following feed is quiet</div><div style={{fontSize:12,marginTop:6}}>Follow women whose lives and ideas you want to see more of.</div></div>}
+    {ranked.length?ranked.map(p=><PostCard key={p.id} p={p}/>):<div style={{textAlign:'center',padding:'55px 24px',color:BASE.taupe}}><div style={{fontSize:25}}>✨</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:19,fontWeight:700,color:BASE.cream,marginTop:8}}>{feed==='following'?'Your following feed is quiet':'A little space for real life'}</div><div style={{fontSize:12,marginTop:6}}>{feed==='following'?'Follow women whose lives and ideas you want to see more of.':'No moments shared yet. Yours can be the first.'}</div></div>}
     {renderCommentsSheet()}
-    {menuPost && typeof document !== 'undefined' && createPortal(<div onClick={()=>setMenuPost(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(44,31,43,.38)',display:'flex',alignItems:'flex-end',justifyContent:'center'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:440,borderRadius:'24px 24px 0 0',background:BASE.bg,padding:'18px 20px',paddingBottom:'calc(28px + env(safe-area-inset-bottom))',boxShadow:'0 -12px 40px rgba(45,25,42,.18)'}}><div style={{width:38,height:4,borderRadius:999,background:'rgba(120,91,112,.28)',margin:'0 auto 10px'}}/><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:BASE.creamDim,fontWeight:700,textAlign:'left'}}>Not interested in posts like this</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:BASE.creamDim,fontWeight:700,textAlign:'left'}}>Block this account</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:'#B9566B',fontWeight:700,textAlign:'left'}}>Report post</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800,marginTop:8}}>Cancel</button></div></div>, document.body)}
+    {renderPostMenu()}
     <div style={{height:55}}/></div>
 }
 
