@@ -1,80 +1,36 @@
+import { createHmac, timingSafeEqual } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-)
+export const config={api:{bodyParser:false}}
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
-
+// Retained for existing Library purchases, not used as the new subscription API.
+export default async function handler(req,res) {
+  if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'})
+  const secret=process.env.SHOPIFY_WEBHOOK_SECRET
+  if(!secret)return res.status(503).json({error:'Webhook not configured'})
   try {
-    const order = req.body || {}
-
-    // 1. Get the buyer's email, cleaned up (lowercase + no stray spaces)
-    const rawEmail =
-      order.email ||
-      order.contact_email ||
-      (order.customer && order.customer.email) ||
-      ''
-    const email = String(rawEmail).trim().toLowerCase()
-
-    // 2. Did this order include the Library? (so we skip hoodie-only orders)
-    const items = order.line_items || []
-    const boughtLibrary = items.some((li) =>
-      String(li.title || '').toLowerCase().includes('library')
-    )
-
-    // This shows up in your Vercel logs so we can see exactly what happened
-    console.log('WEBHOOK received:', JSON.stringify({
-      email,
-      itemTitles: items.map((li) => li.title),
-      boughtLibrary,
-    }))
-
-    if (!email) {
-      console.log('WEBHOOK: order had no email, skipping')
-      return res.status(200).json({ ok: true, note: 'no email' })
-    }
-
-    if (!boughtLibrary) {
-      console.log('WEBHOOK: no Library item in order, skipping')
-      return res.status(200).json({ ok: true, note: 'no library item' })
-    }
-
-    // 3. Flip an existing account (case-insensitive email match)
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ has_membership: true })
-      .ilike('email', email)
-      .select()
-
-    if (error) {
-      console.log('WEBHOOK: supabase error:', error.message)
-      return res.status(200).json({ ok: false, error: error.message })
-    }
-
-    if (data && data.length > 0) {
-      console.log('WEBHOOK: GRANTED membership to', email)
-      return res.status(200).json({ ok: true, granted: true })
-    }
-
-    // 4. No account yet — remember them so they unlock when they sign up
-    const { error: pErr } = await supabase
-      .from('pending_memberships')
-      .upsert({ email }, { onConflict: 'email' })
-
-    if (pErr) {
-      console.log('WEBHOOK: pending table note:', pErr.message)
-    } else {
-      console.log('WEBHOOK: no account yet, saved as pending for', email)
-    }
-
-    return res.status(200).json({ ok: true, pending: true })
-  } catch (err) {
-    console.log('WEBHOOK: unexpected error:', err.message)
-    return res.status(200).json({ ok: false, error: err.message })
-  }
+    const chunks=[];let size=0
+    for await(const chunk of req){size+=chunk.length;if(size>2*1024*1024)return res.status(413).json({error:'Payload too large'});chunks.push(Buffer.from(chunk))}
+    const raw=Buffer.concat(chunks)
+    const signature=Buffer.from(String(req.headers['x-shopify-hmac-sha256']||''),'base64')
+    const expected=createHmac('sha256',secret).update(raw).digest()
+    if(signature.length!==expected.length||!timingSafeEqual(signature,expected))return res.status(401).json({error:'Invalid signature'})
+    let order
+    try{order=JSON.parse(raw.toString('utf8'))}catch(e){return res.status(400).json({error:'Invalid payload'})}
+    if(order.financial_status!=='paid')return res.status(200).json({ok:true,ignored:true})
+    const email=String(order.email||order.contact_email||order.customer?.email||'').trim().toLowerCase()
+    const boughtLibrary=Array.isArray(order.line_items)&&order.line_items.some(item=>String(item.title||'').toLowerCase().includes('library'))
+    if(!email||!boughtLibrary)return res.status(200).json({ok:true,ignored:true})
+    const url=process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key=process.env.SUPABASE_SERVICE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY
+    if(!url||!key)return res.status(503).json({error:'Webhook not configured'})
+    const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}})
+    const literal=email.replace(/[\\%_]/g,c=>'\\'+c)
+    const {data,error}=await admin.from('profiles').update({has_membership:true}).ilike('email',literal).select('id')
+    if(error)throw error
+    if(data?.length)return res.status(200).json({ok:true,granted:true})
+    const pending=await admin.from('pending_memberships').upsert({email},{onConflict:'email'})
+    if(pending.error)throw pending.error
+    return res.status(200).json({ok:true,pending:true})
+  } catch(e){console.error('Verified Shopify webhook failed:',e);return res.status(500).json({error:'Webhook processing failed'})}
 }
