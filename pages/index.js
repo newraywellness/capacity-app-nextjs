@@ -1001,9 +1001,22 @@ export default function App() {
     return renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
   }
 
+  // Section atmosphere: permanent daylight with a very light pastel identity.
+  // Keep the existing Bloom/Nourish/Cycle environmental artwork; these colors
+  // simply give every main area a consistent "whisper" background.
+  const sectionBackground =
+    tab === "bloom" ? "#F4F8FB" :
+    tab === "body" && bodyView === "gym" ? "#FFF6EF" :
+    tab === "body" && bodyView === "nourish" ? "#FFFBEF" :
+    tab === "body" && bodyView === "cycle" ? "#F8F4FB" :
+    tab === "rebuild" ? "#FFF4F6" :
+    tab === "reverie" ? "#F3F8F3" :
+    tab === "community" ? "#FBF8F3" :
+    BASE.bg
+
   return (
     <><Fonts /><GlobalStyle />
-      <div style={{ "--accent": T.accent, background: tab === "today" ? envRoot.bg : (tab === "body" && bodyView === "nourish" ? NOURISH_BG(envRoot.mode) : (tab === "bloom" ? BLOOM_BG("afternoon") : (tab === "body" && bodyView === "cycle" ? CYCLE_BG(cycleNow && cycleNow.phase) : (tab === "reverie" ? "linear-gradient(180deg,#FFF9F7 0%,#FBF1F5 100%)" : (tab === "community" ? "linear-gradient(180deg,#FFF9F7 0%,#F5EEF8 100%)" : BASE.bg))))), transition: "background 0.8s ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
+      <div style={{ "--accent": T.accent, background: sectionBackground, transition: "background-color 350ms ease", minHeight: "100vh", maxWidth: 440, margin: "0 auto", position: "relative", overflow: "hidden" }}>
         {tab === "today" && <Sky mode={envRoot.mode} tint={envRoot.tint} />}
         {tab === "today" && <Garden mode={envRoot.mode} />}
         {tab === "body" && bodyView === "nourish" && <NourishAir mode={envRoot.mode} tint={envRoot.tint} />}
