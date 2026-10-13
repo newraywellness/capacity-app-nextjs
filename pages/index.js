@@ -17,6 +17,8 @@ import { renderReverie } from '../views/reverie.js'
 import { renderCommunity } from '../views/community.js'
 import { renderMore } from '../views/more.js'
 import { renderRebuild } from '../views/rebuild.js'
+import { CommunityContentView } from '../views/community-content.js'
+import { sourceKey, syncReverieShare } from '../lib/community-content.js'
 
 const cycleLocalDateISO = (date = new Date()) => {
   const y = date.getFullYear()
@@ -105,6 +107,11 @@ export default function App() {
   const [reverieSearch, setReverieSearch] = useState("")
   const [reverieComposerOpen, setReverieComposerOpen] = useState(false)
   const [reverieDraft, setReverieDraft] = useState({ title: "", note: "", date: new Date().toISOString().slice(0, 10), photo: null, share: false })
+  const [linkedContent,setLinkedContent] = useState(null)
+  const [communityComposeSource,setCommunityComposeSource] = useState(null)
+  const [reverieSaving,setReverieSaving] = useState(false)
+  const [reverieSaveError,setReverieSaveError] = useState('')
+  const reverieSaveBusyRef = useRef(false)
   const [rebuildComingSoon, setRebuildComingSoon] = useState(null) // program id, or null
   // Feel Like Yourself Again — navigation state is ephemeral (fine to reset on
   // reload, same as everywhere else in the app). Actual progress is bundled
@@ -996,9 +1003,55 @@ export default function App() {
     return value
   })
 
+  const openLinkedContent=(source)=>{
+    if(!sourceKey(source))return
+    setLinkedContent({source,backLabel:tab==='community'?'Community':tab==='reverie'?'My Reverie':tab==='body'?'Body':tab==='rebuild'?'Rebuild':'Bloom'})
+  }
+  const openCommunityComposer=(source=null)=>{
+    setLinkedContent(null)
+    setCommunityComposeSource({source,requestId:Date.now()+Math.random()})
+    setTab('community')
+    if(typeof window!=='undefined')window.scrollTo({top:0,behavior:'auto'})
+  }
+  const openReverieFromContent=(source)=>{
+    setLinkedContent(null);setReverieSaveError('')
+    setReverieDraft({title:source.label||'',note:'',date:cycleLocalDateISO(),photo:null,photoPosition:{x:50,y:50},originalImage:null,source:source.type,contentId:sourceKey(source),share:false,editingId:null})
+    setReverieSection('home');setReverieComposerOpen(true);setTab('reverie')
+  }
+  const onCommunityPostDeleted=(postId)=>setReverieEntries(previous=>{
+    const next=previous.map(entry=>String(entry.communityPostId)===String(postId)&&entry.communityUserId===user?.id?{...entry,share:false,communityPostId:null,communityUserId:null,communitySharePending:false}:entry)
+    try{localStorage.setItem('nr_reverie_entries',JSON.stringify(next))}catch(e){}
+    return next
+  })
+  const saveReverieEntry=async(draft)=>{
+    if(reverieSaveBusyRef.current||(!String(draft.title||'').trim()&&!draft.photo))return
+    reverieSaveBusyRef.current=true;setReverieSaving(true);setReverieSaveError('')
+    const id=draft.editingId||`life-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const entry={...draft,id,title:String(draft.title||'').trim()||'A moment from my life',note:String(draft.note||'').trim(),date:draft.date||cycleLocalDateISO(),contentId:draft.contentId||null,share:!!draft.share}
+    delete entry.editingId
+    if(entry.share)entry.communityUserId=user?.id||null
+    const persist=(nextEntry)=>setReverieEntries(previous=>{
+      const next=previous.some(e=>e.id===id)?previous.map(e=>e.id===id?nextEntry:e):[...previous,nextEntry]
+      try{localStorage.setItem('nr_reverie_entries',JSON.stringify(next))}catch(e){console.error('Could not cache My Reverie:',e)}
+      return next
+    })
+    persist(entry);setReverieDraft(d=>({...d,editingId:id}))
+    try {
+      if(entry.share||((entry.communityPostId||entry.communitySharePending)&&entry.communityUserId===user?.id)){
+        const communityPostId=await syncReverieShare(entry,user,firstName)
+        persist({...entry,communityPostId,communityUserId:communityPostId?user.id:null,communitySharePending:false})
+      }
+      setReverieComposerOpen(false)
+    } catch(e){
+      console.error('Could not sync scrapbook sharing:',e)
+      persist({...entry,communitySharePending:true})
+      setReverieSaveError(`Saved in My Reverie. ${e.message||'Community sharing did not finish.'} You can retry or turn sharing off to keep this moment private.`)
+    } finally{reverieSaveBusyRef.current=false;setReverieSaving(false)}
+  }
+
   const renderContent = () => {
-    const ctx = { Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, openBloomCard, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveNutrition, savedBloom, savedFilter, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
-    return renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null
+    const ctx = { onCommunityPostDeleted, openLinkedContent, openCommunityComposer, openReverieFromContent, communityComposeSource, setCommunityComposeSource, saveReverieEntry, reverieSaving, reverieSaveError, setReverieSaveError, Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, openBloomCard, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveNutrition, savedBloom, savedFilter, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    return <>{renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null}{linkedContent&&<CommunityContentView ctx={ctx} source={linkedContent.source} backLabel={linkedContent.backLabel} onClose={()=>setLinkedContent(null)}/>}</>
   }
 
   // Section atmosphere: permanent daylight with a very light pastel identity.
