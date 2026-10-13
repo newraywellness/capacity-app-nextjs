@@ -46,6 +46,19 @@ function CommunityApp({ctx}) {
   const [comment,setComment] = useState('')
   const [commentPost,setCommentPost] = useState(null)
   const [menuPost,setMenuPost] = useState(null)
+  const [blockedAccounts,setBlockedAccounts] = useState([])
+  const [blockedOpen,setBlockedOpen] = useState(false)
+  const [safetyBusy,setSafetyBusy] = useState(false)
+  const [safetyError,setSafetyError] = useState('')
+  const [notice,setNotice] = useState('')
+  const [reportPost,setReportPost] = useState(null)
+  const [reportReason,setReportReason] = useState('spam')
+  const [reportDetails,setReportDetails] = useState('')
+  const [commentPosting,setCommentPosting] = useState(false)
+  const [commentError,setCommentError] = useState('')
+  const safetyBusyRef = useRef(false)
+  const commentBusyRef = useRef(false)
+  const commentSheetRef = useRef(null)
   const [media,setMedia] = useState(null)
   const mediaDragRef = useRef(null)
   const profileDragRef = useRef(null)
@@ -68,17 +81,34 @@ function CommunityApp({ctx}) {
         return
       }
       try {
-        const [{ data: profile, error: profileError }, { data: realPosts, error: postsError }, { data: myActions, error: myActionsError }, { data: likeActions, error: likeActionsError }, { data: follows, error: followsError }, { data: profiles, error: profilesError }] = await Promise.all([
+        const [{ data: profile, error: profileError }, { data: realPosts, error: postsError }, { data: myActions, error: myActionsError }, { data: likeActions, error: likeActionsError }, { data: follows, error: followsError }, { data: profiles, error: profilesError }, { data: blocks, error: blocksError }, { data: hidden, error: hiddenError }] = await Promise.all([
           db.from('tr_community_profiles').select('*').eq('user_id', user.id).maybeSingle(),
           db.from('tr_community_posts').select('*').eq('status','published').order('created_at',{ascending:false}).limit(50),
           db.from('tr_community_post_actions').select('post_id,action,user_id').eq('user_id', user.id),
           db.from('tr_community_post_actions').select('post_id,action,user_id').eq('action','like'),
           db.from('tr_community_follows').select('follower_id,following_id'),
-          db.from('tr_community_profiles').select('*')
+          db.from('tr_community_profiles').select('*'),
+          db.from('tr_community_blocks').select('blocker_id,blocked_id,blocked_name').eq('blocker_id',user.id),
+          db.from('tr_community_hidden_posts').select('post_id').eq('user_id',user.id)
         ])
         if (cancelled) return
-        const loadError = postsError || myActionsError || likeActionsError || followsError || profilesError || profileError
+        const loadError = postsError || myActionsError || likeActionsError || followsError || profilesError || profileError || blocksError || hiddenError
         if (loadError) throw loadError
+        const blockedIds = new Set((blocks||[]).map(b=>b.blocked_id))
+        const hiddenIds = new Set((hidden||[]).map(h=>String(h.post_id)))
+        const visibleRows = (realPosts||[]).filter(r=>!blockedIds.has(r.user_id)&&!hiddenIds.has(String(r.id)))
+        const loadedComments = []
+        if (visibleRows.length) {
+          // Page comments to avoid silently dropping them at Supabase's row limit.
+          for (let offset=0;;offset+=1000) {
+            const {data,error}=await db.from('tr_community_comments').select('*').in('post_id',visibleRows.map(r=>r.id)).order('created_at',{ascending:true}).order('id',{ascending:true}).range(offset,offset+999)
+            if (cancelled) return
+            if (error) throw error
+            loadedComments.push(...(data||[]))
+            if ((data||[]).length<1000) break
+          }
+        }
+        setBlockedAccounts(blocks||[])
         if (Array.isArray(profiles)) {
           const byUser = {}
           profiles.forEach(pr => { byUser[pr.user_id] = {name:pr.display_name||'True Reverie',handle:pr.handle||'@truereverie',bio:pr.bio||'',photo:pr.avatar_url||null,photoPosition:pr.avatar_position||{x:50,y:50},reverie:Array.isArray(pr.reverie)?pr.reverie:[],initial:(pr.display_name||'T')[0].toUpperCase(),gradient:'linear-gradient(135deg,#D86FA6,#A87BD1)'} })
@@ -93,7 +123,7 @@ function CommunityApp({ctx}) {
           reverie: Array.isArray(profile.reverie) ? profile.reverie : []
         })
         if (!postsError && Array.isArray(realPosts)) {
-          const mapped = realPosts.map(r => ({
+          const mapped = visibleRows.map(r => ({
             id: `real-${r.id}`,
             dbId: r.id,
             user: r.user_id === user.id ? 'me' : `user-${r.user_id}`,
@@ -112,7 +142,7 @@ function CommunityApp({ctx}) {
             source: r.source || null,
             caption: r.caption || '',
             likes: (likeActions || []).filter(a => String(a.post_id) === String(r.id)).length,
-            comments: [],
+            comments: loadedComments.filter(c=>String(c.post_id)===String(r.id)&&!blockedIds.has(c.user_id)).map(c=>({...c,name:(profiles||[]).find(pr=>pr.user_id===c.user_id)?.display_name||c.author_name||'True Reverie',text:c.body})),
             tags: Array.isArray(r.tags) ? r.tags : ['personal'],
             image: r.media_url ? `url(${r.media_url}) ${r.media_position?.x??50}% ${r.media_position?.y??50}%/cover no-repeat` : 'linear-gradient(145deg,#DDB9CB,#A989B7,#7C6B91)',
             mediaUrl: r.media_url || null,
@@ -175,7 +205,7 @@ function CommunityApp({ctx}) {
   const openProfile=(key, person=null)=>{ setProfileTab('posts'); setScreen({type:'profile',user:key,person}) }
   const openPost=(p)=>{ if(!p)return; setScreen({type:'post',postId:p.id,returnTo:{screen,profileTab}}) }
   const backFromPost=()=>{
-    setCommentPost(null); setMenuPost(null)
+    closeComments(); setMenuPost(null)
     setProfileTab(screen.returnTo?.profileTab || 'posts')
     setScreen(screen.returnTo?.screen || {type:'feed'})
   }
@@ -256,8 +286,84 @@ function CommunityApp({ctx}) {
       [user.id]:{followers:c[user.id]?.followers||0,following:Math.max(0,(c[user.id]?.following||0)+(active?-1:1)),likes:c[user.id]?.likes||0}
     }))
   }
-  const openComments=(id)=>{ setComment(''); setCommentPost(id) }
-  const addComment=(id)=>{if(!comment.trim())return;setPosts(posts.map(p=>p.id===id?{...p,comments:[...p.comments,{name:firstName||'You',text:comment.trim()}]}:p));setComment('')}
+  const closeComments=()=>{ commentSheetRef.current=null;setCommentPost(null);setComment('');setCommentError('') }
+  const openComments=(id)=>{ commentSheetRef.current=id;setComment('');setCommentError('');setCommentPost(id) }
+  const addComment=async(id)=>{
+    const p=posts.find(x=>x.id===id)
+    const body=comment.trim()
+    if(!p?.dbId||!user?.id||!body||commentBusyRef.current)return
+    if(body.length>2000){setCommentError('Keep your comment under 2,000 characters.');return}
+    commentBusyRef.current=true;setCommentPosting(true);setCommentError('')
+    try {
+      const {data,error}=await db.from('tr_community_comments').insert({post_id:p.dbId,user_id:user.id,body,author_name:myProfile.name||firstName||'You'}).select('*').single()
+      if(error)throw error
+      setPosts(ps=>ps.map(x=>x.id===id?{...x,comments:[...x.comments,{...data,name:myProfile.name||firstName||'You',text:data.body}]}:x))
+      if(commentSheetRef.current===id)setComment('')
+    } catch(e) {
+      console.error('Could not post comment:',e)
+      if(commentSheetRef.current===id)setCommentError('Your comment did not post. Please try again.')
+    } finally {commentBusyRef.current=false;setCommentPosting(false)}
+  }
+  const deleteComment=async(p,c)=>{
+    if(c.user_id!==user?.id||commentBusyRef.current)return
+    commentBusyRef.current=true;setCommentPosting(true);setCommentError('')
+    try {
+      const {error}=await db.from('tr_community_comments').delete().eq('id',c.id).eq('user_id',user.id)
+      if(error)throw error
+      setPosts(ps=>ps.map(x=>x.id===p.id?{...x,comments:x.comments.filter(v=>v.id!==c.id)}:x))
+    } catch(e) {console.error('Could not delete comment:',e);if(commentSheetRef.current===p.id)setCommentError('Your comment could not be removed. Please try again.')}
+    finally {commentBusyRef.current=false;setCommentPosting(false)}
+  }
+  const beginSafety=()=>{
+    if(safetyBusyRef.current)return false
+    safetyBusyRef.current=true;setSafetyBusy(true);setSafetyError('');return true
+  }
+  const endSafety=()=>{safetyBusyRef.current=false;setSafetyBusy(false)}
+  const closeMenu=()=>{if(!safetyBusyRef.current){setMenuPost(null);setSafetyError('')}}
+  const hidePost=async(p)=>{
+    if(!p?.dbId||!user?.id||!beginSafety())return
+    try {
+      const {error}=await db.from('tr_community_hidden_posts').insert({user_id:user.id,post_id:p.dbId})
+      if(error&&error.code!=='23505')throw error
+      setPosts(ps=>ps.filter(x=>x.id!==p.id));setMenuPost(null)
+      if(screen.type==='post')setScreen(screen.returnTo?.screen||{type:'feed'})
+      setNotice('This post is hidden from your Community.')
+    } catch(e) {console.error('Could not hide post:',e);setSafetyError('That post could not be hidden. Please try again.')}
+    finally {endSafety()}
+  }
+  const blockAccount=async(p)=>{
+    const target=p?.user?.replace(/^user-/,'')
+    if(!user?.id||!target||p.mine||!beginSafety())return
+    try {
+      const name=personFor(p).name
+      const {error}=await db.rpc('tr_community_block_account',{p_blocked_id:target,p_display_name:name})
+      if(error)throw error
+      setMenuPost(null);closeComments();setScreen({type:'feed'});setNotice(`${name} is blocked. You can unblock accounts from My Profile.`)
+      // Reload server-filtered posts, comments, follows, and counts together.
+      setCommunityReady(false);setLoadAttempt(n=>n+1)
+    } catch(e) {console.error('Could not block account:',e);setSafetyError('That account could not be blocked. Please try again.')}
+    finally {endSafety()}
+  }
+  const unblockAccount=async(target)=>{
+    if(!user?.id||!beginSafety())return
+    try {
+      const {error}=await db.from('tr_community_blocks').delete().eq('blocker_id',user.id).eq('blocked_id',target)
+      if(error)throw error
+      setBlockedAccounts(bs=>bs.filter(b=>b.blocked_id!==target));setBlockedOpen(false);setNotice('Account unblocked. Previous follows are not restored.')
+      setCommunityReady(false);setLoadAttempt(n=>n+1)
+    } catch(e) {console.error('Could not unblock account:',e);setSafetyError('That account could not be unblocked. Please try again.')}
+    finally {endSafety()}
+  }
+  const startReport=(p)=>{setMenuPost(null);setSafetyError('');setReportPost(p);setReportReason('spam');setReportDetails('')}
+  const submitReport=async()=>{
+    if(!reportPost?.dbId||!user?.id||!beginSafety())return
+    try {
+      const {error}=await db.from('tr_community_reports').insert({reporter_id:user.id,post_id:reportPost.dbId,reason:reportReason,details:reportDetails.trim()})
+      if(error&&error.code!=='23505')throw error
+      setReportPost(null);setNotice(error?.code==='23505'?'You have already reported this post.':'Your report was sent for review.')
+    } catch(e) {console.error('Could not report post:',e);setSafetyError('Your report did not send. Please try again.')}
+    finally {endSafety()}
+  }
   const chooseMedia=(e)=>{
     const file=e.target.files?.[0]
     if(!file)return
@@ -328,8 +434,32 @@ function CommunityApp({ctx}) {
   </div>}
 
   function renderPostMenu() {
-    return menuPost && typeof document !== 'undefined' && createPortal(<div onClick={()=>setMenuPost(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(44,31,43,.38)',display:'flex',alignItems:'flex-end',justifyContent:'center'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:440,borderRadius:'24px 24px 0 0',background:BASE.bg,padding:'18px 20px',paddingBottom:'calc(28px + env(safe-area-inset-bottom))',boxShadow:'0 -12px 40px rgba(45,25,42,.18)'}}><div style={{width:38,height:4,borderRadius:999,background:'rgba(120,91,112,.28)',margin:'0 auto 10px'}}/><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:BASE.creamDim,fontWeight:700,textAlign:'left'}}>Not interested in posts like this</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:BASE.creamDim,fontWeight:700,textAlign:'left'}}>Block this account</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,border:'none',background:'transparent',color:'#B9566B',fontWeight:700,textAlign:'left'}}>Report post</button><button onClick={()=>setMenuPost(null)} style={{width:'100%',padding:13,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontWeight:800,marginTop:8}}>Cancel</button></div></div>, document.body)
+    if(typeof document==='undefined')return null
+    const sheetStyle={width:'100%',maxWidth:440,maxHeight:'85dvh',overflowY:'auto',borderRadius:'24px 24px 0 0',background:BASE.bg,padding:'18px 20px',paddingBottom:'calc(28px + env(safe-area-inset-bottom))',boxShadow:'0 -12px 40px rgba(45,25,42,.18)'}
+    const actionStyle={width:'100%',padding:13,border:'none',background:'transparent',color:BASE.creamDim,fontWeight:700,textAlign:'left'}
+    const cancelStyle={...actionStyle,borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,textAlign:'center',marginTop:8}
+    const error=safetyError?<div role="alert" style={{fontSize:12,color:'#B9566B',padding:'8px 0'}}>{safetyError}</div>:null
+    const wrap=(children,onClose)=>createPortal(<div onClick={onClose} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(44,31,43,.38)',display:'flex',alignItems:'flex-end',justifyContent:'center'}}><div role="dialog" aria-modal="true" aria-label={reportPost?'Report post':blockedOpen?'Blocked accounts':'Post options'} onClick={e=>e.stopPropagation()} style={sheetStyle}>{children}</div></div>,document.body)
+    if(reportPost)return wrap(<>
+      <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:24,color:BASE.cream}}>Report post</div>
+      <div style={{fontSize:12,color:BASE.taupe,lineHeight:1.5,margin:'8px 0 14px'}}>Let us know what needs a closer look. Reporting sends this post for review.</div>
+      <label style={{fontSize:12,color:BASE.creamDim}}>Reason<select aria-label="Report reason" value={reportReason} disabled={safetyBusy} onChange={e=>setReportReason(e.target.value)} style={{width:'100%',marginTop:7,padding:12,borderRadius:12,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim}}>{[['spam','Spam'],['harassment','Harassment or bullying'],['unsafe_advice','Unsafe advice'],['other','Something else']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+      <textarea aria-label="Report details" value={reportDetails} disabled={safetyBusy} maxLength={2000} onChange={e=>setReportDetails(e.target.value)} placeholder="Anything else we should know? (optional)" style={{width:'100%',boxSizing:'border-box',minHeight:88,marginTop:12,padding:12,borderRadius:12,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,fontFamily:'inherit'}}/>
+      {error}<button disabled={safetyBusy} onClick={submitReport} style={{...cancelStyle,background:'#A84E7D',color:'#fff'}}>{safetyBusy?'Sending…':'Send report'}</button><button disabled={safetyBusy} onClick={()=>{setReportPost(null);setSafetyError('')}} style={cancelStyle}>Cancel</button>
+    </>,()=>{if(!safetyBusyRef.current){setReportPost(null);setSafetyError('')}})
+    if(blockedOpen)return wrap(<>
+      <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:24,color:BASE.cream}}>Blocked accounts</div>
+      {blockedAccounts.length?blockedAccounts.map(b=><div key={b.blocked_id} style={{display:'flex',alignItems:'center',gap:10,padding:'14px 0',borderBottom:`1px solid ${BASE.border}`}}><span style={{flex:1,fontSize:13,color:BASE.creamDim}}>{b.blocked_name||'Blocked account'}</span><button disabled={safetyBusy} onClick={()=>unblockAccount(b.blocked_id)} style={{...cancelStyle,width:'auto',marginTop:0,padding:'8px 12px'}}>Unblock</button></div>):<div style={{fontSize:12,color:BASE.taupe,padding:'20px 0'}}>No blocked accounts.</div>}
+      {error}<button disabled={safetyBusy} onClick={()=>{setBlockedOpen(false);setSafetyError('')}} style={cancelStyle}>Done</button>
+    </>,()=>{if(!safetyBusyRef.current){setBlockedOpen(false);setSafetyError('')}})
+    if(!menuPost)return null
+    return wrap(<>
+      <div style={{width:38,height:4,borderRadius:999,background:'rgba(120,91,112,.28)',margin:'0 auto 10px'}}/>
+      {!menuPost.mine&&<><button disabled={safetyBusy} onClick={()=>hidePost(menuPost)} style={actionStyle}>Not interested in this post</button><button disabled={safetyBusy} onClick={()=>blockAccount(menuPost)} style={actionStyle}>Block this account</button><button disabled={safetyBusy} onClick={()=>startReport(menuPost)} style={{...actionStyle,color:'#B9566B'}}>Report post</button></>}
+      {safetyBusy&&<div role="status" style={{fontSize:12,color:BASE.taupe,padding:'8px 0'}}>Saving…</div>}{error}<button disabled={safetyBusy} onClick={closeMenu} style={cancelStyle}>Cancel</button>
+    </>,closeMenu)
   }
+  const Notice=()=>notice?<div role="status" style={{padding:'11px 13px',marginBottom:14,borderRadius:14,background:BASE.surface,border:`1px solid ${BASE.border}`,fontSize:12,lineHeight:1.5,color:BASE.creamDim}}>{notice}<button aria-label="Dismiss message" onClick={()=>setNotice('')} style={{border:'none',background:'transparent',color:BASE.taupe,marginLeft:8}}>×</button></div>:null
 
   if (!communityReady || communityError) return <div className="fade-in" role={communityError?'alert':'status'} aria-live="polite" style={{padding:'60px 24px',textAlign:'center',color:BASE.taupe}}>
     <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:26,fontWeight:600,color:BASE.cream}}>Community</div>
@@ -347,7 +477,7 @@ function CommunityApp({ctx}) {
       : 'Community'
     return <div className="fade-in" style={{padding:'10px 18px 0'}}>
       <button type="button" onClick={backFromPost} style={{border:'none',background:'transparent',padding:0,fontFamily:'inherit',fontSize:13,fontWeight:700,color:BASE.taupe,cursor:'pointer',marginBottom:17}}>‹ {backLabel}</button>
-      <PostCard p={p} detail/>
+      <Notice/><PostCard p={p} detail/>
       <div style={{height:70}}/>
       {renderCommentsSheet()}
       {renderPostMenu()}
@@ -368,19 +498,20 @@ function CommunityApp({ctx}) {
     const p = posts.find(x => x.id === commentPost)
     if (!p) return null
     return createPortal(
-      <div onClick={()=>{setCommentPost(null);setComment('')}} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(44,31,43,.30)',display:'flex',alignItems:'flex-end',justifyContent:'center',touchAction:'none'}}>
+      <div onClick={closeComments} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(44,31,43,.30)',display:'flex',alignItems:'flex-end',justifyContent:'center',touchAction:'none'}}>
         <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:440,height:'62dvh',maxHeight:'680px',minHeight:'390px',borderRadius:'24px 24px 0 0',background:BASE.bg,boxShadow:'0 -12px 40px rgba(45,25,42,.18)',display:'flex',flexDirection:'column',overflow:'hidden',touchAction:'pan-y'}}>
           <div style={{position:'relative',padding:'10px 18px 12px',borderBottom:`1px solid ${BASE.border}`,flexShrink:0}}>
             <div style={{width:38,height:4,borderRadius:999,background:'rgba(120,91,112,.28)',margin:'0 auto 9px'}}/>
             <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream,textAlign:'center'}}>Comments</div>
-            <button aria-label="Close comments" onClick={()=>{setCommentPost(null);setComment('')}} style={{position:'absolute',right:13,top:15,width:32,height:32,borderRadius:'50%',border:'none',background:BASE.surface,color:BASE.creamDim,fontSize:20,lineHeight:1,cursor:'pointer'}}>×</button>
+            <button aria-label="Close comments" onClick={closeComments} style={{position:'absolute',right:13,top:15,width:32,height:32,borderRadius:'50%',border:'none',background:BASE.surface,color:BASE.creamDim,fontSize:20,lineHeight:1,cursor:'pointer'}}>×</button>
           </div>
           <div style={{flex:1,minHeight:0,overflowY:'auto',overscrollBehavior:'contain',WebkitOverflowScrolling:'touch',padding:'8px 18px 16px'}}>
-            {p.comments.length===0?<div style={{fontSize:12.5,color:BASE.taupe,fontStyle:'italic',padding:'24px 2px'}}>Be the first to say something.</div>:p.comments.map((c,i)=><div key={i} style={{display:'flex',gap:10,padding:'12px 2px',borderBottom:`1px solid ${BASE.border}`}}><div style={{width:30,height:30,borderRadius:'50%',background:'rgba(201,123,168,.18)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#A84E7D',flexShrink:0}}>{c.name[0]}</div><div><div style={{fontSize:11.5,fontWeight:800,color:BASE.cream}}>{c.name}</div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.45,marginTop:3}}>{c.text}</div></div></div>)}
+            {p.comments.length===0?<div style={{fontSize:12.5,color:BASE.taupe,fontStyle:'italic',padding:'24px 2px'}}>Be the first to say something.</div>:p.comments.map((c,i)=><div key={c.id||i} style={{display:'flex',gap:10,padding:'12px 2px',borderBottom:`1px solid ${BASE.border}`}}><div style={{width:30,height:30,borderRadius:'50%',background:'rgba(201,123,168,.18)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#A84E7D',flexShrink:0}}>{c.name[0]}</div><div><div style={{fontSize:11.5,fontWeight:800,color:BASE.cream}}>{c.name}</div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.45,marginTop:3}}>{c.text}</div>{c.user_id===user?.id&&<button disabled={commentPosting} onClick={()=>deleteComment(p,c)} style={{border:'none',background:'transparent',padding:'6px 0 0',fontSize:10.5,color:BASE.taupe}}>Delete comment</button>}</div></div>)}
           </div>
+          {commentError&&<div role="alert" style={{padding:'8px 14px',fontSize:12,color:'#B9566B'}}>{commentError}</div>}
           <div style={{display:'flex',gap:8,alignItems:'center',padding:'11px 14px',paddingBottom:'calc(11px + env(safe-area-inset-bottom))',borderTop:`1px solid ${BASE.border}`,background:BASE.bg,flexShrink:0}}>
-            <input value={comment} onChange={e=>setComment(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addComment(p.id)}} placeholder="Add a comment…" style={{flex:1,minWidth:0,padding:'11px 13px',borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,outline:'none',fontSize:12.5}}/>
-            <button onClick={()=>addComment(p.id)} style={{border:'none',background:'transparent',color:'#C9558E',fontWeight:800,padding:'10px 4px'}}>Post</button>
+            <input value={comment} disabled={commentPosting} maxLength={2000} onChange={e=>setComment(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addComment(p.id)}} placeholder="Add a comment…" style={{flex:1,minWidth:0,padding:'11px 13px',borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.creamDim,outline:'none',fontSize:12.5}}/>
+            <button disabled={commentPosting||!comment.trim()} aria-busy={commentPosting} onClick={()=>addComment(p.id)} style={{border:'none',background:'transparent',color:'#C9558E',fontWeight:800,padding:'10px 4px'}}>{commentPosting?'Posting…':'Post'}</button>
           </div>
         </div>
       </div>,
@@ -407,16 +538,17 @@ function CommunityApp({ctx}) {
     const visiblePosts=profileTab==='liked'?likedPosts:profileTab==='saved'?savedPosts:mine
     const follows=realUserId?realFollowing.includes(realUserId):(!isMe&&following.includes(key))
     const followClick=()=>realUserId?toggleRealFollow(realUserId):toggle(setFollowing,following,key)
-    return <div className="fade-in" style={{padding:'10px 18px 0'}}><Back/><div style={{textAlign:'center',padding:'8px 15px 12px'}}><div style={{display:'flex',justifyContent:'center'}}><Avatar person={person} size={76}/></div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:27,fontWeight:700,color:BASE.cream,marginTop:11}}>{person.name}</div><div style={{fontSize:11,color:BASE.taupe,marginTop:2}}>{person.handle}</div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.5,margin:'10px auto 14px',maxWidth:300}}>{person.bio}</div><button onClick={isMe?startEditProfile:followClick} style={{padding:'9px 25px',borderRadius:999,border:(isMe||follows)?`1px solid ${BASE.border}`:'none',background:(isMe||follows)?BASE.surface:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:(isMe||follows)?BASE.creamDim:'#fff',fontWeight:800,fontSize:11}}>{isMe?'Edit Profile':follows?'Following':'Follow'}</button></div>
+    return <div className="fade-in" style={{padding:'10px 18px 0'}}><Back/><Notice/><div style={{textAlign:'center',padding:'8px 15px 12px'}}><div style={{display:'flex',justifyContent:'center'}}><Avatar person={person} size={76}/></div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:27,fontWeight:700,color:BASE.cream,marginTop:11}}>{person.name}</div><div style={{fontSize:11,color:BASE.taupe,marginTop:2}}>{person.handle}</div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.5,margin:'10px auto 14px',maxWidth:300}}>{person.bio}</div><button onClick={isMe?startEditProfile:followClick} style={{padding:'9px 25px',borderRadius:999,border:(isMe||follows)?`1px solid ${BASE.border}`:'none',background:(isMe||follows)?BASE.surface:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:(isMe||follows)?BASE.creamDim:'#fff',fontWeight:800,fontSize:11}}>{isMe?'Edit Profile':follows?'Following':'Follow'}</button></div>
+    {isMe&&<button onClick={()=>{setSafetyError('');setBlockedOpen(true)}} style={{display:'block',margin:'0 auto 12px',border:'none',background:'transparent',fontSize:11,color:BASE.taupe}}>Blocked accounts</button>}
     <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,padding:'8px 10px 14px',textAlign:'center'}}>{[[counts.following,'Following'],[counts.followers,'Followers'],[counts.likes,'Likes']].map(([n,l])=><div key={l}><div style={{fontSize:17,fontWeight:800,color:BASE.cream}}>{n}</div><div style={{fontSize:10.5,color:BASE.taupe,marginTop:2}}>{l}</div></div>)}</div>
     <div style={{display:'grid',gridTemplateColumns:isMe?'repeat(3,1fr)':'1fr',borderTop:`1px solid ${BASE.border}`,borderBottom:`1px solid ${BASE.border}`,margin:'0 0 22px'}}>{[['posts','▦','Posts'],...(isMe?[["liked","♡","Liked"],["saved","🔖","Saved"]]:[])].map(([k,ic,l])=><button key={k} onClick={()=>setProfileTab(k)} style={{padding:'11px 4px 9px',border:'none',borderBottom:profileTab===k?'2px solid #C9558E':'2px solid transparent',background:'transparent',color:profileTab===k?'#A84E7D':BASE.taupe,fontSize:17,cursor:'pointer'}}><div>{ic}</div><div style={{fontSize:9.5,fontWeight:800,marginTop:3}}>{l}</div></button>)}</div>
     {profileTab==='posts'&&<><div style={{margin:'4px 0 23px'}}><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Her Reverie</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:12.5,color:BASE.taupe,marginTop:2}}>Little things making life feel more like hers.</div><div style={{display:'flex',gap:7,flexWrap:'wrap',marginTop:11}}>{(person.reverie||[]).map(x=><span key={x} style={{padding:'7px 10px',borderRadius:999,background:'rgba(201,123,168,.10)',border:`1px solid ${BASE.border}`,fontSize:10.5,color:'#A84E7D',fontWeight:700}}>{x}</span>)}</div></div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream}}>Lately</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:12.5,color:BASE.taupe,marginTop:2,marginBottom:12}}>A little scrapbook of what she’s been living.</div></>}
     {profileTab!=='posts'&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:20,fontWeight:700,color:BASE.cream,marginBottom:12}}>{profileTab==='liked'?'Posts you liked':'Posts you saved'}</div>}
-    {visiblePosts.length?visiblePosts.map((p,i)=><div key={p.id} onClick={()=>openPost(p)} style={{marginBottom:20,cursor:'pointer'}}><div style={{height:i%2===0?300:245,borderRadius:20,background:p.mediaUrl&&p.mediaType?.startsWith('image/')?`url(${p.mediaUrl}) ${p.mediaPosition?.x??50}% ${p.mediaPosition?.y??50}%/cover no-repeat`:p.image,overflow:'hidden',position:'relative',boxShadow:'0 8px 24px rgba(66,40,62,.06)'}}>{p.mediaType?.startsWith('video/')&&p.mediaUrl?<video src={p.mediaUrl} controls playsInline onClick={e=>e.stopPropagation()} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:null}</div><div onClick={e=>e.stopPropagation()}><Source source={p.source}/></div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.55,marginTop:9}}>{p.caption}</div><div style={{fontSize:10.5,color:BASE.taupe,marginTop:7}}>{p.likes||0} loved this · {p.comments.length} {p.comments.length===1?'comment':'comments'}</div></div>):<div style={{padding:'35px 18px',borderRadius:20,border:`1px dashed ${BASE.border}`,textAlign:'center',color:BASE.taupe,fontSize:12}}>{profileTab==='liked'?'Posts you like will collect here privately.':profileTab==='saved'?'Posts you save will collect here privately.':isMe?'Things you share with Community will collect here like a little scrapbook.':'Nothing shared here yet.'}</div>}<div style={{height:70}}/></div>}
+    {visiblePosts.length?visiblePosts.map((p,i)=><div key={p.id} onClick={()=>openPost(p)} style={{marginBottom:20,cursor:'pointer'}}><div style={{height:i%2===0?300:245,borderRadius:20,background:p.mediaUrl&&p.mediaType?.startsWith('image/')?`url(${p.mediaUrl}) ${p.mediaPosition?.x??50}% ${p.mediaPosition?.y??50}%/cover no-repeat`:p.image,overflow:'hidden',position:'relative',boxShadow:'0 8px 24px rgba(66,40,62,.06)'}}>{p.mediaType?.startsWith('video/')&&p.mediaUrl?<video src={p.mediaUrl} controls playsInline onClick={e=>e.stopPropagation()} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:null}</div><div onClick={e=>e.stopPropagation()}><Source source={p.source}/></div><div style={{fontSize:12.5,color:BASE.creamDim,lineHeight:1.55,marginTop:9}}>{p.caption}</div><div style={{fontSize:10.5,color:BASE.taupe,marginTop:7}}>{p.likes||0} loved this · {p.comments.length} {p.comments.length===1?'comment':'comments'}</div></div>):<div style={{padding:'35px 18px',borderRadius:20,border:`1px dashed ${BASE.border}`,textAlign:'center',color:BASE.taupe,fontSize:12}}>{profileTab==='liked'?'Posts you like will collect here privately.':profileTab==='saved'?'Posts you save will collect here privately.':isMe?'Things you share with Community will collect here like a little scrapbook.':'Nothing shared here yet.'}</div>}{renderPostMenu()}<div style={{height:70}}/></div>}
 
 
   return <div className="fade-in" style={{padding:'10px 18px 0'}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',paddingRight:44}}><div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:31,fontWeight:600,color:BASE.cream,lineHeight:1.1}}>Community</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:'italic',fontSize:15.5,color:BASE.taupe,marginTop:6}}>Real women, actually living it.</div></div></div>
-    <div style={{display:'flex',gap:7,marginTop:18,marginBottom:18}}>{[['foryou','For You'],['following','Following']].map(([k,l])=><button key={k} onClick={()=>setFeed(k)} style={{flex:1,padding:'10px 8px',borderRadius:14,border:`1px solid ${feed===k?'#C97BA8':BASE.border}`,background:feed===k?'rgba(201,123,168,.12)':BASE.surface,color:feed===k?'#A84E7D':BASE.taupe,fontWeight:800,fontSize:11.5}}>{l}</button>)}</div>
+    <Notice/><div style={{display:'flex',gap:7,marginTop:18,marginBottom:18}}>{[['foryou','For You'],['following','Following']].map(([k,l])=><button key={k} onClick={()=>setFeed(k)} style={{flex:1,padding:'10px 8px',borderRadius:14,border:`1px solid ${feed===k?'#C97BA8':BASE.border}`,background:feed===k?'rgba(201,123,168,.12)':BASE.surface,color:feed===k?'#A84E7D':BASE.taupe,fontWeight:800,fontSize:11.5}}>{l}</button>)}</div>
     {feed==='foryou'&&<div style={{fontSize:11,color:BASE.taupe,lineHeight:1.5,margin:'-5px 3px 11px'}}>Your feed gets better as True Reverie learns what you save, try, love, and come back to.</div>}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:17}}><button onClick={()=>setScreen({type:'create'})} style={{padding:'11px 10px',borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:'#A84E7D',fontSize:11.5,fontWeight:800,cursor:'pointer',boxShadow:'0 4px 14px rgba(66,40,62,.04)'}}>＋ Share something</button><button onClick={openMyProfile} style={{padding:'11px 10px',borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:'#A84E7D',fontSize:11.5,fontWeight:800,cursor:'pointer',boxShadow:'0 4px 14px rgba(66,40,62,.04)'}}>♡ My Profile</button></div>
     {ranked.length?ranked.map(p=><PostCard key={p.id} p={p}/>):<div style={{textAlign:'center',padding:'55px 24px',color:BASE.taupe}}><div style={{fontSize:25}}>✨</div><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:19,fontWeight:700,color:BASE.cream,marginTop:8}}>{feed==='following'?'Your following feed is quiet':'A little space for real life'}</div><div style={{fontSize:12,marginTop:6}}>{feed==='following'?'Follow women whose lives and ideas you want to see more of.':'No moments shared yet. Yours can be the first.'}</div></div>}
