@@ -6,6 +6,8 @@ import { BASE } from '../lib/theme.js'
 import { createPortal } from 'react-dom'
 
 import { ContentShareActions } from './content-share-actions.js'
+import { RebuildActivityPlayer, RebuildWorkspaceGallery, RebuildPhoto } from './rebuild-activity-player.js'
+import { blocksOf, photoStyle } from '../lib/rebuild-activities.js'
 import { contentSource } from '../lib/community-content.js'
 
 export function renderRebuild(ctx) {
@@ -43,6 +45,7 @@ export function renderRebuild(ctx) {
     return true
   }
   const openProgram = (p) => {
+    if(p.premium&&!rebuildPlus&&p.previewBlocks?.length){setRebuildActiveProgram(p.id);setRebuildView("dynamic-preview");return}
     if(needsPlus(p))return
     if (p._studioId) {
       setRebuildActiveProgram(p.id)
@@ -80,18 +83,19 @@ export function renderRebuild(ctx) {
     const current = rebuildCurrent.includes(p.id)
     return <div style={{ borderRadius:24, overflow:"hidden", marginBottom:18, background:BASE.surface, border:`1px solid ${BASE.border}`, boxShadow:"0 8px 24px rgba(66,40,62,.07)" }}>
       <div onClick={()=>openProgram(p)} style={{ minHeight:compact?145:235, padding:compact?"20px":"22px 20px", background:p.image?`linear-gradient(rgba(48,30,44,.16),rgba(48,30,44,.42)), url(${p.image}) center/cover no-repeat`:p.gradient, backgroundPosition:p.image?`${p.imagePosition?.x||50}% ${p.imagePosition?.y||50}%`:undefined, position:"relative", cursor:"pointer", display:"flex", flexDirection:"column", justifyContent:"space-between" }}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+        {p.image&&<><div style={{position:"absolute",inset:0,overflow:"hidden",pointerEvents:"none"}}><img loading="lazy" src={p.image} alt={p.alt||""} style={photoStyle(p)}/></div><div style={{position:"absolute",inset:0,background:"linear-gradient(rgba(48,30,44,.16),rgba(48,30,44,.42))",pointerEvents:"none"}}/></>}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,position:"relative"}}>
           <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{p.premium&&<Pill light>True Reverie +</Pill>}<Pill light>{p.kind==="quick"?"Quick Rebuild":p.duration}</Pill></div>
           <SaveButton id={"program:"+p.id} light />
         </div>
-        <div style={{marginTop:compact?18:54}}>
+        <div style={{marginTop:compact?18:54,position:"relative"}}>
           <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:compact?25:29,fontWeight:700,color:"#fff",lineHeight:1.08}}>{p.title}</div>
           <div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:14.5,color:"rgba(255,255,255,.92)",lineHeight:1.48,marginTop:9,maxWidth:350}}>{p.outcome}</div>
         </div>
       </div>
       <div style={{padding:"13px 16px 15px",display:"flex",alignItems:"center",gap:10}}>
         <div style={{flex:1,fontSize:10.5,fontWeight:700,color:BASE.taupe,textTransform:"uppercase",letterSpacing:.7}}>{p.kind==="quick"?p.duration+" · "+p.pace:p.duration+" · "+p.pace}</div>
-        <button onClick={()=>current?openProgram(p):requestStart(p)} style={{padding:"9px 14px",borderRadius:999,border:"none",background:"linear-gradient(135deg,#D86FA6,#A87BD1)",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer"}}>{p.premium&&!rebuildPlus?"Open with +":current?"Continue":"Start Rebuild"}</button>
+        <button onClick={()=>p.premium&&!rebuildPlus&&p.previewBlocks?.length?openProgram(p):current?openProgram(p):requestStart(p)} style={{padding:"9px 14px",borderRadius:999,border:"none",background:"linear-gradient(135deg,#D86FA6,#A87BD1)",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer"}}>{p.premium&&!rebuildPlus?(p.previewBlocks?.length?"Build My Rebuild":"Open with +"):current?"Continue":"Start Rebuild"}</button>
       </div>
     </div>
   }
@@ -143,6 +147,7 @@ export function renderRebuild(ctx) {
   // intro -> one current experience -> See Today's Experience -> complete -> next.
   // The full experience list is an Admin Studio concern, not a consumer screen.
   const studioProgram = studioPrograms.find(p=>p.id===rebuildActiveProgram)
+  if(studioProgram&&rebuildView==="dynamic-preview"&&studioProgram.previewBlocks?.length)return <div style={{padding:"10px 22px 40px"}}><RebuildActivityPlayer key={`${ctx.user?.id}:${studioProgram._studioId}:preview`} ctx={ctx} programId={studioProgram._studioId} scope="preview" blocks={blocksOf({blocks:studioProgram.previewBlocks})} onBack={()=>{setRebuildActiveProgram(null);setRebuildView("intro")}} onFinish={()=>{if(studioProgram.premium&&!rebuildPlus)ctx.openPlus?.();else setRebuildView("dynamic-intro")}}/></div>
   if(studioProgram?.premium&&!rebuildPlus)return <div style={{padding:'24px 22px'}}><button onClick={()=>{setRebuildActiveProgram(null);setRebuildView('intro')}} style={{border:'none',background:'transparent',color:BASE.taupe,fontWeight:700}}>‹ Rebuild</button><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,color:BASE.cream,marginTop:22}}>{studioProgram.title}</div><p style={{fontSize:13,color:BASE.taupe,lineHeight:1.6}}>This Rebuild is part of True Reverie+. Your saved progress stays right here.</p><button onClick={()=>ctx.openPlus?.()} style={{padding:'13px 22px',borderRadius:999,border:'none',background:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:'#fff',fontWeight:800}}>Explore True Reverie+</button></div>
   if (studioProgram) {
     const experiences=(supabaseRebuildExperiences||[]).filter(e=>e.rebuild_id===studioProgram._studioId).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
@@ -155,11 +160,12 @@ export function renderRebuild(ctx) {
 
     if(rebuildView==="dynamic-intro") return <div className="fade-in" style={{padding:"10px 22px 0"}}>
       <div onClick={backStudio} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ Rebuild</div>
-      {studioProgram.image&&<div style={{height:265,borderRadius:24,overflow:"hidden",marginBottom:20,background:`url(${studioProgram.image}) ${studioProgram.imagePosition?.x||50}% ${studioProgram.imagePosition?.y||50}%/cover no-repeat`,transform:"translateZ(0)"}}/>}
+      <RebuildPhoto item={{...studioProgram,photo:studioProgram.image}} height={265}/>
       <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:10}}>{studioProgram.premium&&<Pill>True Reverie +</Pill>}<Pill>{experiences.length} {experiences.length===1?"experience":"experiences"}</Pill></div>
       <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:31,fontWeight:700,color:BASE.cream,lineHeight:1.12}}>{studioProgram.title}</div>
       {studioProgram.outcome&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:16,color:"#9B6BC3",lineHeight:1.5,marginTop:10}}>{studioProgram.outcome}</div>}
       {studioProgram.intro&&<div style={{fontSize:13.5,color:BASE.creamDim,lineHeight:1.7,marginTop:15,whiteSpace:"pre-wrap"}}>{studioProgram.intro}</div>}
+      {studioProgram.previewBlocks?.length>0&&<button onClick={()=>setRebuildView("dynamic-preview")} style={{padding:"12px 18px",borderRadius:999,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.cream,fontWeight:700}}>Build My Rebuild</button>}
       <ContentShareActions ctx={ctx} source={contentSource({_studioId:studioProgram._studioId,id:studioProgram._studioId,title:studioProgram.title},'rebuild')}/>
       <div onClick={()=>{const first=experiences[0]||null;const resumeId=studioProgress?.current_experience_id||first?.id||null;if(resumeId)setRebuildDynamicExpId(resumeId);if(!rebuildCurrent.includes(studioProgram.id))setRebuildCurrent((prev)=>[...prev,studioProgram.id]);if(!studioProgress&&startRebuildProgress)startRebuildProgress({programKey:studioProgram.id,rebuildId:studioProgram._studioId,currentExperienceId:first?.id||null,currentExperienceNumber:1});setRebuildView("dynamic-home");if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})}} style={{marginTop:24,textAlign:"center",padding:"15px 0",borderRadius:999,cursor:"pointer",background:"linear-gradient(135deg,#E984B4,#A87BD1)",color:"#fff",fontSize:13.5,fontWeight:800}}>{studioProgress?"Continue Rebuild":"Start Rebuild"}</div><div style={{height:44}}/>
     </div>
@@ -183,7 +189,7 @@ export function renderRebuild(ctx) {
           <div style={{marginTop:30}}>
             <div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:BASE.taupe,marginBottom:10}}>Today</div>
             <div style={{borderRadius:20,background:BASE.surface,border:`1px solid ${BASE.border}`,overflow:"hidden"}}>
-              {c.photo&&<div style={{height:190,background:`url(${c.photo}) ${c.imagePosition?.x||50}% ${c.imagePosition?.y||50}%/cover no-repeat`}}/>}
+              <RebuildPhoto item={c} height={190}/>
               <div style={{padding:"20px 20px 22px"}}>
                 <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:21,fontWeight:700,color:BASE.cream,lineHeight:1.2}}>{exp.title}</div>
                 {c.description&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:13.5,color:BASE.taupe,marginTop:8,lineHeight:1.5}}>{c.description}</div>}
@@ -195,6 +201,8 @@ export function renderRebuild(ctx) {
           <div style={{marginTop:34,marginBottom:4}}><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:18,fontWeight:700,color:BASE.cream}}>Your Rebuild So Far</div></div>
           <div style={{fontSize:12.5,color:BASE.taupe,fontStyle:"italic",lineHeight:1.6,marginTop:8}}>{studioCompleted.length?`${studioCompleted.length} ${studioCompleted.length===1?"experience":"experiences"} complete. Your progress is saved to your account.`:"This will fill in as you go — sparks found, things you loved, patterns starting to show."}</div>
         </>:<div style={{marginTop:24,padding:20,borderRadius:18,background:BASE.surface,border:`1px solid ${BASE.border}`,fontSize:12.5,color:BASE.taupe}}>Experiences are coming soon.</div>}
+        <RebuildWorkspaceGallery key={`${ctx.user?.id}:${studioProgram._studioId}:gallery`} ctx={ctx} programId={studioProgram._studioId} program={studioProgram} experiences={experiences} onOpen={r=>{if(r.scope==="preview")setRebuildView("dynamic-preview");else {setRebuildDynamicExpId(r.experienceId);setRebuildView("dynamic-exp")}}}/>
+        <details style={{marginTop:20}}><summary style={{fontSize:12,color:BASE.taupe,cursor:"pointer"}}>Revisit experiences</summary>{experiences.map(e=><button key={e.id} onClick={()=>{setRebuildDynamicExpId(e.id);setRebuildView("dynamic-exp")}} style={{display:"block",width:"100%",padding:12,marginTop:8,borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.cream,textAlign:"left"}}>{e.title}</button>)}</details>
         <div style={{height:44}}/>
       </div>
     }
@@ -208,14 +216,15 @@ export function renderRebuild(ctx) {
       const completeStudioExperience=async()=>{
         setRebuildCapPick(null)
         const nextExp=idx<experiences.length-1?experiences[idx+1]:null
-        if(completeRebuildExperience) await completeRebuildExperience({programKey:studioProgram.id,rebuildId:studioProgram._studioId,experienceId:exp.id,experienceNumber:idx+1,nextExperienceId:nextExp?.id||null,nextExperienceNumber:nextExp?idx+2:null,isLast:!nextExp})
+        if(completeRebuildExperience){const saved=await completeRebuildExperience({programKey:studioProgram.id,rebuildId:studioProgram._studioId,experienceId:exp.id,experienceNumber:idx+1,nextExperienceId:nextExp?.id||null,nextExperienceNumber:nextExp?idx+2:null,isLast:!nextExp});if(!saved)return false}
         if(nextExp)setRebuildDynamicExpId(nextExp.id)
         setRebuildView("dynamic-home")
         if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})
       }
+      if(blocksOf(c).length)return <div style={{padding:"10px 22px 40px"}}><RebuildPhoto item={c} height={250}/><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,fontWeight:700,color:BASE.cream,marginBottom:12}}>{exp.title}</div>{c.description&&<p style={{fontSize:14,lineHeight:1.65,color:BASE.taupe,whiteSpace:"pre-wrap"}}>{c.description}</p>}<RebuildActivityPlayer key={`${ctx.user?.id}:${exp.id}`} ctx={ctx} blocks={blocksOf(c)} programId={studioProgram._studioId} experienceId={exp.id} scope={String(exp.id)} onBack={()=>setRebuildView("dynamic-home")} onFinish={completeStudioExperience}/></div>
       return <div className="fade-in" style={{padding:"10px 22px 0"}}>
         <div onClick={()=>setRebuildView("dynamic-home")} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ {studioProgram.title}</div>
-        {c.photo&&<div style={{height:250,borderRadius:22,background:`url(${c.photo}) ${c.imagePosition?.x||50}% ${c.imagePosition?.y||50}%/cover no-repeat`,marginBottom:20}}/>}
+        <RebuildPhoto item={c} height={250}/>
         <div style={{fontSize:10.5,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:BASE.taupe}}>Experience {idx+1}</div>
         <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:26,fontWeight:700,color:BASE.cream,marginTop:6,lineHeight:1.2}}>{exp.title}</div>
         {c.description&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:14.5,color:BASE.taupe,marginTop:10,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{c.description}</div>}
