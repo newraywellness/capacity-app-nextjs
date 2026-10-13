@@ -18,6 +18,7 @@ import { renderCommunity } from '../views/community.js'
 import { renderMore } from '../views/more.js'
 import { renderRebuild } from '../views/rebuild.js'
 import { CommunityContentView } from '../views/community-content.js'
+import { PlusModal } from '../views/plus.js'
 import { sourceKey, syncReverieShare } from '../lib/community-content.js'
 
 const cycleLocalDateISO = (date = new Date()) => {
@@ -126,8 +127,13 @@ export default function App() {
   const [rebuildCurrent, setRebuildCurrentRaw] = useState([])
   const [rebuildSaved, setRebuildSavedRaw] = useState([])
   const [rebuildStartWarning, setRebuildStartWarning] = useState(null)
-  // Prototype membership flag. Production will replace this with real subscription entitlement.
-  const [rebuildPlus] = useState(false)
+  // Verified account membership; browser storage never grants access.
+  const rebuildPlus = profile?.id===user?.id && profile?.has_membership===true
+  const [plusOpen,setPlusOpen] = useState(false)
+  const [membershipLoading,setMembershipLoading] = useState(false)
+  const [membershipError,setMembershipError] = useState('')
+  const membershipUserRef = useRef(null)
+  membershipUserRef.current=user?.id||null
 
   const [reviewMonth, setReviewMonth] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
   const [moreView, setMoreView] = useState("menu")
@@ -234,6 +240,7 @@ export default function App() {
     let cancelled = false
 
     const loadPublishedStudioContent = async () => {
+      setSupabaseRebuildExperiences([])
       const { data, error } = await db
         .from("tr_content")
         .select("id,title,content_type,format,category,image_url,is_premium,is_featured,content,extra_pages,published_at,created_at")
@@ -260,7 +267,7 @@ export default function App() {
 
     loadPublishedStudioContent()
     return () => { cancelled = true }
-  }, [])
+  }, [user?.id, rebuildPlus])
 
   useEffect(() => {
     // Clear any manual workout selection when the program changes (selection is per-program, per-session).
@@ -316,6 +323,31 @@ export default function App() {
       if (S) setTmpStart(S)
     } catch (e) {}
   }, [])
+
+  const refreshMembership=async()=>{
+    const uid=user?.id
+    if(!uid||uid==='prototype-user')return false
+    setMembershipLoading(true);setMembershipError('')
+    try {
+      const {data,error}=await db.from('profiles').select('id,has_membership').eq('id',uid).maybeSingle()
+      if(membershipUserRef.current!==uid)return false
+      if(error)throw error
+      setProfile(previous=>({...((previous?.id===uid&&previous)||{}),id:uid,has_membership:data?.has_membership===true}))
+      return data?.has_membership===true
+    } catch(e){
+      if(membershipUserRef.current===uid){setMembershipError('Your membership could not be checked. Please try again.');setProfile(previous=>previous?.id===uid?{...previous,has_membership:false}:previous)}
+      throw new Error('Your membership could not be checked. Please try again.')
+    } finally {if(membershipUserRef.current===uid)setMembershipLoading(false)}
+  }
+  useEffect(()=>{
+    if(!user?.id)return
+    const refresh=()=>refreshMembership().catch(()=>{})
+    refresh();window.addEventListener('focus',refresh)
+    const visible=()=>{if(document.visibilityState==='visible')refresh()}
+    document.addEventListener('visibilitychange',visible)
+    return ()=>{window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible)}
+  },[user?.id])
+  const openPlus=()=>{setPlusOpen(true);refreshMembership().catch(()=>{})}
 
   const checkAuth = async () => {
     try {
@@ -522,7 +554,7 @@ export default function App() {
       if (res.data.session && res.data.user) {
         // The database trigger creates the profile. Upsert here too so this also
         // works in projects where email confirmation is disabled.
-        await db.from("profiles").upsert([{ id: res.data.user.id, email, first_name: cleanName, has_membership: false }], { onConflict: "id" })
+        await db.from("profiles").upsert([{ id: res.data.user.id, email, first_name: cleanName }], { onConflict: "id" })
         setUser(res.data.user)
         setSetupData(null)
         setEmail(""); setPassword(""); setConfirmPw(""); setAuthMsg("")
@@ -541,7 +573,7 @@ export default function App() {
     // and strand the app on a login screen there's no real account to use.
     if (PROTOTYPE_MODE) return
     await db.auth.signOut()
-    setUser(null); setProfile(null)
+    setUser(null); setProfile(null);setPlusOpen(false);setMembershipError('');setMembershipLoading(false)
     setNutrition(null); setSavedBloom([]); setCycleLogs({}); setUseAvgCycleRaw(false); setGreetingOnRaw(true); setGreetingStyleRaw("name_formal"); setResetSeed({ d: "", day: 0, night: 0 }); setResetPage(null); setFlourishTime(null); setFlourishProject(null); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setPlanView(null); setNourishView("today")
     setProgramId(null); setSetupData(null); setFirstName("")
     setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
@@ -888,7 +920,7 @@ export default function App() {
     const finish = async () => {
       const data = { ...draftSetup, name: firstName }
       try {
-        const { error } = await db.from("profiles").upsert({ id: user.id, email: user.email || null, setup: data, first_name: firstName, has_membership: false }, { onConflict: "id" })
+        const { error } = await db.from("profiles").upsert({ id: user.id, email: user.email || null, setup: data, first_name: firstName }, { onConflict: "id" })
         if (error) { setAuthMsg(error.message || "Could not save onboarding yet."); return }
         setSetupData(data)
         try { localStorage.setItem("nr_setup", JSON.stringify(data)); localStorage.setItem("nr_name", firstName) } catch (e) {}
@@ -1050,8 +1082,8 @@ export default function App() {
   }
 
   const renderContent = () => {
-    const ctx = { onCommunityPostDeleted, openLinkedContent, openCommunityComposer, openReverieFromContent, communityComposeSource, setCommunityComposeSource, saveReverieEntry, reverieSaving, reverieSaveError, setReverieSaveError, Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, openBloomCard, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveNutrition, savedBloom, savedFilter, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
-    return <>{renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null}{linkedContent&&<CommunityContentView ctx={ctx} source={linkedContent.source} backLabel={linkedContent.backLabel} onClose={()=>setLinkedContent(null)}/>}</>
+    const ctx = { openPlus, refreshMembership, membershipLoading, membershipError, onCommunityPostDeleted, openLinkedContent, openCommunityComposer, openReverieFromContent, communityComposeSource, setCommunityComposeSource, saveReverieEntry, reverieSaving, reverieSaveError, setReverieSaveError, Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, openBloomCard, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveNutrition, savedBloom, savedFilter, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    return <>{renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null}{linkedContent&&<CommunityContentView ctx={ctx} source={linkedContent.source} backLabel={linkedContent.backLabel} onClose={()=>setLinkedContent(null)}/>}{plusOpen&&<PlusModal ctx={ctx} onClose={()=>setPlusOpen(false)}/>}</>
   }
 
   // Section atmosphere: permanent daylight with a very light pastel identity.
