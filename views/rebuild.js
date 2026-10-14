@@ -39,9 +39,10 @@ export function renderRebuild(ctx) {
   const allPrograms = studioPrograms
   const programById = (id) => allPrograms.find((p) => p.id === id)
 
+  const plusTargetFor=p=>({programKey:p.id,rebuildId:p._studioId,title:p.title,fromPreview:rebuildView==="dynamic-preview"})
   const needsPlus=(p)=>{
     if(!p?.premium||rebuildPlus)return false
-    if(ctx.openPlus)ctx.openPlus();else setRebuildStartWarning({type:'plus',program:p})
+    if(ctx.openPlus)ctx.openPlus(p?plusTargetFor(p):null);else setRebuildStartWarning({type:'plus',program:p})
     return true
   }
   const openProgram = (p) => {
@@ -147,8 +148,8 @@ export function renderRebuild(ctx) {
   // intro -> one current experience -> See Today's Experience -> complete -> next.
   // The full experience list is an Admin Studio concern, not a consumer screen.
   const studioProgram = studioPrograms.find(p=>p.id===rebuildActiveProgram)
-  if(studioProgram&&rebuildView==="dynamic-preview"&&studioProgram.previewBlocks?.length)return <div style={{padding:"10px 22px 40px"}}><RebuildActivityPlayer key={`${ctx.user?.id}:${studioProgram._studioId}:preview`} ctx={ctx} programId={studioProgram._studioId} scope="preview" blocks={blocksOf({blocks:studioProgram.previewBlocks})} onBack={()=>{setRebuildActiveProgram(null);setRebuildView("intro")}} onFinish={()=>{if(studioProgram.premium&&!rebuildPlus)ctx.openPlus?.();else setRebuildView("dynamic-intro")}}/></div>
-  if(studioProgram?.premium&&!rebuildPlus)return <div style={{padding:'24px 22px'}}><button onClick={()=>{setRebuildActiveProgram(null);setRebuildView('intro')}} style={{border:'none',background:'transparent',color:BASE.taupe,fontWeight:700}}>‹ Rebuild</button><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,color:BASE.cream,marginTop:22}}>{studioProgram.title}</div><p style={{fontSize:13,color:BASE.taupe,lineHeight:1.6}}>This Rebuild is part of True Reverie+. Your saved progress stays right here.</p><button onClick={()=>ctx.openPlus?.()} style={{padding:'13px 22px',borderRadius:999,border:'none',background:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:'#fff',fontWeight:800}}>Explore True Reverie+</button></div>
+  if(studioProgram&&rebuildView==="dynamic-preview"&&studioProgram.previewBlocks?.length)return <div style={{padding:"10px 22px 40px"}}><RebuildActivityPlayer key={`${ctx.user?.id}:${studioProgram._studioId}:preview`} ctx={ctx} programId={studioProgram._studioId} scope="preview" finishLabel={studioProgram.premium&&!rebuildPlus?"Unlock my Rebuild · True Reverie+":"Continue into my Rebuild"} blocks={blocksOf({blocks:studioProgram.previewBlocks})} onBack={()=>{setRebuildActiveProgram(null);setRebuildView("intro")}} onFinish={async()=>{if(studioProgram.premium&&!rebuildPlus){ctx.openPlus?.(plusTargetFor(studioProgram));return true}if(studioProgram.premium&&ctx.continueRebuildFromPlus)return await ctx.continueRebuildFromPlus(plusTargetFor(studioProgram));setRebuildView("dynamic-intro");return true}}/></div>
+  if(studioProgram?.premium&&!rebuildPlus)return <div style={{padding:'24px 22px'}}><button onClick={()=>{setRebuildActiveProgram(null);setRebuildView('intro')}} style={{border:'none',background:'transparent',color:BASE.taupe,fontWeight:700}}>‹ Rebuild</button><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,color:BASE.cream,marginTop:22}}>{studioProgram.title}</div><p style={{fontSize:13,color:BASE.taupe,lineHeight:1.6}}>This Rebuild is part of True Reverie+. Your saved progress stays right here.</p><button onClick={()=>ctx.openPlus?.(plusTargetFor(studioProgram))} style={{padding:'13px 22px',borderRadius:999,border:'none',background:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:'#fff',fontWeight:800}}>Explore True Reverie+</button></div>
   if (studioProgram) {
     const experiences=(supabaseRebuildExperiences||[]).filter(e=>e.rebuild_id===studioProgram._studioId).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
     const studioProgress=getRebuildProgress?getRebuildProgress(studioProgram.id):null
