@@ -130,6 +130,7 @@ export default function App() {
   // Verified account membership; browser storage never grants access.
   const rebuildPlus = profile?.id===user?.id && profile?.has_membership===true
   const [plusOpen,setPlusOpen] = useState(false)
+  const [plusTarget,setPlusTarget] = useState(null)
   const [membershipLoading,setMembershipLoading] = useState(false)
   const [membershipError,setMembershipError] = useState('')
   const membershipUserRef = useRef(null)
@@ -347,7 +348,39 @@ export default function App() {
     document.addEventListener('visibilitychange',visible)
     return ()=>{window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible)}
   },[user?.id])
-  const openPlus=()=>{setPlusOpen(true);refreshMembership().catch(()=>{})}
+  const rememberPlusTarget=(target)=>{
+    setPlusTarget(target)
+    try{if(target)sessionStorage.setItem('tr_plus_return',JSON.stringify({userId:user?.id,target}));else sessionStorage.removeItem('tr_plus_return')}catch(e){}
+  }
+  const openPlus=(target=null)=>{
+    rememberPlusTarget(target?.programKey&&target?.rebuildId?target:null)
+    setPlusOpen(true);refreshMembership().catch(()=>{})
+  }
+  const closePlus=()=>{setPlusOpen(false);rememberPlusTarget(null)}
+  useEffect(()=>{
+    if(!user?.id)return
+    try{
+      const saved=JSON.parse(sessionStorage.getItem('tr_plus_return')||'null')
+      if(saved?.userId===user.id&&saved.target?.programKey&&saved.target?.rebuildId){setPlusTarget(saved.target);setPlusOpen(true)}
+      else if(saved)sessionStorage.removeItem('tr_plus_return')
+    }catch(e){}
+  },[user?.id])
+  const continueRebuildFromPlus=async(targetOverride=null)=>{
+    const target=targetOverride||plusTarget,uid=user?.id
+    if(!target||!uid||membershipUserRef.current!==uid||!await refreshMembership())throw new Error('Your membership is not active yet. Your preview stays saved.')
+    const {data,error}=await db.from('tr_rebuild_experiences').select('*').eq('rebuild_id',target.rebuildId).eq('status','published').order('sort_order',{ascending:true})
+    if(error)throw new Error('Your Rebuild could not open. Please try again.')
+    if(membershipUserRef.current!==uid)return false
+    if(!data?.length)throw new Error('The experiences in this Rebuild are not published yet. Your preview stays saved.')
+    const progress=getRebuildProgress(target.programKey)
+    const experience=data.find(e=>e.id===progress?.current_experience_id)||data[0]
+    if(!progress){const saved=await startRebuildProgress({programKey:target.programKey,rebuildId:target.rebuildId,currentExperienceId:experience.id,currentExperienceNumber:1});if(!saved)throw new Error('Your progress could not save. Please try again.')}
+    if(membershipUserRef.current!==uid)return false
+    setSupabaseRebuildExperiences(previous=>[...previous.filter(e=>String(e.rebuild_id)!==String(target.rebuildId)),...data])
+    setRebuildActiveProgram(target.programKey);setRebuildDynamicExpId(experience.id);setRebuildView('dynamic-exp');setRebuildSection('rebuild');setTab('rebuild');closePlus()
+    if(typeof window!=='undefined')window.scrollTo({top:0,behavior:'auto'})
+    return true
+  }
 
   const checkAuth = async () => {
     try {
@@ -573,7 +606,7 @@ export default function App() {
     // and strand the app on a login screen there's no real account to use.
     if (PROTOTYPE_MODE) return
     await db.auth.signOut()
-    setUser(null); setProfile(null);setPlusOpen(false);setMembershipError('');setMembershipLoading(false)
+    setUser(null); setProfile(null);setPlusOpen(false);setPlusTarget(null);try{sessionStorage.removeItem("tr_plus_return")}catch(e){};setMembershipError('');setMembershipLoading(false)
     setNutrition(null); setSavedBloom([]); setCycleLogs({}); setUseAvgCycleRaw(false); setGreetingOnRaw(true); setGreetingStyleRaw("name_formal"); setResetSeed({ d: "", day: 0, night: 0 }); setResetPage(null); setFlourishTime(null); setFlourishProject(null); setBloomPillar(null); setBloomArticle(null); setGlowTopic(null); setGlowSheet(null); setGlowOpen(["guides", "wins"]); setGlowItem(null); setPlanView(null); setNourishView("today")
     setProgramId(null); setSetupData(null); setFirstName("")
     setCycleLength(""); setLastPeriod(""); setPeriodDismissed(false)
@@ -1082,8 +1115,8 @@ export default function App() {
   }
 
   const renderContent = () => {
-    const ctx = { openPlus, refreshMembership, membershipLoading, membershipError, onCommunityPostDeleted, openLinkedContent, openCommunityComposer, openReverieFromContent, communityComposeSource, setCommunityComposeSource, saveReverieEntry, reverieSaving, reverieSaveError, setReverieSaveError, Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, openBloomCard, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveNutrition, savedBloom, savedFilter, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
-    return <>{renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null}{linkedContent&&<CommunityContentView ctx={ctx} source={linkedContent.source} backLabel={linkedContent.backLabel} onClose={()=>setLinkedContent(null)}/>}{plusOpen&&<PlusModal ctx={ctx} onClose={()=>setPlusOpen(false)}/>}</>
+    const ctx = { openPlus, plusTarget, continueRebuildFromPlus, refreshMembership, membershipLoading, membershipError, onCommunityPostDeleted, openLinkedContent, openCommunityComposer, openReverieFromContent, communityComposeSource, setCommunityComposeSource, saveReverieEntry, reverieSaving, reverieSaveError, setReverieSaveError, Chips, Label, Stat, supabaseBloomRows, supabaseMoveRows, supabaseNourishRows, supabaseCycleRows, supabaseRebuildRows, supabaseFeelBetterRows, supabaseRitualRows, supabaseRebuildExperiences, rebuildDynamicExpId, setRebuildDynamicExpId, rebuildProgressRows, getRebuildProgress, startRebuildProgress, completeRebuildExperience, T, bloomArticle, bloomCard, bloomPillar, bloomSearchOpen, bloomSection, bodyView, closeBloom, ctxOpen, cur, cycArticle, cycLib, cycLogDate, cycleAvg, cycleLength, cycleLogs, cycleMonth, cycleNow, dateStr, detailProgram, doneFeed, contentInteractions, editCycle, editLife, eduPhase, effCycleLength, bloomFeedLimit, feedMoodFilter, feedRotation, feedTimeFilter, firstName, flourishProject, flourishTime, forceTrainMenu, glowItem, glowOpen, glowSheet, glowTopic, greetingOn, greetingStyle, guidedIdx, handleLogout, isSavedBloom, lastPeriod, learnOpen, libLevel, libOpen, lifeMsg, likedFeed, mealFilter, mealType, moreView, moveCategory, moveMood, moveSearch, moveSurpriseIdx, moveTime, nourishView, nutrition, openBloomCard, periodDismissed, persistProgram, planView, programId, programStart, rebuildActiveProgram, rebuildCapPick, rebuildComingSoon, rebuildCurrent, rebuildFLYA, rebuildPlus, rebuildSaved, rebuildSection, rebuildStartWarning, rebuildView, recovery, recoveryDone, recoveryOpen, resetPage, resetSeed, resetSongs, restLeft, reviewMonth, reverieComposerOpen, reverieDraft, reverieEntries, reverieSearch, reverieSection, saveCycle, saveCycleLog, saveCycleSettings, setPeriodStartDate, startPeriodToday, saveNutrition, savedBloom, savedFilter, seasonalBrowseOpen, seasonalSeason, selectedWoKey, setBloomArticle, setBloomPillar, setBloomSearchOpen, setBloomSection, setBodyView, setCtxOpen, setCycArticle, setCycLib, setCycLogDate, setCycleLogs, setCycleMonth, setDetailProgram, setDoneFeed, setEditCycle, setEditLife, setEduPhase, setBloomFeedLimit, setFeedMoodFilter, setFeedRotation, setFeedTimeFilter, setFirstName, setFlourishProject, setFlourishTime, setForceTrainMenu, setGlowItem, setGlowOpen, setGlowSheet, setGlowTopic, setGreetingOn, setGreetingStyle, setGuidedIdx, setLastPeriod, setLearnOpen, setLibLevel, setLibOpen, setLifeMsg, setLikedFeed, setMealFilter, setMealType, setMoreView, setMoveCategory, setMoveMood, setMoveSearch, setMoveSurpriseIdx, setMoveTime, setNourishView, setPeriodDismissed, setPlanView, setRebuildActiveProgram, setRebuildCapPick, setRebuildComingSoon, setRebuildCurrent, setRebuildSaved, setRebuildSection, setRebuildStartWarning, setRebuildView, setReverieComposerOpen, setReverieDraft, setReverieEntries, setReverieSearch, setReverieSection, setRecoveryDone, setRecoveryOpen, setResetPage, setResetSongs, setRestLeft, setReviewMonth, setSavedFilter, setSeasonalBrowseOpen, setSeasonalSeason, setSelectedWoKey, setSetupData, setSuppOpen, setTab, setTmpLen, setTmpStart, setTrainView, setUseAvgCycle, setWhyOpen, setWoColor, setWoDone, setWoEnv, setWoKey, setWoLogged, setWoMode, setWoOpen, setWoTier, setWoType, setupData, suppOpen, surpriseReset, tab, tmpLen, tmpStart, toggle, toggleSaveBloom, toggleDidThis, hasInteraction, trainView, updateRebuildFLYA, useAvgCycle, user, whyOpen, woColor, woDone, woEnv, woKey, woLog, woLogged, woMode, woOpen, woTier, woType }
+    return <>{renderTrain(ctx) || renderCycle(ctx) || renderNourish(ctx) || renderBloom(ctx) || renderReverie(ctx) || renderCommunity(ctx) || renderMore(ctx) || renderRebuild(ctx) || null}{linkedContent&&<CommunityContentView ctx={ctx} source={linkedContent.source} backLabel={linkedContent.backLabel} onClose={()=>setLinkedContent(null)}/>}{plusOpen&&<PlusModal ctx={ctx} onClose={closePlus}/>}</>
   }
 
   // Section atmosphere: permanent daylight with a very light pastel identity.
