@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { db } from "../lib/supabase.js"
 import { createFoundationDraft } from "../lib/rebuild-foundation-draft.js"
 import { RebuildActivityEditor } from "../views/rebuild-activity-editor.js"
@@ -90,7 +90,7 @@ const S = {
   serif:{fontFamily:"'Cormorant Garamond', Georgia, serif"},
   card:{background:C.paper,border:`1px solid ${C.line}`,borderRadius:20,boxShadow:"0 8px 30px rgba(67,45,58,.04)"},
   input:{width:"100%",boxSizing:"border-box",border:`1px solid ${C.line}`,borderRadius:13,background:"#fff",padding:"12px 13px",fontSize:14,color:C.ink,outline:"none"},
-  pill:{border:`1px solid ${C.line}`,background:C.paper,borderRadius:999,padding:"8px 11px",fontSize:12,fontWeight:700,color:C.muted},
+  pill:{border:`1px solid ${C.line}`,background:C.paper,borderRadius:999,padding:"8px 11px",minHeight:44,touchAction:"manipulation",fontSize:12,fontWeight:700,color:C.muted},
 }
 
 export default function AdminStudio(){
@@ -135,7 +135,7 @@ export default function AdminStudio(){
     const body={}
     Object.entries(item).forEach(([k,v])=>{ if(!reserved.has(k)) body[k]=v })
     // Photos are uploaded to Supabase Storage first; Postgres stores only the public URL.
-    const imageCandidate=item.image||item.cover||""
+    const imageCandidate=(item.area==="rebuild"||item.area==="ritual")?item.cover:item.image
     const imageUrl=imageCandidate && !String(imageCandidate).startsWith("data:") ? imageCandidate : null
     return {
       content_type:areaToType(item.area), title:(item.title||"Untitled").trim(), status,
@@ -227,10 +227,10 @@ export default function AdminStudio(){
     <style>{`
       *{box-sizing:border-box} body{margin:0}
       button,input,textarea,select{font:inherit} button{cursor:pointer}
-      .tr-grid{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh}.tr-side{display:block}
+      .mobile-menu{display:none}.tr-grid{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh}.tr-side{display:block}
       .tr-main{padding:34px 38px 70px;max-width:1280px;width:100%;margin:0 auto}.tr-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
       .tr-listhead{display:grid;grid-template-columns:minmax(220px,1.4fr) 130px 110px 90px;gap:12px}.tr-row{display:grid;grid-template-columns:minmax(220px,1.4fr) 130px 110px 90px;gap:12px;align-items:center}.tr-editor{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px}
-      @media(max-width:850px){.tr-grid{display:block}.tr-side{display:none}.tr-side.open{display:block;position:fixed;inset:0 18% 0 0;z-index:50;box-shadow:20px 0 50px rgba(0,0,0,.15)}.tr-main{padding:20px 16px 80px}.tr-cards{grid-template-columns:1fr 1fr}.tr-listhead{display:none}.tr-row{grid-template-columns:1fr auto;gap:8px}.tr-row .hide-sm{display:none}.tr-editor{grid-template-columns:1fr}.desktop-only{display:none!important}}@media(max-width:520px){.tr-cards{grid-template-columns:1fr}}
+      @media(max-width:850px){.mobile-menu{display:block}.tr-grid{display:block}.tr-side{display:none}.tr-side.open{display:block;position:fixed;inset:0 18% 0 0;z-index:50;box-shadow:20px 0 50px rgba(0,0,0,.15)}.tr-main{padding:20px 16px 80px}.tr-cards{grid-template-columns:1fr 1fr}.tr-listhead{display:none}.tr-row{grid-template-columns:1fr auto;gap:8px}.tr-row .hide-sm{display:none}.tr-editor{grid-template-columns:1fr}.desktop-only{display:none!important}}@media(max-width:520px){.tr-cards{grid-template-columns:1fr}}
     `}</style>
     <div className="tr-grid">
       <aside className={"tr-side "+(mobileNav?"open":"")} style={{background:"#F3EAEC",borderRight:`1px solid ${C.line}`,padding:"28px 18px",position:"relative"}}>
@@ -244,15 +244,16 @@ export default function AdminStudio(){
       </aside>
       <main className="tr-main">
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:25}}>
-          <button onClick={()=>setMobileNav(true)} style={{border:`1px solid ${C.line}`,background:C.paper,borderRadius:12,padding:"9px 11px",fontWeight:800}} className="desktop-only">☰</button>
+          <button onClick={()=>setMobileNav(true)} style={{border:`1px solid ${C.line}`,background:C.paper,borderRadius:12,padding:"9px 11px",fontWeight:800}} className="mobile-menu">☰</button>
           <div style={{flex:1}}><div style={{...S.serif,fontSize:34,fontWeight:700,lineHeight:1}}>{editing ? (editing.title||"New content") : area==="dashboard" ? "Studio" : labelFor(area)}</div>{!editing && <div style={{fontSize:13,color:C.muted,marginTop:6}}>{area==="dashboard"?"Create the things that make True Reverie feel alive.":AREAS.find(a=>a.id===area)?.sub}</div>}</div>
           {!editing && area!=="dashboard" && <button onClick={()=>setEditing(blank(area))} style={{border:0,borderRadius:999,background:C.ink,color:"#fff",padding:"11px 16px",fontWeight:800}}>＋ New {labelFor(area)}</button>}
         </div>
         {(area==="rebuild"||editing?.area==="rebuild")&&<button onClick={()=>{setArea("rebuild");setEditing(null);setFilter("draft");setQuery("")}} style={{...S.pill,marginBottom:14}}>Saved program drafts ({items.filter(x=>x.area==="rebuild"&&x.status==="draft").length})</button>}
-        {!editing&&area==="rebuild"&&<div style={{...S.card,padding:20,marginBottom:18,background:"linear-gradient(135deg,#FFFDFC,#F1EAF4)"}}><div style={{...S.serif,fontSize:25,fontWeight:700}}>Start with what we created</div><p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Add the complete approved 12-experience journey to Come Back to Yourself. Existing edits and photography stay untouched; missing experiences are added as drafts.</p><button disabled={busy} onClick={createRebuildFoundation} style={{...S.pill,background:C.ink,color:"#fff",border:0}}>{busy?"Opening draft…":"Add / open complete Rebuild draft"}</button></div>}
+
         {notice&&<div style={{...S.card,padding:"12px 15px",marginBottom:16,fontSize:12,color:C.muted}}>{notice}</div>}
         {busy&&<div style={{fontSize:11,color:C.blush,marginBottom:10}}>Saving…</div>}
-        {loadingItems?<div style={{color:C.muted}}>Loading Studio content…</div>:editing ? <Editor item={editing} setItem={setEditing} onSave={saveItem} onDelete={remove} onCancel={()=>setEditing(null)}/> : area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> : <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>} 
+        {loadingItems?<div style={{color:C.muted}}>Loading Studio content…</div>:editing ? <Editor key={editing.id} item={editing} setItem={setEditing} onSave={saveItem} onDelete={remove} onCancel={()=>setEditing(null)}/> : area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> : <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>} 
+        {!editing&&area==="rebuild"&&<details style={{...S.card,padding:20,marginTop:18,background:"linear-gradient(135deg,#FFFDFC,#F1EAF4)"}}><summary style={{cursor:"pointer",fontWeight:800}}>Import the approved Come Back to Yourself content</summary><p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Add the complete approved 12-experience journey to Come Back to Yourself. Existing edits and photography stay untouched; missing experiences are added as drafts.</p><button disabled={busy} onClick={createRebuildFoundation} style={{...S.pill,background:C.ink,color:"#fff",border:0}}>{busy?"Opening draft…":"Add missing approved experience drafts"}</button></details>}
       </main>
     </div>
   </div>
@@ -332,7 +333,7 @@ function Library({area,items,query,setQuery,filter,setFilter,onEdit,onDuplicate,
     </div>
   </>
 }
-const tinyBtn={border:`1px solid ${C.line}`,background:"#fff",borderRadius:9,padding:"6px 8px",fontSize:10.5,fontWeight:800,color:C.muted}
+const tinyBtn={minHeight:44,minWidth:44,touchAction:"manipulation",border:`1px solid ${C.line}`,background:"#fff",borderRadius:9,padding:"6px 8px",fontSize:10.5,fontWeight:800,color:C.muted}
 
 function Status({s}){
   const pub=s==="published"
@@ -342,41 +343,44 @@ function Status({s}){
 function Editor({item,setItem,onSave,onDelete,onCancel}){
   const schema=SCHEMAS[item.area]||[]
   const [preview,setPreview]=useState(true)
+  const [section,setSection]=useState("overview")
   const set=(k,v)=>setItem(p=>({...p,[k]:v}))
   const publish=()=>onSave({...item,status:"published",publishedAt:item.publishedAt||Date.now()})
   const unpublish=()=>{ if(confirm("Unpublish this post? It will disappear from the live app but stay in Admin Studio as a draft.")) onSave({...item,status:"draft",publishedAt:null}) }
   const deleteHere=()=>{ if(confirm("Permanently delete this content? This cannot be undone.")){ onDelete(item.id); onCancel() } }
   return <>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
-      <button onClick={onCancel} style={S.pill}>← Content library</button>
+      <button onClick={onCancel} style={S.pill}>{item.area==="rebuild"?"← All saved Rebuilds":"← Content library"}</button>
       <button onClick={()=>{ window.location.href="/admin" }} style={S.pill}>⌂ Studio</button>
       <div style={{flex:1}}/>
       <button onClick={()=>setPreview(x=>!x)} style={S.pill}>{preview?"Hide":"Show"} preview</button>
       {item.status==="published"&&<button onClick={unpublish} style={{...S.pill,color:"#8B6472"}}>Unpublish</button>}
       {typeof item.id==="number"&&<button onClick={deleteHere} style={{...S.pill,color:"#A45B67"}}>Delete</button>}
-      <button onClick={()=>onSave({...item,status:"draft"})} style={S.pill}>Save draft</button>
-      <button onClick={publish} style={{...S.pill,border:0,background:C.ink,color:"#fff",padding:"9px 16px"}}>Publish</button>
+      {(item.area!=="rebuild"||section!=="experiences")&&<><button onClick={()=>onSave({...item,status:"draft"})} style={S.pill}>Save draft</button>
+      <button onClick={publish} style={{...S.pill,border:0,background:C.ink,color:"#fff",padding:"9px 16px"}}>Publish</button></>}
     </div>
-    <div className="tr-editor" style={{gridTemplateColumns:preview?undefined:"1fr"}}>
+    {item.area==="rebuild"&&<div role="tablist" aria-label="Rebuild editor sections" style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>{[["overview","Overview & cover"],["preview","Free preview"],["experiences","Experiences"]].map(([id,label])=><button key={id} role="tab" aria-selected={section===id} onClick={()=>setSection(id)} style={{...S.pill,background:section===id?C.ink:C.paper,color:section===id?"#fff":C.muted}}>{label}</button>)}</div>}
+    <div className="tr-editor" style={{gridTemplateColumns:preview&&(item.area!=="rebuild"||section==="overview")?undefined:"1fr"}}>
       <div style={{...S.card,padding:"22px"}}>
-        {item.area==="rebuild" && <div style={{padding:"12px 14px",borderRadius:14,background:"#F8F1F5",fontSize:12,color:C.muted,lineHeight:1.5,marginBottom:18}}>
-          Build the program cover and introduction here. Once the program has been saved, manage its ordered experiences below — each experience is its own published record with its own photo and content.
+        {item.area==="rebuild" && section==="overview" && <div style={{padding:"12px 14px",borderRadius:14,background:"#F8F1F5",fontSize:12,color:C.muted,lineHeight:1.5,marginBottom:18}}>
+          Build the program cover and introduction here. Once the program has been saved, choose Experiences to manage its ordered experiences — each experience is its own published record with its own photo and content.
         </div>}
-        {schema.map(([key,label,type,opts])=><Field key={key} area={item.area} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)} cropPosition={item.imagePosition||{x:50,y:50}} cropZoom={Number(item.imageZoom)||1} onCropPosition={v=>set("imagePosition",v)} onCropZoom={v=>set("imageZoom",v)}/>)}
-        {item.area==="rebuild"&&<RebuildActivityEditor blocks={item.previewBlocks||[]} onChange={v=>set("previewBlocks",v)} Field={Field} S={S} C={C} title="Free Build My Rebuild preview (optional)" scope="preview" programId={item.id}/> }
+        {(item.area!=="rebuild"||section==="overview")&&schema.map(([key,label,type,opts])=><Field key={key} area={item.area} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)} cropPosition={item.imagePosition||{x:50,y:50}} cropZoom={Number(item.imageZoom)||1} onCropPosition={v=>set("imagePosition",v)} onCropZoom={v=>set("imageZoom",v)}/>)}
+        {item.area==="rebuild"&&section==="preview"&&<RebuildActivityEditor blocks={item.previewBlocks||[]} onChange={v=>set("previewBlocks",v)} Field={Field} S={S} C={C} title="Free Build My Rebuild preview (optional)" scope="preview" programId={item.id}/> }
         {!["rebuild","cycle","feel","ritual"].includes(item.area) && <ExtraSwipePages item={item} set={set}/>} 
-        {item.area==="rebuild" && <ExperienceManager item={item}/>}
-        <div style={{display:"flex",gap:9,borderTop:`1px solid ${C.line}`,paddingTop:18,marginTop:8}}>
+        {item.area==="rebuild" && <div hidden={section!=="experiences"}><ExperienceManager key={item.id} item={item}/></div>}
+        {(item.area!=="rebuild"||section!=="experiences")&&<div style={{display:"flex",gap:9,borderTop:`1px solid ${C.line}`,paddingTop:18,marginTop:8}}>
           <button onClick={()=>onSave({...item,status:"draft"})} style={{...S.pill,flex:1}}>Save draft</button>
           <button onClick={publish} style={{...S.pill,flex:1,border:0,background:"linear-gradient(135deg,#C97BA8,#A87BD1)",color:"#fff"}}>Publish</button>
-        </div>
+        </div>}
       </div>
-      {preview && <Preview item={item}/>}
+      {preview && (item.area!=="rebuild"||section==="overview") && <Preview item={item}/>}
     </div>
   </>
 }
 
-function Field({area,k,label,type,opts,value,onChange,cropPosition,cropZoom,onCropPosition,onCropZoom}){
+function Field({area,k,label,type,opts,value,onChange,cropPosition,cropZoom,onCropPosition,onCropZoom,onImageChange}){
+  const dragStart=useRef(null)
   const [chip,setChip]=useState("")
   const [uploading,setUploading]=useState(false)
   const [uploadError,setUploadError]=useState("")
@@ -390,14 +394,15 @@ function Field({area,k,label,type,opts,value,onChange,cropPosition,cropZoom,onCr
       if(error)throw error
       const {data}=db.storage.from("tr-content-images").getPublicUrl(path)
       if(!data?.publicUrl)throw new Error("Supabase did not return a public image URL.")
-      onChange(data.publicUrl)
+      if(onImageChange)onImageChange({photo:data.publicUrl,imagePosition:{x:50,y:50},imageZoom:1})
+      else {onChange(data.publicUrl);onCropPosition?.({x:50,y:50});onCropZoom?.(1)}
+      return true
     }catch(err){ setUploadError(err?.message||"Photo upload failed.") }
     finally{ setUploading(false) }
   }
   if(type==="toggle") return <div style={fieldWrap}><label style={labelStyle}>{label}</label><button onClick={()=>onChange(!value)} style={{width:48,height:27,border:0,borderRadius:99,padding:3,background:value?C.blush:"#D8CED2",display:"flex",justifyContent:value?"flex-end":"flex-start"}}><span style={{width:21,height:21,borderRadius:"50%",background:"#fff",display:"block"}}/></button></div>
   if(type==="image") {
     const pos=cropPosition||{x:50,y:50}, zoom=cropZoom||1
-    const dragStart={current:null}
     const movePhoto=(e)=>{
       if(!dragStart.current)return
       const point=e.touches?.[0]||e
@@ -414,10 +419,10 @@ function Field({area,k,label,type,opts,value,onChange,cropPosition,cropZoom,onCr
       </div>}
       <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
         {area==="ritual" ? <>
-          <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":value?"Replace photo":"Upload photo"}<input disabled={uploading} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);if(f){onCropPosition?.({x:50,y:50});onCropZoom?.(1)}e.target.value=""}}/></label>
-          <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>Take photo<input disabled={uploading} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);if(f){onCropPosition?.({x:50,y:50});onCropZoom?.(1)}e.target.value=""}}/></label>
-        </> : <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":value?"Replace photo":"Upload photo"}<input disabled={uploading} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];await uploadPhoto(f);if(f){onCropPosition?.({x:50,y:50});onCropZoom?.(1)}e.target.value=""}}/></label>}
-        {value&&<button onClick={()=>onChange("")} style={tinyBtn}>Remove</button>}
+          <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":value?"Replace photo":"Upload photo"}<input disabled={uploading} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style={{display:"none"}} onChange={async e=>{const input=e.currentTarget;const f=input.files?.[0];await uploadPhoto(f);input.value=""}}/></label>
+          <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>Take photo<input disabled={uploading} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={async e=>{const input=e.currentTarget;const f=input.files?.[0];await uploadPhoto(f);input.value=""}}/></label>
+        </> : <label style={{...S.pill,display:"inline-block",opacity:uploading?.55:1}}>{uploading?"Uploading…":value?"Replace photo":"Upload photo"}<input disabled={uploading} type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const input=e.currentTarget;const f=input.files?.[0];await uploadPhoto(f);input.value=""}}/></label>}
+        {value&&<button onClick={()=>onImageChange?onImageChange({photo:""}):onChange("")} style={tinyBtn}>Remove</button>}
       </div>{uploadError&&<div style={{fontSize:11,color:"#A45B67",marginTop:7}}>{uploadError}</div>}{value&&String(value).startsWith("https://")&&<div style={{fontSize:10.5,color:C.muted,marginTop:7}}>✓ Photo stored in True Reverie</div>}
     </div>
   }
@@ -460,6 +465,7 @@ function ExtraSwipePages({item,set}){
 }
 
 function ExperienceManager({item}){
+  const panelRef=useRef(null)
   const [rows,setRows]=useState([])
   const [editing,setEditing]=useState(null)
   const [experienceFilter,setExperienceFilter]=useState("all")
@@ -473,14 +479,15 @@ function ExperienceManager({item}){
     const {data,error}=await db.from("tr_rebuild_experiences").select("*").eq("rebuild_id",item.id).order("sort_order",{ascending:true})
     setLoading(false)
     if(error){setMsg(error.message);return}
-    setRows((data||[]).map(r=>({id:r.id,title:r.title||"",status:r.status||"draft",sort_order:r.sort_order||0,...(r.content||{})})))
+    setRows((data||[]).map(r=>({...r.content,id:r.id,title:r.title||"",status:r.status||"draft",sort_order:r.sort_order||0})))
   }
   useEffect(()=>{load()},[item.id])
+  useEffect(()=>{if(editing)panelRef.current?.scrollIntoView?.({block:"start",behavior:"auto"})},[editing?.id,!!editing])
   const blankExp=()=>({title:"",status:"draft",sort_order:rows.length,photo:"",imagePosition:{x:50,y:50},imageZoom:1,description:"",anchorEnabled:false,anchorTitle:"",anchorBody:"",versionEnabled:false,green:"",yellow:"",red:"",recovery:"",stillEnabled:false,stillQuestion:"",stillOptions:[]})
   const saveExp=async(exp,status=exp.status||"draft")=>{
     if(!exp.title?.trim()){setMsg("Add an experience title first.");return}
     if(status==="published"&&(exp.blocks||[]).some(b=>b.type==="crop"&&!b.photo)){setMsg("Add the teaching photograph to each framing screen before publishing this experience.");return}
-    const {id,title,sort_order,...content}=exp
+    const {id,title,sort_order,status:oldStatus,...content}=exp
     const payload={rebuild_id:item.id,title:title.trim(),sort_order:Number(sort_order)||0,status,content}
     const res=typeof id==="number"?await db.from("tr_rebuild_experiences").update(payload).eq("id",id).select().single():await db.from("tr_rebuild_experiences").insert(payload).select().single()
     if(res.error){setMsg("Experience save failed: "+res.error.message);return}
@@ -491,19 +498,20 @@ function ExperienceManager({item}){
   const setE=(k,v)=>setEditing(e=>({...e,[k]:v}))
 
   if(!savedProgram)return <div style={{borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:8}}><div style={{...S.serif,fontSize:22,fontWeight:700}}>Experiences</div><div style={{fontSize:12,color:C.muted,lineHeight:1.55,marginTop:6}}>Save this Rebuild as a draft first. Then reopen it and you can add its experiences here.</div></div>
-  return <div style={{borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:8}}>
+  return <div ref={panelRef} style={{scrollMarginTop:20,borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:8}}>
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><div style={{flex:1}}><div style={{...S.serif,fontSize:23,fontWeight:700}}>Experiences</div><div style={{fontSize:11.5,color:C.muted,marginTop:2}}>{rows.length} {rows.length===1?"experience":"experiences"} added</div></div><button onClick={()=>setEditing(blankExp())} style={S.pill}>＋ Add experience</button></div>
     {msg&&<div style={{fontSize:11.5,color:C.muted,marginBottom:10}}>{msg}</div>}
-    <div style={{display:"flex",gap:8,marginBottom:14}}>{["all","draft","published"].map(filter=><button key={filter} onClick={()=>{setExperienceFilter(filter);setEditing(null)}} style={{...S.pill,background:experienceFilter===filter?C.ink:C.paper,color:experienceFilter===filter?"#fff":C.muted}}>{filter==="draft"?`Saved drafts (${rows.filter(r=>r.status==="draft").length})`:filter==="published"?"Published":"All experiences"}</button>)}</div>
+    {!editing&&<><div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>{["all","draft","published"].map(filter=><button key={filter} onClick={()=>{setExperienceFilter(filter);setEditing(null)}} style={{...S.pill,background:experienceFilter===filter?C.ink:C.paper,color:experienceFilter===filter?"#fff":C.muted}}>{filter==="draft"?`Saved drafts (${rows.filter(r=>r.status==="draft").length})`:filter==="published"?"Published":"All experiences"}</button>)}</div>
     {loading?<div style={{fontSize:12,color:C.muted}}>Loading experiences…</div>:rows.map((e,i)=>experienceFilter!=="all"&&e.status!==experienceFilter?null:<div key={e.id} style={{border:`1px solid ${C.line}`,borderRadius:15,padding:13,marginBottom:9,background:"#FFFEFD"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:10,background:C.soft,display:"grid",placeItems:"center",fontSize:11,fontWeight:900,color:C.blush}}>{i+1}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:800}}>{e.title||"Untitled experience"}</div><div style={{fontSize:10.5,color:C.muted,marginTop:2}}>{e.status==="published"?"Published":"Draft"}</div></div><button onClick={()=>move(i,-1)} disabled={i===0} style={{...tinyBtn,opacity:i===0?.35:1}}>↑</button><button onClick={()=>move(i,1)} disabled={i===rows.length-1} style={{...tinyBtn,opacity:i===rows.length-1?.35:1}}>↓</button><button onClick={()=>setEditing(e)} style={tinyBtn}>Edit</button></div></div>)}
     {experienceFilter!=="all"&&!loading&&!rows.some(e=>e.status===experienceFilter)&&<p style={{fontSize:12,color:C.muted}}>{experienceFilter==="draft"?"No saved experience drafts in this program yet.":"No published experiences in this program yet."}</p>}
     {rows.length===0&&!loading&&<div style={{fontSize:12,color:C.muted,padding:"10px 0 16px"}}>No experiences yet. Add the first one whenever you're ready.</div>}
+    </>}
     {editing&&<div style={{marginTop:15,padding:16,borderRadius:18,background:"#F8F2F4",border:`1px solid ${C.line}`}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:15}}><div style={{...S.serif,fontSize:22,fontWeight:700,flex:1}}>{editing.id?"Edit experience":"New experience"}</div><button onClick={()=>setEditing(null)} style={tinyBtn}>×</button></div>
-      <Field label="Experience photo" type="image" value={editing.photo} onChange={v=>setE("photo",v)} cropPosition={editing.imagePosition||{x:50,y:50}} cropZoom={Number(editing.imageZoom)||1} onCropPosition={v=>setE("imagePosition",v)} onCropZoom={v=>setE("imageZoom",v)}/>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:15}}><div style={{...S.serif,fontSize:22,fontWeight:700,flex:1}}>{editing.id?"Edit experience":"New experience"}</div><button onClick={()=>setEditing(null)} style={S.pill}>← All experiences</button></div>
+      <Field label="Experience photo" type="image" value={editing.photo} onChange={v=>setE("photo",v)} onImageChange={patch=>setEditing(e=>({...e,...patch}))} cropPosition={editing.imagePosition||{x:50,y:50}} cropZoom={Number(editing.imageZoom)||1} onCropPosition={v=>setE("imagePosition",v)} onCropZoom={v=>setE("imageZoom",v)}/>
       <Field label="Experience title" type="text" value={editing.title} onChange={v=>setE("title",v)}/>
       <Field label="Today's experience — intro paragraph" type="textarea" value={editing.description} onChange={v=>setE("description",v)}/>
-      <RebuildActivityEditor blocks={editing.blocks||[]} onChange={v=>setE("blocks",v)} Field={Field} S={S} C={C} scope={String(editing.id||"new")} programId={item.id} experienceId={editing.id} sources={rows.filter(r=>r.id!==editing.id).map(r=>({value:String(r.id),label:r.title||"Untitled experience"}))}/>
+      <RebuildActivityEditor key={editing.id||"new"} blocks={editing.blocks||[]} onChange={v=>setE("blocks",v)} Field={Field} S={S} C={C} scope={String(editing.id||"new")} programId={item.id} experienceId={editing.id} sources={rows.filter(r=>r.id!==editing.id).map(r=>({value:String(r.id),label:r.title||"Untitled experience"}))}/>
       {!editing.blocks?.length&&<>
       <ExperienceBlock title="Today's Anchor" enabled={editing.anchorEnabled} onToggle={()=>setE("anchorEnabled",!editing.anchorEnabled)}><Field label="Anchor title" type="text" value={editing.anchorTitle} onChange={v=>setE("anchorTitle",v)}/><Field label="Anchor text" type="textarea" value={editing.anchorBody} onChange={v=>setE("anchorBody",v)}/></ExperienceBlock>
       <ExperienceBlock title="Your Version Today" enabled={editing.versionEnabled} onToggle={()=>setE("versionEnabled",!editing.versionEnabled)}>{editing.versionEnabled&&<><Field label="I've got room" type="textarea" value={editing.green} onChange={v=>setE("green",v)}/><Field label="Keep it doable" type="textarea" value={editing.yellow} onChange={v=>setE("yellow",v)}/><Field label="Make it small" type="textarea" value={editing.red} onChange={v=>setE("red",v)}/><Field label="Bare minimum" type="textarea" value={editing.recovery} onChange={v=>setE("recovery",v)}/></>}</ExperienceBlock>
