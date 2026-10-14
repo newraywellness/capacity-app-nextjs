@@ -198,7 +198,7 @@ export default function AdminStudio(){
       const item=fromRow(data)
       setItems(previous=>previous.some(x=>x.id===item.id)?previous.map(x=>x.id===item.id?item:x):[item,...previous])
       setEditing(item)
-      setNotice("Opened Come Back to Yourself: editable preview + Experience 01. Nothing was published. Add your photography, then preview it below.")
+      setNotice(`Opened Come Back to Yourself: ${saved.created_count||0} experience drafts added, ${saved.existing_count||0} existing experiences preserved. Nothing was published. Add your photography and preview each experience below.`)
     }catch(error){setNotice("The starter draft could not open: "+(error.message||"Please try again."))}
     finally{setBusy(false)}
   }
@@ -248,7 +248,8 @@ export default function AdminStudio(){
           <div style={{flex:1}}><div style={{...S.serif,fontSize:34,fontWeight:700,lineHeight:1}}>{editing ? (editing.title||"New content") : area==="dashboard" ? "Studio" : labelFor(area)}</div>{!editing && <div style={{fontSize:13,color:C.muted,marginTop:6}}>{area==="dashboard"?"Create the things that make True Reverie feel alive.":AREAS.find(a=>a.id===area)?.sub}</div>}</div>
           {!editing && area!=="dashboard" && <button onClick={()=>setEditing(blank(area))} style={{border:0,borderRadius:999,background:C.ink,color:"#fff",padding:"11px 16px",fontWeight:800}}>＋ New {labelFor(area)}</button>}
         </div>
-        {!editing&&area==="rebuild"&&<div style={{...S.card,padding:20,marginBottom:18,background:"linear-gradient(135deg,#FFFDFC,#F1EAF4)"}}><div style={{...S.serif,fontSize:25,fontWeight:700}}>Start with what we created</div><p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Create an editable Come Back to Yourself draft with its free preview and first paid experience. Add photography and try the screens before publishing.</p><button disabled={busy} onClick={createRebuildFoundation} style={{...S.pill,background:C.ink,color:"#fff",border:0}}>{busy?"Opening draft…":"Create / open foundation draft"}</button></div>}
+        {(area==="rebuild"||editing?.area==="rebuild")&&<button onClick={()=>{setArea("rebuild");setEditing(null);setFilter("draft");setQuery("")}} style={{...S.pill,marginBottom:14}}>Saved program drafts ({items.filter(x=>x.area==="rebuild"&&x.status==="draft").length})</button>}
+        {!editing&&area==="rebuild"&&<div style={{...S.card,padding:20,marginBottom:18,background:"linear-gradient(135deg,#FFFDFC,#F1EAF4)"}}><div style={{...S.serif,fontSize:25,fontWeight:700}}>Start with what we created</div><p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Add the complete approved 12-experience journey to Come Back to Yourself. Existing edits and photography stay untouched; missing experiences are added as drafts.</p><button disabled={busy} onClick={createRebuildFoundation} style={{...S.pill,background:C.ink,color:"#fff",border:0}}>{busy?"Opening draft…":"Add / open complete Rebuild draft"}</button></div>}
         {notice&&<div style={{...S.card,padding:"12px 15px",marginBottom:16,fontSize:12,color:C.muted}}>{notice}</div>}
         {busy&&<div style={{fontSize:11,color:C.blush,marginBottom:10}}>Saving…</div>}
         {loadingItems?<div style={{color:C.muted}}>Loading Studio content…</div>:editing ? <Editor item={editing} setItem={setEditing} onSave={saveItem} onDelete={remove} onCancel={()=>setEditing(null)}/> : area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> : <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>} 
@@ -461,6 +462,7 @@ function ExtraSwipePages({item,set}){
 function ExperienceManager({item}){
   const [rows,setRows]=useState([])
   const [editing,setEditing]=useState(null)
+  const [experienceFilter,setExperienceFilter]=useState("all")
   const [loading,setLoading]=useState(false)
   const [msg,setMsg]=useState("")
   const savedProgram=typeof item.id==="number"
@@ -477,6 +479,7 @@ function ExperienceManager({item}){
   const blankExp=()=>({title:"",status:"draft",sort_order:rows.length,photo:"",imagePosition:{x:50,y:50},imageZoom:1,description:"",anchorEnabled:false,anchorTitle:"",anchorBody:"",versionEnabled:false,green:"",yellow:"",red:"",recovery:"",stillEnabled:false,stillQuestion:"",stillOptions:[]})
   const saveExp=async(exp,status=exp.status||"draft")=>{
     if(!exp.title?.trim()){setMsg("Add an experience title first.");return}
+    if(status==="published"&&(exp.blocks||[]).some(b=>b.type==="crop"&&!b.photo)){setMsg("Add the teaching photograph to each framing screen before publishing this experience.");return}
     const {id,title,sort_order,...content}=exp
     const payload={rebuild_id:item.id,title:title.trim(),sort_order:Number(sort_order)||0,status,content}
     const res=typeof id==="number"?await db.from("tr_rebuild_experiences").update(payload).eq("id",id).select().single():await db.from("tr_rebuild_experiences").insert(payload).select().single()
@@ -491,7 +494,9 @@ function ExperienceManager({item}){
   return <div style={{borderTop:`1px solid ${C.line}`,paddingTop:20,marginTop:8}}>
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><div style={{flex:1}}><div style={{...S.serif,fontSize:23,fontWeight:700}}>Experiences</div><div style={{fontSize:11.5,color:C.muted,marginTop:2}}>{rows.length} {rows.length===1?"experience":"experiences"} added</div></div><button onClick={()=>setEditing(blankExp())} style={S.pill}>＋ Add experience</button></div>
     {msg&&<div style={{fontSize:11.5,color:C.muted,marginBottom:10}}>{msg}</div>}
-    {loading?<div style={{fontSize:12,color:C.muted}}>Loading experiences…</div>:rows.map((e,i)=><div key={e.id} style={{border:`1px solid ${C.line}`,borderRadius:15,padding:13,marginBottom:9,background:"#FFFEFD"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:10,background:C.soft,display:"grid",placeItems:"center",fontSize:11,fontWeight:900,color:C.blush}}>{i+1}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:800}}>{e.title||"Untitled experience"}</div><div style={{fontSize:10.5,color:C.muted,marginTop:2}}>{e.status==="published"?"Published":"Draft"}</div></div><button onClick={()=>move(i,-1)} disabled={i===0} style={{...tinyBtn,opacity:i===0?.35:1}}>↑</button><button onClick={()=>move(i,1)} disabled={i===rows.length-1} style={{...tinyBtn,opacity:i===rows.length-1?.35:1}}>↓</button><button onClick={()=>setEditing(e)} style={tinyBtn}>Edit</button></div></div>)}
+    <div style={{display:"flex",gap:8,marginBottom:14}}>{["all","draft","published"].map(filter=><button key={filter} onClick={()=>{setExperienceFilter(filter);setEditing(null)}} style={{...S.pill,background:experienceFilter===filter?C.ink:C.paper,color:experienceFilter===filter?"#fff":C.muted}}>{filter==="draft"?`Saved drafts (${rows.filter(r=>r.status==="draft").length})`:filter==="published"?"Published":"All experiences"}</button>)}</div>
+    {loading?<div style={{fontSize:12,color:C.muted}}>Loading experiences…</div>:rows.map((e,i)=>experienceFilter!=="all"&&e.status!==experienceFilter?null:<div key={e.id} style={{border:`1px solid ${C.line}`,borderRadius:15,padding:13,marginBottom:9,background:"#FFFEFD"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:10,background:C.soft,display:"grid",placeItems:"center",fontSize:11,fontWeight:900,color:C.blush}}>{i+1}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:800}}>{e.title||"Untitled experience"}</div><div style={{fontSize:10.5,color:C.muted,marginTop:2}}>{e.status==="published"?"Published":"Draft"}</div></div><button onClick={()=>move(i,-1)} disabled={i===0} style={{...tinyBtn,opacity:i===0?.35:1}}>↑</button><button onClick={()=>move(i,1)} disabled={i===rows.length-1} style={{...tinyBtn,opacity:i===rows.length-1?.35:1}}>↓</button><button onClick={()=>setEditing(e)} style={tinyBtn}>Edit</button></div></div>)}
+    {experienceFilter!=="all"&&!loading&&!rows.some(e=>e.status===experienceFilter)&&<p style={{fontSize:12,color:C.muted}}>{experienceFilter==="draft"?"No saved experience drafts in this program yet.":"No published experiences in this program yet."}</p>}
     {rows.length===0&&!loading&&<div style={{fontSize:12,color:C.muted,padding:"10px 0 16px"}}>No experiences yet. Add the first one whenever you're ready.</div>}
     {editing&&<div style={{marginTop:15,padding:16,borderRadius:18,background:"#F8F2F4",border:`1px solid ${C.line}`}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:15}}><div style={{...S.serif,fontSize:22,fontWeight:700,flex:1}}>{editing.id?"Edit experience":"New experience"}</div><button onClick={()=>setEditing(null)} style={tinyBtn}>×</button></div>
