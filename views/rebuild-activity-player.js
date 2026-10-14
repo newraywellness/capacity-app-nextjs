@@ -170,3 +170,13 @@ export function RebuildWorkspaceGallery({ctx,programId,program,experiences,onOpe
  if(!results.length)return null
  return <section style={{marginTop:24}}><h3 style={{...heading,fontSize:23}}>Things you've made</h3>{results.map(([key,r])=><details key={key} style={box}><summary style={{cursor:'pointer',fontWeight:700}}>{key===w.state.pinnedResult?'★ ':''}{r.title}</summary>{r.items.map(item=><ResultCard key={item.id} item={item} layout={r.layout||'mixed'}/>)}<button type="button" style={button} onClick={()=>onOpen(r)}>Open and edit</button><button type="button" style={button} onClick={async()=>{w.change('pinnedResult',w.state.pinnedResult===key?'':key);await w.flush()}}>{w.state.pinnedResult===key?'Unpin':'Keep within reach'}</button>{!r.private&&ctx.openReverieFromContent&&<button type="button" style={button} onClick={()=>ctx.openReverieFromContent(contentSource({id:r.experienceId||programId,title:r.title},r.experienceId?'rebuild_experience':'rebuild',{id:programId,title:program.title}),{title:r.title,note:r.items.map(i=>`${i.title}\n${i.items.join('\n')}`).join('\n\n'),photo:r.items.find(i=>i.photo)?.photo||null})}>Add to My Reverie</button>}</details>)}</section>
 }
+
+
+// Read-only review of account-backed preview answers; no extra result screen.
+export function RebuildAnswerReview({ctx={},programId,blocks=[]}){
+ const workspace=useRebuildWorkspace(ctx.user?.id,programId,false)
+ if(workspace.loading)return <p role="status">Opening your saved answers…</p>
+ if(!workspace.ready)return <div role="alert"><p>{workspace.error}</p><button type="button" style={button} onClick={workspace.retry}>Try again</button></div>
+ const answers=summarizeScope(blocks.filter(b=>b.type!=='result'),workspace.state,'preview')
+ return <div>{answers.length?answers.map(r=><div key={r.id} style={{...box,marginTop:14}}><h3 style={{...heading,fontSize:23,margin:'0 0 8px'}}>{r.title}</h3><p style={{fontSize:13,lineHeight:1.65,whiteSpace:'pre-wrap',margin:0}}>{r.items.join('\n')}</p></div>):<p style={{fontSize:13,color:BASE.taupe}}>No preview answers saved yet. You can still begin your Rebuild.</p>}</div>
+}
