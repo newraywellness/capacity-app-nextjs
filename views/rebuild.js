@@ -2,6 +2,7 @@
 // Rebuild home is a scroll-first discovery surface. Current programs appear
 // automatically above discovery; Feel Better and Rituals live beside Rebuild.
 
+import { RebuildExperienceOne } from './rebuild-experience-one.js'
 import { BASE } from '../lib/theme.js'
 import { createPortal } from 'react-dom'
 
@@ -222,6 +223,7 @@ export function renderRebuild(ctx) {
         setRebuildView("dynamic-home")
         if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})
       }
+      if(c.starter_id==='come-back-foundation-01'&&blocksOf(c).some(b=>b.id==='one-discover'))return <div style={{padding:"10px 22px 40px"}}><RebuildExperienceOne key={`${ctx.user?.id}:${exp.id}:editorial`} ctx={ctx} blocks={blocksOf(c)} programId={studioProgram._studioId} experienceId={exp.id} scope={String(exp.id)} cover={c.photo?c:{photo:studioProgram.image,imagePosition:studioProgram.imagePosition,imageZoom:studioProgram.imageZoom}} onBack={()=>setRebuildView("dynamic-home")} onFinish={completeStudioExperience}/></div>
       if(blocksOf(c).length)return <div style={{padding:"10px 22px 40px"}}><RebuildPhoto item={c} height={250}/><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,fontWeight:700,color:BASE.cream,marginBottom:12}}>{exp.title}</div>{c.description&&<p style={{fontSize:14,lineHeight:1.65,color:BASE.taupe,whiteSpace:"pre-wrap"}}>{c.description}</p>}<RebuildActivityPlayer key={`${ctx.user?.id}:${exp.id}`} ctx={ctx} blocks={blocksOf(c)} programId={studioProgram._studioId} experienceId={exp.id} scope={String(exp.id)} onBack={()=>setRebuildView("dynamic-home")} onFinish={completeStudioExperience}/></div>
       return <div className="fade-in" style={{padding:"10px 22px 0"}}>
         <div onClick={()=>setRebuildView("dynamic-home")} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ {studioProgram.title}</div>
