@@ -1,3 +1,4 @@
+import { contentLabels } from '../lib/content-publishing.js'
 import { MOODS, TIMES, CATEGORIES } from '../data/move.js'
 import { BASE, dayIndex } from '../lib/theme.js'
 
@@ -60,7 +61,7 @@ export function renderTrain(ctx) {
   const studioIdeas = (supabaseMoveRows || []).map(row => {
     const c = row.content || {}
     return {
-      ...c, id: "studio-" + row.id, title: row.title || c.title || "Move",
+      ...c, tags:contentLabels(c), id: "studio-" + row.id, title: row.title || c.title || "Move",
       image: row.image_url || c.image || null,
       hook: c.hook || c.description || "", emoji: c.emoji || "✨",
       mood: Array.isArray(c.moods) ? c.moods : (Array.isArray(c.mood) ? c.mood : []),
@@ -81,7 +82,8 @@ export function renderTrain(ctx) {
       idea.creator,
       ...(idea.category || []),
       ...(idea.mood || []),
-      ...(idea.time || [])
+      ...(idea.time || []),
+      ...(idea.tags || [])
     ].filter(Boolean).join(" ").toLowerCase()
 
     return (
