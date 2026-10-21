@@ -1,3 +1,4 @@
+import { contentDateKey, isContentDiscoverable } from '../lib/content-publishing.js'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Head from 'next/head'
 import { GOALS, INTERESTS } from '../data/onboarding.js'
@@ -192,10 +193,21 @@ export default function App() {
   const [guidedIdx, setGuidedIdx] = useState(0)
   const [restLeft, setRestLeft] = useState(0)
   const [lifeMsg, setLifeMsg] = useState("")
-  // Supabase-backed Bloom discoveries. Hard-coded discoveries remain as fallback/content during migration.
-  const [supabaseBloomRows, setSupabaseBloomRows] = useState([])
-  const [supabaseMoveRows, setSupabaseMoveRows] = useState([])
-  const [supabaseNourishRows, setSupabaseNourishRows] = useState([])
+  // Published discovery content comes from Admin Studio. Availability affects discovery only.
+  const [studioBloomRows, setSupabaseBloomRows] = useState([])
+  const [studioMoveRows, setSupabaseMoveRows] = useState([])
+  const [studioNourishRows, setSupabaseNourishRows] = useState([])
+  const [studioDiscoveryDate,setStudioDiscoveryDate]=useState(()=>contentDateKey())
+  const supabaseBloomRows=useMemo(()=>studioBloomRows.filter(row=>isContentDiscoverable(row,studioDiscoveryDate)),[studioBloomRows,studioDiscoveryDate])
+  const supabaseMoveRows=useMemo(()=>studioMoveRows.filter(row=>isContentDiscoverable(row,studioDiscoveryDate)),[studioMoveRows,studioDiscoveryDate])
+  const supabaseNourishRows=useMemo(()=>studioNourishRows.filter(row=>isContentDiscoverable(row,studioDiscoveryDate)),[studioNourishRows,studioDiscoveryDate])
+  useEffect(()=>{
+    const refresh=()=>setStudioDiscoveryDate(contentDateKey())
+    const visible=()=>{if(document.visibilityState==='visible')refresh()}
+    const timer=setInterval(refresh,30000)
+    window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',visible)
+    return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible)}
+  },[])
   const [supabaseCycleRows, setSupabaseCycleRows] = useState([])
   const [supabaseRebuildRows, setSupabaseRebuildRows] = useState([])
   const [supabaseFeelBetterRows, setSupabaseFeelBetterRows] = useState([])
