@@ -1,3 +1,4 @@
+import { contentLabels } from '../lib/content-publishing.js'
 import { LEARN_TOPICS, MEALS, MEAL_TYPES, QUICK_HELP, SUPPLEMENTS, mealAsFood } from '../data/nourish.js'
 import { BASE, dayIndex } from '../lib/theme.js'
 
@@ -67,7 +68,7 @@ export function renderNourish(ctx) {
       ...c, id: "studio-" + row.id, n: row.title || "Meal", t: c.mealType || row.category || "dinner",
       image: row.image_url || c.image || null, min: Number(c.minutes) || 0,
       p: Number(c.protein) || 0, cal: Number(c.calories) || 0, c: Number(c.carbs) || 0, f: Number(c.fat) || 0,
-      tags: Array.isArray(c.tags) ? c.tags : [], ing: ingredients, method: Array.isArray(c.method) ? c.method : [],
+      tags: contentLabels(c), ing: ingredients, method: Array.isArray(c.method) ? c.method : [],
       imagePosition: c.imagePosition, imageZoom: c.imageZoom, extraSwipePages: Array.isArray(row.extra_pages) ? row.extra_pages : []
     }
   })
