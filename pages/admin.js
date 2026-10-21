@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { StudioPublishing, StudioDraftImport } from "../views/studio-publishing.js"
+import { DISCOVERY_AREAS, availabilityError, availabilitySummary } from "../lib/content-publishing.js"
 import { db } from "../lib/supabase.js"
 import { createFoundationDraft } from "../lib/rebuild-foundation-draft.js"
 import { RebuildActivityEditor } from "../views/rebuild-activity-editor.js"
@@ -25,11 +27,11 @@ const SCHEMAS = {
     ["category","Category","text"],["tags","Tags","chips"],["moods","Mood tags","chips"],["time","Time","text"],
     ["description","Description","textarea"],["howTo","How To","list"],["need","What You Need","list"],
     ["nurseNote","Nurse Note (optional)","textarea"],["products","Products / recommendations (optional)","list"],
-    ["videoUrl","Video link (optional)","text"],["season","Season / holiday (optional)","text"],
+    ["videoUrl","Video link (optional)","text"],
   ],
   move: [
     ["title","Title","text"],["image","Photo","image"],["emoji","Emoji","text"],["hook","Hook","textarea"],
-    ["moods","Mood","chips"],["time","Time","chips"],["category","Type","chips"],["walkthrough","Walkthrough","list"],
+    ["tags","Discovery tags","chips"],["moods","Mood","chips"],["time","Time","chips"],["category","Type","chips"],["walkthrough","Walkthrough","list"],
     ["creator","Creator (optional)","text"],["videoUrl","Video link (optional)","text"],
     ["nurseNote","Nurse Note (optional)","textarea"],
   ],
@@ -175,6 +177,7 @@ export default function AdminStudio(){
   const saveItem=async(item)=>{
     const status=item.status==="published"?"published":"draft"
     if(!item.title?.trim()){setNotice("Add a title before saving.");return}
+    if(status==="published"&&DISCOVERY_AREAS.includes(item.area)){const error=availabilityError(item);if(error){setNotice("Not published: "+error);return}}
     setBusy(true);setNotice("")
     const payload=toRow(item,status)
     let result
@@ -250,6 +253,7 @@ export default function AdminStudio(){
         </div>
         {(area==="rebuild"||editing?.area==="rebuild")&&<button onClick={()=>{setArea("rebuild");setEditing(null);setFilter("draft");setQuery("")}} style={{...S.pill,marginBottom:14}}>Saved program drafts ({items.filter(x=>x.area==="rebuild"&&x.status==="draft").length})</button>}
 
+        {!editing&&(area==="dashboard"||DISCOVERY_AREAS.includes(area))&&<StudioDraftImport schemas={SCHEMAS} S={S} C={C} onOpen={post=>{setEditing({...blank(post.area),...post,status:"draft"});setArea(post.area);setNotice("Imported as a new unsaved draft. Review it, add photography, then save or publish.")}}/>}
         {notice&&<div style={{...S.card,padding:"12px 15px",marginBottom:16,fontSize:12,color:C.muted}}>{notice}</div>}
         {busy&&<div style={{fontSize:11,color:C.blush,marginBottom:10}}>Saving…</div>}
         {loadingItems?<div style={{color:C.muted}}>Loading Studio content…</div>:editing ? <Editor key={editing.id} item={editing} setItem={setEditing} onSave={saveItem} onDelete={remove} onCancel={()=>setEditing(null)}/> : area==="dashboard" ? <Dashboard items={items} counts={counts} setArea={setArea} setEditing={setEditing}/> : <Library area={area} items={visible} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onEdit={setEditing} onDuplicate={duplicate} onDelete={remove}/>} 
@@ -320,7 +324,7 @@ function Library({area,items,query,setQuery,filter,setFilter,onEdit,onDuplicate,
       {items.length===0?<div style={{padding:35,textAlign:"center",color:C.muted}}>Nothing here yet. Create the first one.</div>:items.map(item=><div className="tr-row" key={item.id} style={{padding:"14px 16px",borderTop:`1px solid ${C.line}`}}>
         <div onClick={()=>onEdit(item)} style={{cursor:"pointer"}}>
           <div style={{fontWeight:800,fontSize:13.5}}>{item.title||"Untitled"}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:3}}>{item.category||item.section||item.mealType||item.duration||labelFor(area)}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:3}}>{Array.isArray(item.category)?item.category.join(", "):item.category||item.section||item.mealType||item.duration||labelFor(area)}</div>{DISCOVERY_AREAS.includes(item.area)&&<div style={{fontSize:12,color:"#5b4a55",marginTop:5,lineHeight:1.5}}>{availabilitySummary(item)}</div>}
         </div>
         <div className="hide-sm"><Status s={item.status}/></div>
         <div className="hide-sm" style={{fontSize:11,color:C.muted}}>{item.updated}</div>
@@ -366,6 +370,7 @@ function Editor({item,setItem,onSave,onDelete,onCancel}){
           Build the program cover and introduction here. Once the program has been saved, choose Experiences to manage its ordered experiences — each experience is its own published record with its own photo and content.
         </div>}
         {(item.area!=="rebuild"||section==="overview")&&schema.map(([key,label,type,opts])=><Field key={key} area={item.area} k={key} label={label} type={type} opts={opts} value={item[key]} onChange={v=>set(key,v)} cropPosition={item.imagePosition||{x:50,y:50}} cropZoom={Number(item.imageZoom)||1} onCropPosition={v=>set("imagePosition",v)} onCropZoom={v=>set("imageZoom",v)}/>)}
+        {DISCOVERY_AREAS.includes(item.area)&&<StudioPublishing item={item} onChange={patch=>setItem(previous=>({...previous,...patch}))} Field={Field} S={S} C={C}/>}
         {item.area==="rebuild"&&section==="preview"&&<RebuildActivityEditor blocks={item.previewBlocks||[]} onChange={v=>set("previewBlocks",v)} Field={Field} S={S} C={C} title="Free Build My Rebuild preview (optional)" scope="preview" programId={item.id}/> }
         {!["rebuild","cycle","feel","ritual"].includes(item.area) && <ExtraSwipePages item={item} set={set}/>} 
         {item.area==="rebuild" && <div hidden={section!=="experiences"}><ExperienceManager key={item.id} item={item}/></div>}
@@ -471,6 +476,7 @@ function ExperienceManager({item}){
   const [experienceFilter,setExperienceFilter]=useState("all")
   const [loading,setLoading]=useState(false)
   const [msg,setMsg]=useState("")
+  const [photoIssue,setPhotoIssue]=useState(null)
   const savedProgram=typeof item.id==="number"
 
   const load=async()=>{
@@ -482,11 +488,14 @@ function ExperienceManager({item}){
     setRows((data||[]).map(r=>({...r.content,id:r.id,title:r.title||"",status:r.status||"draft",sort_order:r.sort_order||0})))
   }
   useEffect(()=>{load()},[item.id])
+  useEffect(()=>{if(editing){setMsg("");setPhotoIssue(null)}},[editing?.id,!!editing])
   useEffect(()=>{if(editing)panelRef.current?.scrollIntoView?.({block:"start",behavior:"auto"})},[editing?.id,!!editing])
   const blankExp=()=>({title:"",status:"draft",sort_order:rows.length,photo:"",imagePosition:{x:50,y:50},imageZoom:1,description:"",anchorEnabled:false,anchorTitle:"",anchorBody:"",versionEnabled:false,green:"",yellow:"",red:"",recovery:"",stillEnabled:false,stillQuestion:"",stillOptions:[]})
   const saveExp=async(exp,status=exp.status||"draft")=>{
     if(!exp.title?.trim()){setMsg("Add an experience title first.");return}
-    if(status==="published"&&(exp.blocks||[]).some(b=>b.type==="crop"&&!b.photo)){setMsg("Add the teaching photograph to each framing screen before publishing this experience.");return}
+    const missing=(exp.blocks||[]).find(b=>b.type==="crop"&&!b.photo)
+    if(status==="published"&&missing){setMsg(`Not published: “${missing.title||"Photography framing"}” needs a teaching photo. Add it in the opened screen below, then publish again. Your draft is still here.`);setPhotoIssue({id:missing.id,attempt:Date.now()});return}
+    setPhotoIssue(null)
     const {id,title,sort_order,status:oldStatus,...content}=exp
     const payload={rebuild_id:item.id,title:title.trim(),sort_order:Number(sort_order)||0,status,content}
     const res=typeof id==="number"?await db.from("tr_rebuild_experiences").update(payload).eq("id",id).select().single():await db.from("tr_rebuild_experiences").insert(payload).select().single()
@@ -511,12 +520,14 @@ function ExperienceManager({item}){
       <Field label="Experience photo" type="image" value={editing.photo} onChange={v=>setE("photo",v)} onImageChange={patch=>setEditing(e=>({...e,...patch}))} cropPosition={editing.imagePosition||{x:50,y:50}} cropZoom={Number(editing.imageZoom)||1} onCropPosition={v=>setE("imagePosition",v)} onCropZoom={v=>setE("imageZoom",v)}/>
       <Field label="Experience title" type="text" value={editing.title} onChange={v=>setE("title",v)}/>
       <Field label="Today's experience — intro paragraph" type="textarea" value={editing.description} onChange={v=>setE("description",v)}/>
-      <RebuildActivityEditor key={editing.id||"new"} blocks={editing.blocks||[]} onChange={v=>setE("blocks",v)} Field={Field} S={S} C={C} scope={String(editing.id||"new")} programId={item.id} experienceId={editing.id} sources={rows.filter(r=>r.id!==editing.id).map(r=>({value:String(r.id),label:r.title||"Untitled experience"}))}/>
+      {msg&&<div role="alert" style={{padding:16,margin:"16px 0",borderRadius:14,background:"#FFF3E7",color:C.ink,fontSize:14,lineHeight:1.6}}>{msg}</div>}
+      <RebuildActivityEditor revealBlock={photoIssue} key={editing.id||"new"} blocks={editing.blocks||[]} onChange={v=>setE("blocks",v)} Field={Field} S={S} C={C} scope={String(editing.id||"new")} programId={item.id} experienceId={editing.id} sources={rows.filter(r=>r.id!==editing.id).map(r=>({value:String(r.id),label:r.title||"Untitled experience"}))}/>
       {!editing.blocks?.length&&<>
       <ExperienceBlock title="Today's Anchor" enabled={editing.anchorEnabled} onToggle={()=>setE("anchorEnabled",!editing.anchorEnabled)}><Field label="Anchor title" type="text" value={editing.anchorTitle} onChange={v=>setE("anchorTitle",v)}/><Field label="Anchor text" type="textarea" value={editing.anchorBody} onChange={v=>setE("anchorBody",v)}/></ExperienceBlock>
       <ExperienceBlock title="Your Version Today" enabled={editing.versionEnabled} onToggle={()=>setE("versionEnabled",!editing.versionEnabled)}>{editing.versionEnabled&&<><Field label="I've got room" type="textarea" value={editing.green} onChange={v=>setE("green",v)}/><Field label="Keep it doable" type="textarea" value={editing.yellow} onChange={v=>setE("yellow",v)}/><Field label="Make it small" type="textarea" value={editing.red} onChange={v=>setE("red",v)}/><Field label="Bare minimum" type="textarea" value={editing.recovery} onChange={v=>setE("recovery",v)}/></>}</ExperienceBlock>
       <ExperienceBlock title="Still You or Not?" enabled={editing.stillEnabled} onToggle={()=>setE("stillEnabled",!editing.stillEnabled)}>{editing.stillEnabled&&<><Field label="Reflection question" type="textarea" value={editing.stillQuestion} onChange={v=>setE("stillQuestion",v)}/><Field label="Answer options" type="list" value={editing.stillOptions||[]} onChange={v=>setE("stillOptions",v)}/></>}</ExperienceBlock>
       </>}
+      {msg&&<div role="status" style={{padding:14,margin:"14px 0",borderRadius:14,background:"#FFF3E7",fontSize:14,lineHeight:1.6}}>{msg}</div>}
       <div style={{display:"flex",gap:7,flexWrap:"wrap",borderTop:`1px solid ${C.line}`,paddingTop:14}}>{editing.id&&<button onClick={()=>removeExp(editing)} style={{...S.pill,color:"#A45B67"}}>Delete</button>}{editing.status==="published"&&<button onClick={()=>saveExp(editing,"draft")} style={S.pill}>Unpublish</button>}<div style={{flex:1}}/><button onClick={()=>saveExp(editing,"draft")} style={S.pill}>Save draft</button><button onClick={()=>saveExp(editing,"published")} style={{...S.pill,border:0,background:C.ink,color:"#fff"}}>Publish experience</button></div>
     </div>}
   </div>
