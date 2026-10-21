@@ -1,3 +1,4 @@
+import { contentLabels } from '../lib/content-publishing.js'
 import { useEffect, useRef } from 'react'
 import { BLOOM_INVITATIONS, BLOOM_PILLARS, BLOOM_SECTIONS, BLOOM_TRENDING } from '../data/bloom.js'
 import { FOR_YOU_ITEMS, TIME_FILTERS, byTimeBucket } from '../data/foryou.js'
@@ -1267,7 +1268,7 @@ export function renderBloom(ctx) {
         return {
           id: `supabase-${row.id}`, type: row.format || "idea", emoji: c.emoji || "🌸",
           image: row.image_url || null, imagePosition: c.imagePosition || { x: 50, y: 50 }, imageZoom: Number(c.imageZoom) || 1, title: row.title || "A True Reverie idea", teaser: c.teaser || "",
-          tags: [...(c.tags || []), row.category, row.format].filter(Boolean),
+          tags: [...contentLabels(c), c.time, row.category, row.format].filter(Boolean),
           detail: { sections }, _source: "supabase"
         }
       })
@@ -1284,7 +1285,7 @@ export function renderBloom(ctx) {
       if (activeCategory) {
         sourceItems = sourceItems.filter((item) => {
           if (feedMoodFilter === "__glow__") return item._source === "glow"
-          if (feedMoodFilter === "__seasonal__") return item._source === "seasonal"
+          if (feedMoodFilter === "__seasonal__") return item._source === "seasonal" || (item.tags||[]).some(t=>activeCategory.words.some(w=>String(t).toLowerCase().includes(w)))
           const txt = itemText(item)
           return activeCategory.words.some((w) => txt.indexOf(w) >= 0)
         })
@@ -1317,14 +1318,8 @@ export function renderBloom(ctx) {
         shuffleRank >>>= 0
         return { item, score, shuffleRank, originalIndex }
       }).sort((a,b) => (b.score - a.score) || (a.shuffleRank - b.shuffleRank) || (a.originalIndex - b.originalIndex)).map((x) => x.item)
-      // Migration test only: keep the normal rotating feed, but pin the first
-      // Supabase discovery to position #1 so we can verify the real card UI.
-      // Remove this pin after the vertical slice is confirmed.
       const rotatedItems = feedRotation == null ? [] : personalized
-      const firstSupabaseItem = supabaseItems[0] || null
-      const visibleItems = firstSupabaseItem
-        ? [firstSupabaseItem, ...rotatedItems.filter((item) => item.id !== firstSupabaseItem.id)]
-        : rotatedItems
+      const visibleItems = rotatedItems
 
       const ChipRail = ({ children }) => (
         <div style={{ display:"flex", gap:8, overflowX:"auto", overflowY:"hidden", WebkitOverflowScrolling:"touch", scrollbarWidth:"none", padding:"2px 2px 7px", marginRight:-24 }}>{children}</div>
