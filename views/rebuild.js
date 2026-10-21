@@ -2,7 +2,7 @@
 // Rebuild home is a scroll-first discovery surface. Current programs appear
 // automatically above discovery; Feel Better and Rituals live beside Rebuild.
 
-import { RebuildExperienceOne } from './rebuild-experience-one.js'
+import { RebuildExperienceOne, RebuildExperienceOneCompletion } from './rebuild-experience-one.js'
 import { BASE } from '../lib/theme.js'
 import { createPortal } from 'react-dom'
 
@@ -153,17 +153,48 @@ export function renderRebuild(ctx) {
   if(studioProgram?.premium&&!rebuildPlus)return <div style={{padding:'24px 22px'}}><button onClick={()=>{setRebuildActiveProgram(null);setRebuildView('intro')}} style={{border:'none',background:'transparent',color:BASE.taupe,fontWeight:700}}>‹ Rebuild</button><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,color:BASE.cream,marginTop:22}}>{studioProgram.title}</div><p style={{fontSize:13,color:BASE.taupe,lineHeight:1.6}}>This Rebuild is part of True Reverie+. Your saved progress stays right here.</p><button onClick={()=>ctx.openPlus?.(plusTargetFor(studioProgram))} style={{padding:'13px 22px',borderRadius:999,border:'none',background:'linear-gradient(135deg,#D86FA6,#A87BD1)',color:'#fff',fontWeight:800}}>Explore True Reverie+</button></div>
   if (studioProgram) {
     const experiences=(supabaseRebuildExperiences||[]).filter(e=>e.rebuild_id===studioProgram._studioId).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
+    const plannedExperienceCount=Math.max(experiences.length,Number(studioProgram.experienceCount||studioProgram.experience_count)||Number(/^(\d+)\s+experiences?/i.exec(studioProgram.duration||'')?.[1])||(studioProgram.starter_id==='come-back-foundation-01'?12:0))
     const studioProgress=getRebuildProgress?getRebuildProgress(studioProgram.id):null
     const backStudio=()=>{setRebuildActiveProgram(null);setRebuildDynamicExpId(null);setRebuildView("intro")}
     const restoredExpId=rebuildDynamicExpId||studioProgress?.current_experience_id
     const currentStudioExp=experiences.find(e=>e.id===restoredExpId)||experiences[0]
     const currentStudioIdx=currentStudioExp?experiences.findIndex(e=>e.id===currentStudioExp.id):0
     const studioCompleted=Array.isArray(studioProgress?.completed_experience_ids)?studioProgress.completed_experience_ids:[]
+    const wasCompleted=id=>studioCompleted.some(saved=>String(saved)===String(id))
+    const openExperience=(experience,fromBeginning=false)=>{
+      if(!experience)return
+      setRebuildDynamicExpId(experience.id)
+      const isFirst=(experience.content?.starter_id==='come-back-foundation-01'&&blocksOf(experience.content).some(b=>b.id==='one-discover'))||(experience.content?.starter_id==='come-back-experience-02'&&blocksOf(experience.content).some(b=>['two-sort','two-workshops'].includes(b.id)))
+      setRebuildView(fromBeginning&&isFirst?"dynamic-review-start":"dynamic-exp")
+      if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"auto"})
+    }
+    const returnToStudioHome=()=>{
+      setRebuildDynamicExpId(studioProgress?.current_experience_id||null)
+      setRebuildView("dynamic-home")
+      if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"auto"})
+    }
+    if(rebuildView==="dynamic-complete"){
+      const completed=currentStudioExp
+      const resume=experiences.find(e=>String(e.id)===String(studioProgress?.current_experience_id)&&!wasCompleted(e.id))||experiences.find(e=>!wasCompleted(e.id))
+      if(['come-back-foundation-01','come-back-experience-02'].includes(completed?.content?.starter_id))return <RebuildExperienceOneCompletion title={completed.title} cover={completed.content.photo?completed.content:{photo:studioProgram.image,imagePosition:studioProgram.imagePosition,imageZoom:studioProgram.imageZoom}} onBack={returnToStudioHome} onReopen={()=>openExperience(completed,true)} onContinue={resume?()=>openExperience(resume):undefined}/>
+      return <section style={{padding:"26px 24px 40px",color:BASE.cream}}>
+        <button type="button" onClick={returnToStudioHome} style={{border:0,background:"transparent",color:BASE.creamDim,minHeight:44,padding:0,fontSize:14}}>‹ My Rebuild</button>
+        <p style={{fontSize:11,letterSpacing:1.8,color:BASE.creamDim,marginTop:28}}>EXPERIENCE COMPLETE</p>
+        <h1 style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:42,fontWeight:500,lineHeight:1.1,color:BASE.cream,margin:"16px 0"}}>Yours to come back to.</h1>
+        <p style={{fontSize:16,lineHeight:1.75,color:BASE.creamDim}}>Your answers and creations are saved. You can revisit them and make changes whenever you want.</p>
+        {completed&&<div style={{marginTop:28,padding:22,borderRadius:22,background:"#FFFDF8",border:`1px solid ${BASE.border}`}}>
+          <div style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:29,lineHeight:1.15,color:BASE.cream}}>{completed.title}</div>
+          <button type="button" onClick={()=>openExperience(completed,true)} style={{width:"100%",marginTop:20,minHeight:52,borderRadius:16,border:0,background:"#55354D",color:"#FFFFFF",fontSize:15,padding:"12px 16px"}}>Reopen this experience</button>
+        </div>}
+        {resume&&<button type="button" onClick={()=>openExperience(resume)} style={{width:"100%",marginTop:18,minHeight:48,borderRadius:16,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.cream,fontSize:15,padding:"12px 16px"}}>Continue my Rebuild</button>}
+      </section>
+    }
+
 
     if(rebuildView==="dynamic-intro") return <div className="fade-in" style={{padding:"10px 22px 0"}}>
       <div onClick={backStudio} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ Rebuild</div>
       <RebuildPhoto item={{...studioProgram,photo:studioProgram.image}} height={265}/>
-      <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:10}}>{studioProgram.premium&&<Pill>True Reverie +</Pill>}<Pill>{experiences.length} {experiences.length===1?"experience":"experiences"}</Pill></div>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:10}}>{studioProgram.premium&&<Pill>True Reverie +</Pill>}<Pill>{plannedExperienceCount} {plannedExperienceCount===1?"experience":"experiences"}</Pill></div>
       <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:31,fontWeight:700,color:BASE.cream,lineHeight:1.12}}>{studioProgram.title}</div>
       {studioProgram.outcome&&<div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:16,color:"#9B6BC3",lineHeight:1.5,marginTop:10}}>{studioProgram.outcome}</div>}
       {studioProgram.intro&&<div style={{fontSize:13.5,color:BASE.creamDim,lineHeight:1.7,marginTop:15,whiteSpace:"pre-wrap"}}>{studioProgram.intro}</div>}
@@ -175,13 +206,17 @@ export function renderRebuild(ctx) {
     if(rebuildView==="dynamic-home") {
       const exp=currentStudioExp
       const c=exp?.content||{}
-      const total=experiences.length
+      const total=plannedExperienceCount
       const number=exp?currentStudioIdx+1:0
       return <div className="fade-in" style={{padding:"10px 22px 0"}}>
         <div onClick={backStudio} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ Rebuild</div>
         <div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:30,fontWeight:700,color:BASE.cream,lineHeight:1.15}}>{studioProgram.title}</div>
         <div style={{fontFamily:"'Cormorant Garamond', serif",fontStyle:"italic",fontSize:15.5,color:BASE.taupe,marginTop:10}}>Welcome back. Your Rebuild is right where you left it.</div>
 
+        {studioCompleted.length>0&&<section aria-label="Completed experiences" style={{marginTop:24}}>
+          <h2 style={{fontSize:13,fontWeight:700,color:BASE.creamDim,marginBottom:10}}>Come back to what you’ve made</h2>
+          {experiences.filter(e=>wasCompleted(e.id)).map(e=><button type="button" key={e.id} aria-label={`Review ${e.title}`} onClick={()=>openExperience(e,true)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,width:"100%",textAlign:"left",padding:"17px 18px",minHeight:64,marginTop:8,border:`1px solid ${BASE.border}`,borderRadius:18,background:BASE.surface,color:BASE.cream}}><span style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:23,lineHeight:1.2}}>{e.title}</span><span style={{fontSize:13,color:BASE.creamDim}}>Review ›</span></button>)}
+        </section>}
         {exp?<>
           <div style={{marginTop:28}}>
             <div style={{fontSize:12,fontWeight:700,color:"#9B6BC3",marginBottom:8}}>Experience {number} of {total}</div>
@@ -204,12 +239,12 @@ export function renderRebuild(ctx) {
           <div style={{fontSize:12.5,color:BASE.taupe,fontStyle:"italic",lineHeight:1.6,marginTop:8}}>{studioCompleted.length?`${studioCompleted.length} ${studioCompleted.length===1?"experience":"experiences"} complete. Your progress is saved to your account.`:"This will fill in as you go — sparks found, things you loved, patterns starting to show."}</div>
         </>:<div style={{marginTop:24,padding:20,borderRadius:18,background:BASE.surface,border:`1px solid ${BASE.border}`,fontSize:12.5,color:BASE.taupe}}>Experiences are coming soon.</div>}
         <RebuildWorkspaceGallery key={`${ctx.user?.id}:${studioProgram._studioId}:gallery`} ctx={ctx} programId={studioProgram._studioId} program={studioProgram} experiences={experiences} onOpen={r=>{if(r.scope==="preview")setRebuildView("dynamic-preview");else {setRebuildDynamicExpId(r.experienceId);setRebuildView("dynamic-exp")}}}/>
-        <details style={{marginTop:20}}><summary style={{fontSize:12,color:BASE.taupe,cursor:"pointer"}}>Revisit experiences</summary>{experiences.map(e=><button key={e.id} onClick={()=>{setRebuildDynamicExpId(e.id);setRebuildView("dynamic-exp")}} style={{display:"block",width:"100%",padding:12,marginTop:8,borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.cream,textAlign:"left"}}>{e.title}</button>)}</details>
+        <details style={{marginTop:20}}><summary style={{fontSize:12,color:BASE.taupe,cursor:"pointer"}}>Revisit experiences</summary>{experiences.map(e=><button key={e.id} onClick={()=>openExperience(e,wasCompleted(e.id))} style={{display:"block",width:"100%",padding:12,marginTop:8,borderRadius:14,border:`1px solid ${BASE.border}`,background:BASE.surface,color:BASE.cream,textAlign:"left"}}>{e.title}</button>)}</details>
         <div style={{height:44}}/>
       </div>
     }
 
-    if(rebuildView==="dynamic-exp") {
+    if(rebuildView==="dynamic-exp"||rebuildView==="dynamic-review-start") {
       const exp=currentStudioExp
       if(!exp){setRebuildView("dynamic-home");return null}
       const c=exp.content||{}; const idx=currentStudioIdx
@@ -218,13 +253,14 @@ export function renderRebuild(ctx) {
       const completeStudioExperience=async()=>{
         setRebuildCapPick(null)
         const nextExp=idx<experiences.length-1?experiences[idx+1]:null
-        if(completeRebuildExperience){const saved=await completeRebuildExperience({programKey:studioProgram.id,rebuildId:studioProgram._studioId,experienceId:exp.id,experienceNumber:idx+1,nextExperienceId:nextExp?.id||null,nextExperienceNumber:nextExp?idx+2:null,isLast:!nextExp});if(!saved)return false}
-        if(nextExp)setRebuildDynamicExpId(nextExp.id)
-        setRebuildView("dynamic-home")
+        if(!wasCompleted(exp.id)&&completeRebuildExperience){const saved=await completeRebuildExperience({programKey:studioProgram.id,rebuildId:studioProgram._studioId,experienceId:exp.id,experienceNumber:idx+1,nextExperienceId:nextExp?.id||null,nextExperienceNumber:nextExp?idx+2:null,isLast:!nextExp});if(!saved)return false}
+        if((c.starter_id==='come-back-foundation-01'||c.starter_id==='come-back-experience-02'&&blocksOf(c).some(b=>b.id==='two-workshops'))&&nextExp){openExperience(nextExp);return true}
+        setRebuildDynamicExpId(exp.id)
+        setRebuildView("dynamic-complete")
         if(typeof window!=="undefined")window.scrollTo({top:0,behavior:"instant"})
       }
-      if(c.starter_id==='come-back-foundation-01'&&blocksOf(c).some(b=>b.id==='one-discover'))return <div style={{padding:"10px 22px 40px"}}><RebuildExperienceOne key={`${ctx.user?.id}:${exp.id}:editorial`} ctx={ctx} blocks={blocksOf(c)} programId={studioProgram._studioId} experienceId={exp.id} scope={String(exp.id)} cover={c.photo?c:{photo:studioProgram.image,imagePosition:studioProgram.imagePosition,imageZoom:studioProgram.imageZoom}} onBack={()=>setRebuildView("dynamic-home")} onFinish={completeStudioExperience}/></div>
-      if(blocksOf(c).length)return <div style={{padding:"10px 22px 40px"}}><RebuildPhoto item={c} height={250}/><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,fontWeight:700,color:BASE.cream,marginBottom:12}}>{exp.title}</div>{c.description&&<p style={{fontSize:14,lineHeight:1.65,color:BASE.taupe,whiteSpace:"pre-wrap"}}>{c.description}</p>}<RebuildActivityPlayer key={`${ctx.user?.id}:${exp.id}`} ctx={ctx} blocks={blocksOf(c)} programId={studioProgram._studioId} experienceId={exp.id} scope={String(exp.id)} onBack={()=>setRebuildView("dynamic-home")} onFinish={completeStudioExperience}/></div>
+      if((c.starter_id==='come-back-foundation-01'&&blocksOf(c).some(b=>b.id==='one-discover'))||(c.starter_id==='come-back-experience-02'&&blocksOf(c).some(b=>['two-sort','two-workshops'].includes(b.id))))return <div style={{padding:"10px 22px 40px"}}><RebuildExperienceOne key={`${ctx.user?.id}:${exp.id}:editorial:${rebuildView==="dynamic-review-start"}`} startAtBeginning={rebuildView==="dynamic-review-start"} experienceNumber={idx+1} experienceCount={plannedExperienceCount} ctx={ctx} blocks={blocksOf(c)} programId={studioProgram._studioId} experienceId={exp.id} scope={String(exp.id)} cover={c.photo?c:{photo:studioProgram.image,imagePosition:studioProgram.imagePosition,imageZoom:studioProgram.imageZoom}} onBack={returnToStudioHome} onFinish={completeStudioExperience}/></div>
+      if(blocksOf(c).length)return <div style={{padding:"10px 22px 40px"}}><RebuildPhoto item={c} height={250}/><div style={{fontFamily:"'Cormorant Garamond', serif",fontSize:29,fontWeight:700,color:BASE.cream,marginBottom:12}}>{exp.title}</div>{c.description&&<p style={{fontSize:14,lineHeight:1.65,color:BASE.taupe,whiteSpace:"pre-wrap"}}>{c.description}</p>}<RebuildActivityPlayer key={`${ctx.user?.id}:${exp.id}`} ctx={ctx} blocks={blocksOf(c)} programId={studioProgram._studioId} experienceId={exp.id} scope={String(exp.id)} onBack={returnToStudioHome} onFinish={completeStudioExperience}/></div>
       return <div className="fade-in" style={{padding:"10px 22px 0"}}>
         <div onClick={()=>setRebuildView("dynamic-home")} style={{fontSize:13,fontWeight:700,color:BASE.taupe,cursor:"pointer",marginBottom:16}}>‹ {studioProgram.title}</div>
         <RebuildPhoto item={c} height={250}/>
